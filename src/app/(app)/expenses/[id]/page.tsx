@@ -7,6 +7,11 @@ import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
+import { ExpenseCategory } from "@/models/ExpenseCategory";
+import { Project } from "@/models/Project";
+
+void ExpenseCategory;
+void Project;
 
 export default async function ExpenseDetailPage({ params }: any) {
   const { organizationId } = await requireTenant();

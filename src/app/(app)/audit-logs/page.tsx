@@ -4,6 +4,9 @@ import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import { AuditLog } from "@/models/AuditLog";
+import { User } from "@/models/User";
+
+void User;
 
 export default async function AuditLogsPage() {
   const { organizationId } = await requireTenant();

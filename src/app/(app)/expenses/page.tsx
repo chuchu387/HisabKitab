@@ -8,7 +8,10 @@ import { BulkLinkExpensesForm } from "@/features/expenses/bulk-link-expenses-for
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
 import { Expense } from "@/models/Expense";
+import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { Project } from "@/models/Project";
+
+void ExpenseCategory;
 
 export default async function ExpensesPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
