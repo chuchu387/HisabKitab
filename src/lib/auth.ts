@@ -6,6 +6,27 @@ import { loginSchema } from "@/validations/schemas";
 import { User } from "@/models/User";
 import { Organization } from "@/models/Organization";
 
+async function ensureConfiguredSuperAdmin(email: string, password: string) {
+  const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL ?? "super@expense.test").toLowerCase().trim();
+  const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD ?? "Password123!";
+  if (email !== superAdminEmail || password !== superAdminPassword) return;
+
+  await User.findOneAndUpdate(
+    { email: superAdminEmail },
+    {
+      $set: {
+        name: process.env.SUPER_ADMIN_NAME ?? "Super Admin",
+        email: superAdminEmail,
+        password: await bcrypt.hash(superAdminPassword, 12),
+        role: "super_admin",
+        active: true
+      },
+      $unset: { organizationId: "" }
+    },
+    { upsert: true, runValidators: true }
+  );
+}
+
 export const authConfig = {
   trustHost: true,
   secret: process.env.AUTH_SECRET,
@@ -22,6 +43,7 @@ export const authConfig = {
         if (!parsed.success) return null;
         await connectToDatabase();
         const email = parsed.data.email.toLowerCase().trim();
+        await ensureConfiguredSuperAdmin(email, parsed.data.password);
         const user = (await User.findOne({ email, active: true }).select("+password").lean()) as any;
         if (!user) return null;
         const valid = await bcrypt.compare(parsed.data.password, user.password);

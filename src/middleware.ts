@@ -1,15 +1,14 @@
-import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+  const sessionCookie = request.cookies.get("__Secure-authjs.session-token") ?? request.cookies.get("authjs.session-token") ?? request.cookies.get("__Secure-next-auth.session-token") ?? request.cookies.get("next-auth.session-token");
   const isLogin = request.nextUrl.pathname === "/login";
-  if (!token && !isLogin) {
+  if (!sessionCookie && !isLogin) {
     const url = new URL("/login", request.url);
     url.searchParams.set("callbackUrl", request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
-  if (token && isLogin) return NextResponse.redirect(new URL("/dashboard", request.url));
+  if (sessionCookie && isLogin) return NextResponse.redirect(new URL("/dashboard", request.url));
   return NextResponse.next();
 }
 
