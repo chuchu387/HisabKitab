@@ -7,6 +7,8 @@ import { User } from "@/models/User";
 import { Organization } from "@/models/Organization";
 
 export const authConfig = {
+  trustHost: true,
+  secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
@@ -19,7 +21,8 @@ export const authConfig = {
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
         await connectToDatabase();
-        const user = (await User.findOne({ email: parsed.data.email, active: true }).select("+password").lean()) as any;
+        const email = parsed.data.email.toLowerCase().trim();
+        const user = (await User.findOne({ email, active: true }).select("+password").lean()) as any;
         if (!user) return null;
         const valid = await bcrypt.compare(parsed.data.password, user.password);
         if (!valid) return null;

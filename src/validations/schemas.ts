@@ -4,7 +4,7 @@ import { organizationStatuses, projectStatuses, roles } from "@/constants";
 export const objectIdSchema = z.string().min(12);
 
 export const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8)
 });
 
