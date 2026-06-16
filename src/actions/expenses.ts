@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { Expense } from "@/models/Expense";
+import { Project } from "@/models/Project";
 import { expenseSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
 import { saveReceipt, deleteReceipt } from "@/services/gridfs";
@@ -60,4 +61,28 @@ export async function deleteExpense(formData: FormData) {
   if (expense?.receiptImageId) await deleteReceipt(expense.receiptImageId.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Deleted", entityType: "Expense", entityId: id });
   revalidatePath("/expenses");
+}
+
+export async function bulkLinkExpensesToProject(formData: FormData) {
+  const { session, organizationId } = await requireTenant();
+  await requireRole(["owner", "admin"]);
+  await connectToDatabase();
+  const ids = formData.getAll("expenseIds").map(String).filter(Boolean);
+  const projectId = String(formData.get("projectId") ?? "");
+  if (!ids.length) return;
+  if (projectId) {
+    const project = await Project.exists({ _id: projectId, organizationId });
+    if (!project) throw new Error("Project not found");
+  }
+  const result = await Expense.updateMany({ _id: { $in: ids }, organizationId }, { $set: { projectId: projectId || null } });
+  await writeAuditLog({
+    organizationId,
+    userId: session.user.userId,
+    action: projectId ? "Expenses Linked To Project" : "Expenses Unlinked From Project",
+    entityType: "Expense",
+    entityId: ids[0],
+    metadata: { expenseIds: ids, projectId: projectId || null, count: result.modifiedCount }
+  });
+  revalidatePath("/expenses");
+  if (projectId) revalidatePath(`/projects/${projectId}`);
 }

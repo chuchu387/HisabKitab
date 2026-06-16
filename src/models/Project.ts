@@ -8,6 +8,7 @@ const projectSchema = new Schema(
     code: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
     totalBudget: { type: Number, required: true, min: 0 },
+    receivedAmount: { type: Number, default: 0, min: 0 },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
     status: { type: String, enum: projectStatuses, default: "active", index: true },

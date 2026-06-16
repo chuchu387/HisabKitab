@@ -26,7 +26,9 @@ export default async function ProjectsPage({ searchParams }: any) {
       <DataTable data={projects} columns={[
         { header: "Name", cell: (p: any) => <Link className="font-medium hover:text-primary" href={`/projects/${p._id}`}>{p.name}</Link> },
         { header: "Code", cell: (p: any) => p.code },
-        { header: "Budget", cell: (p: any) => money(p.totalBudget) },
+        { header: "Total Budget", cell: (p: any) => money(p.totalBudget) },
+        { header: "Client Paid", cell: (p: any) => money(p.receivedAmount ?? 0) },
+        { header: "Receivable", cell: (p: any) => money((p.totalBudget ?? 0) - (p.receivedAmount ?? 0)) },
         { header: "Status", cell: (p: any) => <Badge>{p.status}</Badge> },
         { header: "Actions", cell: (p: any) => canManage ? <div className="flex gap-2"><Button asChild variant="outline" size="sm"><Link href={`/projects/${p._id}/edit`}>Edit</Link></Button><form action={deleteProject}><input type="hidden" name="id" value={p._id.toString()} /><ConfirmButton /></form></div> : null }
       ]} />

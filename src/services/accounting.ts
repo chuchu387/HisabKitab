@@ -25,23 +25,27 @@ function expenseMatch(filters: ReportFilters) {
 
 export async function getAccountingSummary(organizationId: string) {
   const [budgetAgg, projectExpenseAgg, generalExpenseAgg, activeProjects, totalProjects] = await Promise.all([
-    Project.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId) } }, { $group: { _id: null, total: { $sum: "$totalBudget" } } }]),
+    Project.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId) } }, { $group: { _id: null, total: { $sum: "$totalBudget" }, received: { $sum: { $ifNull: ["$receivedAmount", 0] } } } }]),
     Expense.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId), projectId: { $ne: null } } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Expense.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId), projectId: null } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Project.countDocuments({ organizationId, status: "active" }),
     Project.countDocuments({ organizationId })
   ]);
   const totalBudget = budgetAgg[0]?.total ?? 0;
+  const totalReceived = budgetAgg[0]?.received ?? 0;
   const projectExpenses = projectExpenseAgg[0]?.total ?? 0;
   const generalExpenses = generalExpenseAgg[0]?.total ?? 0;
   return {
     totalProjects,
     activeProjects,
     totalBudget,
+    totalReceived,
     projectExpenses,
     generalExpenses,
     totalExpenses: projectExpenses + generalExpenses,
-    remainingBudget: totalBudget - projectExpenses
+    remainingBudget: totalBudget - projectExpenses,
+    receivableRemaining: totalBudget - totalReceived,
+    cashAfterExpenses: totalReceived - projectExpenses
   };
 }
 
@@ -55,7 +59,15 @@ export async function getProjectFinancials(organizationId: string, projectId: st
   ]);
   const safeProject = project as any;
   const expense = agg[0]?.total ?? 0;
-  return { project: safeProject, expense, remaining: (safeProject?.totalBudget ?? 0) - expense };
+  const received = safeProject?.receivedAmount ?? 0;
+  return {
+    project: safeProject,
+    expense,
+    received,
+    remaining: (safeProject?.totalBudget ?? 0) - expense,
+    receivableRemaining: (safeProject?.totalBudget ?? 0) - received,
+    cashAfterExpenses: received - expense
+  };
 }
 
 export async function getDashboardCharts(organizationId: string) {
@@ -82,7 +94,7 @@ export async function getDashboardCharts(organizationId: string) {
     Project.aggregate([
       { $match: { organizationId: oid } },
       { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
-      { $project: { name: 1, budget: "$totalBudget", expense: { $sum: "$expenses.amount" }, _id: 0 } },
+      { $project: { name: 1, budget: "$totalBudget", received: { $ifNull: ["$receivedAmount", 0] }, expense: { $sum: "$expenses.amount" }, _id: 0 } },
       { $limit: 10 }
     ])
   ]);
@@ -96,7 +108,7 @@ export async function getReports(filters: ReportFilters) {
     Project.aggregate([
       { $match: { organizationId: new Types.ObjectId(filters.organizationId) } },
       { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
-      { $project: { name: 1, code: 1, budget: "$totalBudget", expense: { $sum: "$expenses.amount" }, remaining: { $subtract: ["$totalBudget", { $sum: "$expenses.amount" }] } } }
+      { $project: { name: 1, code: 1, budget: "$totalBudget", received: { $ifNull: ["$receivedAmount", 0] }, expense: { $sum: "$expenses.amount" }, remaining: { $subtract: ["$totalBudget", { $sum: "$expenses.amount" }] }, receivableRemaining: { $subtract: ["$totalBudget", { $ifNull: ["$receivedAmount", 0] }] }, cashAfterExpenses: { $subtract: [{ $ifNull: ["$receivedAmount", 0] }, { $sum: "$expenses.amount" }] } } }
     ]),
     Expense.aggregate([
       { $match: match },

@@ -21,10 +21,13 @@ export default async function DashboardPage() {
         <StatCard label="Total Projects" value={summary.totalProjects} />
         <StatCard label="Active Projects" value={summary.activeProjects} />
         <StatCard label="Total Budget" value={summary.totalBudget} currency />
+        <StatCard label="Client Paid Till Now" value={(summary as any).totalReceived ?? 0} currency />
         <StatCard label="Project Expenses" value={summary.projectExpenses} currency />
         <StatCard label="General Expenses" value={summary.generalExpenses} currency />
         <StatCard label="Total Expenses" value={summary.totalExpenses} currency />
         <StatCard label="Remaining Budget" value={summary.remainingBudget} currency />
+        <StatCard label="Receivable Remaining" value={(summary as any).receivableRemaining ?? 0} currency />
+        <StatCard label="Cash After Project Expenses" value={(summary as any).cashAfterExpenses ?? 0} currency />
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
         <SimpleBarChart title="Expenses By Category" data={JSON.parse(JSON.stringify(charts.byCategory))} />

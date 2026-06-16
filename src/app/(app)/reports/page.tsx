@@ -34,8 +34,11 @@ export default async function ReportsPage({ searchParams }: any) {
         <DataTable data={reports.projects} columns={[
           { header: "Project", cell: (p: any) => `${p.name} (${p.code})` },
           { header: "Budget", cell: (p: any) => money(p.budget) },
+          { header: "Client Paid", cell: (p: any) => money(p.received ?? 0) },
           { header: "Expense", cell: (p: any) => money(p.expense) },
-          { header: "Remaining", cell: (p: any) => money(p.remaining) }
+          { header: "Budget Left", cell: (p: any) => money(p.remaining) },
+          { header: "Receivable", cell: (p: any) => money(p.receivableRemaining ?? 0) },
+          { header: "Cash After Expenses", cell: (p: any) => money(p.cashAfterExpenses ?? 0) }
         ]} />
       </section>
       <section className="space-y-3">

@@ -43,6 +43,7 @@ export const projectSchema = z
     code: z.string().min(2).max(30),
     description: z.string().max(1000).optional().default(""),
     totalBudget: z.coerce.number().min(0),
+    receivedAmount: z.coerce.number().min(0).default(0),
     startDate: z.coerce.date(),
     endDate: z.coerce.date(),
     status: z.enum(projectStatuses).default("active")
