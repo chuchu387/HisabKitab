@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { Project } from "@/models/Project";
+import { ProjectTask } from "@/models/ProjectTask";
 import { projectSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
 import { writeAuditLog } from "@/services/audit";
@@ -45,6 +46,7 @@ export async function deleteProject(formData: FormData) {
   await connectToDatabase();
   const id = String(formData.get("id"));
   await Project.findOneAndDelete({ _id: id, organizationId });
+  await ProjectTask.deleteMany({ projectId: id, organizationId });
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Deleted", entityType: "Project", entityId: id });
   revalidatePath("/projects");
 }
