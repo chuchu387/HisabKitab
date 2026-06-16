@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { ProjectTasksPanel } from "@/features/projects/project-tasks-panel";
@@ -11,7 +13,7 @@ import { getProjectFinancials } from "@/services/accounting";
 void User;
 
 export default async function ProjectDetailPage({ params }: any) {
-  const { organizationId } = await requireTenant();
+  const { organizationId, session } = await requireTenant();
   await connectToDatabase();
   const projectId = params.id;
   const [financials, tasks, assignees] = await Promise.all([
@@ -20,8 +22,14 @@ export default async function ProjectDetailPage({ params }: any) {
     User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean()
   ]);
   if (!financials.project) notFound();
+  const canManage = ["owner", "admin"].includes(session.user.role);
   return (
-    <PageShell title={financials.project.name} description={financials.project.description} breadcrumb={[{ label: "Projects", href: "/projects" }, { label: financials.project.name }]}>
+    <PageShell
+      title={financials.project.name}
+      description={financials.project.description}
+      breadcrumb={[{ label: "Projects", href: "/projects" }, { label: financials.project.name }]}
+      action={canManage ? <Button asChild><Link href={`/projects/${projectId}/edit`}>Edit Project</Link></Button> : null}
+    >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Total Budget" value={financials.project.totalBudget} currency />
         <StatCard label="Total Paid" value={financials.received} currency />

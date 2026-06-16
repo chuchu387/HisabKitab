@@ -35,5 +35,5 @@ export const navItems = [
   { href: "/expenses", label: "Expenses", icon: ReceiptText, roles: ["owner", "admin", "staff"] },
   { href: "/reports", label: "Reports", icon: ListChecks, roles: ["owner", "admin", "staff"] },
   { href: "/audit-logs", label: "Audit Logs", icon: ScrollText, roles: ["owner", "admin"] },
-  { href: "/settings", label: "Settings", icon: Settings, roles: ["owner"] }
+  { href: "/settings", label: "Settings", icon: Settings, roles: ["owner", "admin"] }
 ] as const;
