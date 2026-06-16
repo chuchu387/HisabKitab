@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   const organizationCount = session.user.role === "super_admin" ? await Organization.countDocuments() : 0;
   const summary = session.user.organizationId
     ? await getAccountingSummary(session.user.organizationId)
-    : { totalProjects: 0, activeProjects: 0, totalBudget: 0, totalReceived: 0, projectExpenses: 0, generalExpenses: 0, totalExpenses: 0, dueAmount: 0, remainingBudget: 0, cashAfterExpenses: 0 };
+    : { totalProjects: 0, activeProjects: 0, totalBudget: 0, totalReceived: 0, generalBudget: 0, projectExpenses: 0, generalExpenses: 0, totalExpenses: 0, dueAmount: 0, remainingBudget: 0, generalBudgetBalance: 0, organizationCashBalance: 0 };
   const charts = session.user.organizationId ? await getDashboardCharts(session.user.organizationId) : { byCategory: [], byProject: [], monthly: [], budgetVsExpense: [] };
   return (
     <PageShell title="Dashboard" description="Live accounting totals and expense trends.">
@@ -23,10 +23,12 @@ export default async function DashboardPage() {
         <StatCard label="Total Budget" value={summary.totalBudget} currency />
         <StatCard label="Total Paid" value={(summary as any).totalReceived ?? 0} currency />
         <StatCard label="Due" value={(summary as any).dueAmount ?? 0} currency />
+        <StatCard label="General Budget" value={(summary as any).generalBudget ?? 0} currency />
         <StatCard label="Project Expenses" value={summary.projectExpenses} currency />
         <StatCard label="General Expenses" value={summary.generalExpenses} currency />
-        <StatCard label="Total Expenses" value={summary.totalExpenses} currency />
         <StatCard label="Paid Balance After Expenses" value={summary.remainingBudget} currency />
+        <StatCard label="General Balance" value={(summary as any).generalBudgetBalance ?? 0} currency />
+        <StatCard label="Total Cash Balance" value={(summary as any).organizationCashBalance ?? 0} currency />
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
         <SimpleBarChart title="Expenses By Category" data={JSON.parse(JSON.stringify(charts.byCategory))} />

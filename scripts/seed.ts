@@ -15,7 +15,7 @@ async function main() {
   await connectToDatabase();
   await Promise.all([Organization.deleteMany({}), User.deleteMany({}), Project.deleteMany({}), ExpenseCategory.deleteMany({}), Expense.deleteMany({}), AuditLog.deleteMany({})]);
   const password = await bcrypt.hash("Password123!", 12);
-  const organization = await Organization.create({ name: "Acme Finance", code: "ACME", email: "finance@acme.test", phone: "+1 555 0100", address: "100 Market Street", status: "active" });
+  const organization = await Organization.create({ name: "Acme Finance", code: "ACME", email: "finance@acme.test", phone: "+1 555 0100", address: "100 Market Street", generalBudget: 10000, status: "active" });
   const superAdmin = await User.create({ name: "Super Admin", email: "super@expense.test", password, role: "super_admin", active: true });
   const owner = await User.create({ organizationId: organization._id, name: "Acme Owner", email: "owner@acme.test", password, role: "owner", active: true });
   await User.create({ organizationId: organization._id, name: "Acme Admin", email: "admin@acme.test", password, role: "admin", active: true });

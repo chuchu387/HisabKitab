@@ -14,6 +14,7 @@ export const organizationSchema = z.object({
   email: z.string().email(),
   phone: z.string().max(40).optional().default(""),
   address: z.string().max(300).optional().default(""),
+  generalBudget: z.coerce.number().min(0).default(0),
   status: z.enum(organizationStatuses).default("active")
 });
 
@@ -26,7 +27,8 @@ export const organizationSettingsSchema = organizationSchema.pick({
   name: true,
   email: true,
   phone: true,
-  address: true
+  address: true,
+  generalBudget: true
 });
 
 export const userSchema = z.object({

@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
+import { Organization } from "@/models/Organization";
 import { Project } from "@/models/Project";
 
 export type ReportFilters = {
@@ -24,7 +25,8 @@ function expenseMatch(filters: ReportFilters) {
 }
 
 export async function getAccountingSummary(organizationId: string) {
-  const [budgetAgg, projectExpenseAgg, generalExpenseAgg, activeProjects, totalProjects] = await Promise.all([
+  const [organization, budgetAgg, projectExpenseAgg, generalExpenseAgg, activeProjects, totalProjects] = await Promise.all([
+    Organization.findById(organizationId).lean(),
     Project.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId) } }, { $group: { _id: null, total: { $sum: "$totalBudget" }, received: { $sum: { $ifNull: ["$receivedAmount", 0] } } } }]),
     Expense.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId), projectId: { $ne: null } } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Expense.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId), projectId: null } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
@@ -35,18 +37,24 @@ export async function getAccountingSummary(organizationId: string) {
   const totalReceived = budgetAgg[0]?.received ?? 0;
   const projectExpenses = projectExpenseAgg[0]?.total ?? 0;
   const generalExpenses = generalExpenseAgg[0]?.total ?? 0;
+  const generalBudget = (organization as any)?.generalBudget ?? 0;
   return {
     totalProjects,
     activeProjects,
     totalBudget,
     totalReceived,
+    totalFunding: totalReceived + generalBudget,
+    generalBudget,
     projectExpenses,
     generalExpenses,
     totalExpenses: projectExpenses + generalExpenses,
     dueAmount: totalBudget - totalReceived,
     remainingBudget: totalReceived - projectExpenses,
+    projectPaidBalance: totalReceived - projectExpenses,
+    generalBudgetBalance: generalBudget - generalExpenses,
     receivableRemaining: totalBudget - totalReceived,
-    cashAfterExpenses: totalReceived - projectExpenses
+    cashAfterExpenses: totalReceived - projectExpenses,
+    organizationCashBalance: totalReceived + generalBudget - projectExpenses - generalExpenses
   };
 }
 
@@ -104,7 +112,7 @@ export async function getDashboardCharts(organizationId: string) {
 
 export async function getReports(filters: ReportFilters) {
   const match = expenseMatch(filters);
-  const [summary, projects, expenses] = await Promise.all([
+  const [summary, projects, expenses, categorySummary, monthlySummary, expenseTypeSummary] = await Promise.all([
     getAccountingSummary(filters.organizationId),
     Project.aggregate([
       { $match: { organizationId: new Types.ObjectId(filters.organizationId) } },
@@ -117,7 +125,25 @@ export async function getReports(filters: ReportFilters) {
       { $lookup: { from: Project.collection.name, localField: "projectId", foreignField: "_id", as: "project" } },
       { $project: { expenseDate: 1, description: 1, amount: 1, category: { $first: "$category.name" }, project: { $ifNull: [{ $first: "$project.name" }, "General"] } } },
       { $sort: { expenseDate: -1 } }
+    ]),
+    Expense.aggregate([
+      { $match: match },
+      { $group: { _id: "$categoryId", amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+      { $lookup: { from: ExpenseCategory.collection.name, localField: "_id", foreignField: "_id", as: "category" } },
+      { $project: { name: { $ifNull: [{ $first: "$category.name" }, "Uncategorized"] }, amount: 1, count: 1, _id: 0 } },
+      { $sort: { amount: -1 } }
+    ]),
+    Expense.aggregate([
+      { $match: match },
+      { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$expenseDate" } }, amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+      { $project: { month: "$_id", amount: 1, count: 1, _id: 0 } },
+      { $sort: { month: 1 } }
+    ]),
+    Expense.aggregate([
+      { $match: match },
+      { $group: { _id: { $cond: [{ $eq: ["$projectId", null] }, "General", "Project"] }, amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+      { $project: { name: "$_id", amount: 1, count: 1, _id: 0 } }
     ])
   ]);
-  return { summary, projects, expenses };
+  return { summary, projects, expenses, categorySummary, monthlySummary, expenseTypeSummary };
 }

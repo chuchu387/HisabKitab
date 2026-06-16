@@ -26,6 +26,7 @@ export async function createOrganization(_: ActionState, formData: FormData): Pr
       email: data.email,
       phone: data.phone,
       address: data.address,
+      generalBudget: data.generalBudget,
       status: data.status
     });
     await User.create({

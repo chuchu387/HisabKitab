@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
+import { ReportVisuals } from "@/features/reports/report-visuals";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
@@ -25,11 +26,23 @@ export default async function ReportsPage({ searchParams }: any) {
         <Button asChild variant="secondary"><Link href={`/api/reports/export?format=csv&${qs}`}><Download className="h-4 w-4" />CSV</Link></Button>
         <Button asChild variant="secondary"><Link href={`/api/reports/export?format=pdf&${qs}`}><Download className="h-4 w-4" />PDF</Link></Button>
       </form>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total Budget" value={reports.summary.totalBudget} currency />
-        <StatCard label="Total Expenses" value={reports.summary.totalExpenses} currency />
-        <StatCard label="Remaining Budget" value={reports.summary.remainingBudget} currency />
+        <StatCard label="Total Paid" value={(reports.summary as any).totalReceived ?? 0} currency />
+        <StatCard label="Due" value={(reports.summary as any).dueAmount ?? 0} currency />
+        <StatCard label="Project Expenses" value={reports.summary.projectExpenses} currency />
+        <StatCard label="Project Paid Balance" value={(reports.summary as any).projectPaidBalance ?? 0} currency />
+        <StatCard label="General Budget" value={(reports.summary as any).generalBudget ?? 0} currency />
+        <StatCard label="General Expenses" value={reports.summary.generalExpenses} currency />
+        <StatCard label="General Balance" value={(reports.summary as any).generalBudgetBalance ?? 0} currency />
+        <StatCard label="Total Cash Balance" value={(reports.summary as any).organizationCashBalance ?? 0} currency />
       </div>
+      <ReportVisuals
+        categorySummary={JSON.parse(JSON.stringify(reports.categorySummary))}
+        monthlySummary={JSON.parse(JSON.stringify(reports.monthlySummary))}
+        expenseTypeSummary={JSON.parse(JSON.stringify(reports.expenseTypeSummary))}
+        projects={JSON.parse(JSON.stringify(reports.projects))}
+      />
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Project Report</h2>
         <DataTable data={reports.projects} columns={[

@@ -8,6 +8,7 @@ const organizationSchema = new Schema(
     email: { type: String, required: true, lowercase: true, trim: true },
     phone: { type: String, default: "" },
     address: { type: String, default: "" },
+    generalBudget: { type: Number, default: 0, min: 0 },
     status: { type: String, enum: organizationStatuses, default: "active", index: true }
   },
   { timestamps: true }
