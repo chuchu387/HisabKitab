@@ -43,10 +43,17 @@ export async function createProjectTask(projectId: string, _: ActionState, formD
     });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Created", entityType: "ProjectTask", entityId: task._id.toString(), metadata: { projectId, status: data.status } });
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/tasks");
     return { ok: true, message: "Task created" };
   } catch (error) {
     return actionError(error);
   }
+}
+
+export async function createGlobalProjectTask(_: ActionState, formData: FormData): Promise<ActionState> {
+  const projectId = String(formData.get("projectId") ?? "");
+  if (!projectId) return { ok: false, message: "Select a project" };
+  return createProjectTask(projectId, _, formData);
 }
 
 export async function updateProjectTask(taskId: string, projectId: string, _: ActionState, formData: FormData): Promise<ActionState> {
@@ -62,6 +69,7 @@ export async function updateProjectTask(taskId: string, projectId: string, _: Ac
     await ProjectTask.findOneAndUpdate({ _id: taskId, projectId, organizationId }, update, { runValidators: true });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Updated", entityType: "ProjectTask", entityId: taskId, metadata: { projectId, status: data.status } });
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/tasks");
     return { ok: true, message: "Task updated" };
   } catch (error) {
     return actionError(error);
@@ -78,4 +86,5 @@ export async function deleteProjectTask(formData: FormData) {
   if (task?.imageId) await deleteReceipt(task.imageId.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Deleted", entityType: "ProjectTask", entityId: taskId, metadata: { projectId } });
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/tasks");
 }
