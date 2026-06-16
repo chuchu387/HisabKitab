@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
     "create-super-admin": "tsx scripts/create-super-admin.ts",
-    "clean-db:keep-super-admin": "tsx scripts/clean-database-except-super-admin.ts"
+    "clean-db:keep-super-admin": "tsx scripts/clean-database-except-super-admin.ts",
+    "check-super-admin": "tsx scripts/check-super-admin.ts"
   },
   "dependencies": {
     "@auth/core": "^0.39.0",
