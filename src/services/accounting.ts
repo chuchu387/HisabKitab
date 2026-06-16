@@ -43,7 +43,8 @@ export async function getAccountingSummary(organizationId: string) {
     projectExpenses,
     generalExpenses,
     totalExpenses: projectExpenses + generalExpenses,
-    remainingBudget: totalBudget - projectExpenses,
+    dueAmount: totalBudget - totalReceived,
+    remainingBudget: totalReceived - projectExpenses,
     receivableRemaining: totalBudget - totalReceived,
     cashAfterExpenses: totalReceived - projectExpenses
   };

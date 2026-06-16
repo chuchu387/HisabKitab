@@ -14,10 +14,10 @@ export default async function ProjectDetailPage({ params }: any) {
     <PageShell title={financials.project.name} description={financials.project.description} breadcrumb={[{ label: "Projects", href: "/projects" }, { label: financials.project.name }]}>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Total Budget" value={financials.project.totalBudget} currency />
-        <StatCard label="Client Paid Till Now" value={financials.received} currency />
-        <StatCard label="Receivable Remaining" value={financials.receivableRemaining} currency />
+        <StatCard label="Total Paid" value={financials.received} currency />
+        <StatCard label="Due" value={financials.receivableRemaining} currency />
         <StatCard label="Total Expense" value={financials.expense} currency />
-        <StatCard label="Cash After Expenses" value={financials.cashAfterExpenses} currency />
+        <StatCard label="Paid Balance After Expenses" value={financials.cashAfterExpenses} currency />
       </div>
     </PageShell>
   );

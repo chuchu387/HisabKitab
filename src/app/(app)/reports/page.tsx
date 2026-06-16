@@ -12,14 +12,15 @@ import { getReports } from "@/services/accounting";
 export default async function ReportsPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await connectToDatabase();
-  const filters = { organizationId, from: searchParams?.from, to: searchParams?.to, projectId: searchParams?.projectId, categoryId: searchParams?.categoryId };
+  const params = await searchParams;
+  const filters = { organizationId, from: params?.from, to: params?.to, projectId: params?.projectId, categoryId: params?.categoryId };
   const reports = await getReports(filters);
-  const qs = new URLSearchParams(Object.fromEntries(Object.entries(searchParams ?? {}).filter(([, v]) => typeof v === "string")) as Record<string, string>);
+  const qs = new URLSearchParams(Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => typeof v === "string")) as Record<string, string>);
   return (
     <PageShell title="Reports" description="Summary, project, and expense reports with CSV/PDF exports.">
       <form className="flex flex-wrap gap-2">
-        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="from" defaultValue={searchParams?.from} />
-        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="to" defaultValue={searchParams?.to} />
+        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="from" defaultValue={params?.from} />
+        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="to" defaultValue={params?.to} />
         <Button variant="outline">Filter</Button>
         <Button asChild variant="secondary"><Link href={`/api/reports/export?format=csv&${qs}`}><Download className="h-4 w-4" />CSV</Link></Button>
         <Button asChild variant="secondary"><Link href={`/api/reports/export?format=pdf&${qs}`}><Download className="h-4 w-4" />PDF</Link></Button>
@@ -34,11 +35,10 @@ export default async function ReportsPage({ searchParams }: any) {
         <DataTable data={reports.projects} columns={[
           { header: "Project", cell: (p: any) => `${p.name} (${p.code})` },
           { header: "Budget", cell: (p: any) => money(p.budget) },
-          { header: "Client Paid", cell: (p: any) => money(p.received ?? 0) },
+          { header: "Total Paid", cell: (p: any) => money(p.received ?? 0) },
+          { header: "Due", cell: (p: any) => money(p.receivableRemaining ?? 0) },
           { header: "Expense", cell: (p: any) => money(p.expense) },
-          { header: "Budget Left", cell: (p: any) => money(p.remaining) },
-          { header: "Receivable", cell: (p: any) => money(p.receivableRemaining ?? 0) },
-          { header: "Cash After Expenses", cell: (p: any) => money(p.cashAfterExpenses ?? 0) }
+          { header: "Paid Balance", cell: (p: any) => money(p.cashAfterExpenses ?? 0) }
         ]} />
       </section>
       <section className="space-y-3">

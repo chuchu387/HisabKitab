@@ -16,15 +16,25 @@ export default async function UsersPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await requireRole(["owner"]);
   await connectToDatabase();
-  const q = searchParams?.q ?? "";
-  const role = searchParams?.role ?? "";
+  const params = await searchParams;
+  const q = params?.q ?? "";
+  const role = params?.role ?? "";
   const query: any = { organizationId };
   if (q) query.$or = [{ name: new RegExp(q, "i") }, { email: new RegExp(q, "i") }];
   if (role) query.role = role;
   const users = await User.find(query).sort({ createdAt: -1 }).lean();
   return (
     <PageShell title="Users" action={<Button asChild><Link href="/users/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
-      <form className="flex flex-wrap gap-2"><SearchBar placeholder="Search users" defaultValue={q} /><Button variant="outline">Filter</Button></form>
+      <form className="flex flex-wrap gap-2">
+        <SearchBar placeholder="Search users" defaultValue={q} />
+        <select name="role" defaultValue={role} className="h-10 rounded-md border bg-background px-3 text-sm">
+          <option value="">All roles</option>
+          <option value="owner">Owner</option>
+          <option value="admin">Admin</option>
+          <option value="staff">Staff</option>
+        </select>
+        <Button variant="outline">Filter</Button>
+      </form>
       <DataTable data={users} columns={[
         { header: "Name", cell: (u: any) => u.name },
         { header: "Email", cell: (u: any) => u.email },

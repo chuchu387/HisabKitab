@@ -15,7 +15,8 @@ export default async function CategoriesPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
-  const q = searchParams?.q ?? "";
+  const params = await searchParams;
+  const q = params?.q ?? "";
   const query: any = { organizationId };
   if (q) query.name = new RegExp(q, "i");
   const categories = await ExpenseCategory.find(query).sort({ name: 1 }).lean();

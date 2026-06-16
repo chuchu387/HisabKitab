@@ -20,7 +20,7 @@ export function ProjectForm({ project }: { project?: any }) {
       <Field name="name" label="Name" defaultValue={project?.name} />
       <Field name="code" label="Code" defaultValue={project?.code} />
       <Field name="totalBudget" label="Total Budget" type="number" min="0" step="0.01" defaultValue={project?.totalBudget} />
-      <Field name="receivedAmount" label="Client Paid Till Now" type="number" min="0" step="0.01" defaultValue={project?.receivedAmount ?? 0} />
+      <Field name="receivedAmount" label="Total Paid" type="number" min="0" step="0.01" defaultValue={project?.receivedAmount ?? 0} />
       <div className="space-y-2">
         <Label htmlFor="status">Status</Label>
         <Select id="status" name="status" defaultValue={project?.status ?? "active"}>
