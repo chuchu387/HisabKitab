@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/features/auth/login-form";
 
@@ -11,9 +10,7 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground">Sign in to your organization workspace.</p>
         </CardHeader>
         <CardContent>
-          <Suspense fallback={<div className="h-40 animate-pulse rounded-md bg-muted" />}>
-            <LoginForm />
-          </Suspense>
+          <LoginForm />
         </CardContent>
       </Card>
     </main>
