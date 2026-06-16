@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function money(value: number | null | undefined) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value ?? 0);
+  return `Rs. ${new Intl.NumberFormat("en-NP", { maximumFractionDigits: 2 }).format(value ?? 0)}`;
 }
 
 export function formatDate(value: Date | string | null | undefined) {
