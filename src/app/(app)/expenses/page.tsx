@@ -10,8 +10,10 @@ import { requireTenant } from "@/lib/permissions";
 import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { Project } from "@/models/Project";
+import { User } from "@/models/User";
 
 void ExpenseCategory;
+void User;
 
 export default async function ExpensesPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
@@ -26,7 +28,7 @@ export default async function ExpensesPage({ searchParams }: any) {
     if (params.to) query.expenseDate.$lte = new Date(params.to);
   }
   const [expenses, projects] = await Promise.all([
-    Expense.find(query).populate("categoryId projectId").sort({ expenseDate: -1 }).lean(),
+    Expense.find(query).populate("categoryId projectId createdBy").sort({ expenseDate: -1 }).lean(),
     Project.find({ organizationId }).sort({ name: 1 }).lean()
   ]);
   return (

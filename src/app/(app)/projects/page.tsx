@@ -24,6 +24,7 @@ export default async function ProjectsPage({ searchParams }: any) {
   const projects = await Project.aggregate([
     { $match: query },
     { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
+    { $lookup: { from: "users", localField: "createdBy", foreignField: "_id", as: "creator" } },
     { $addFields: { expenseTotal: { $sum: "$expenses.amount" } } },
     { $sort: { createdAt: -1 } }
   ]);
@@ -39,6 +40,7 @@ export default async function ProjectsPage({ searchParams }: any) {
         { header: "Due", cell: (p: any) => money((p.totalBudget ?? 0) - (p.receivedAmount ?? 0)) },
         { header: "Expense", cell: (p: any) => money(p.expenseTotal ?? 0) },
         { header: "Paid Balance", cell: (p: any) => money((p.receivedAmount ?? 0) - (p.expenseTotal ?? 0)) },
+        { header: "Created By", cell: (p: any) => p.creator?.[0]?.name ?? "Unknown" },
         { header: "Status", cell: (p: any) => <Badge>{p.status}</Badge> },
         { header: "Actions", cell: (p: any) => canManage ? <div className="flex gap-2"><Button asChild variant="outline" size="sm"><Link href={`/projects/${p._id}/edit`}>Edit</Link></Button><form action={deleteProject}><input type="hidden" name="id" value={p._id.toString()} /><ConfirmButton /></form></div> : null }
       ]} />

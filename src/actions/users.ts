@@ -19,6 +19,7 @@ export async function createUser(_: ActionState, formData: FormData): Promise<Ac
     const user = await User.create({
       ...data,
       organizationId,
+      createdBy: session.user.userId,
       password: await bcrypt.hash(String(data.password), 12)
     });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "User Created", entityType: "User", entityId: user._id.toString(), metadata: { email: data.email, role: data.role } });

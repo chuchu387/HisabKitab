@@ -41,6 +41,7 @@ export function BulkLinkExpensesForm({ expenses, projects }: { expenses: any[]; 
                 <th className="px-4 py-3 font-medium">Category</th>
                 <th className="px-4 py-3 font-medium">Project</th>
                 <th className="px-4 py-3 font-medium">Description</th>
+                <th className="px-4 py-3 font-medium">Added By</th>
                 <th className="px-4 py-3 font-medium">Amount</th>
                 <th className="px-4 py-3 font-medium">Actions</th>
               </tr>
@@ -59,6 +60,7 @@ export function BulkLinkExpensesForm({ expenses, projects }: { expenses: any[]; 
                       {expense.description}
                     </Link>
                   </td>
+                  <td className="px-4 py-3">{expense.createdBy?.name ?? "Unknown"}</td>
                   <td className="px-4 py-3">{money(expense.amount)}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">

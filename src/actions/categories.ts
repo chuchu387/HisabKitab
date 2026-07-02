@@ -10,11 +10,11 @@ import type { ActionState } from "@/types";
 
 export async function createCategory(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { organizationId } = await requireTenant();
+    const { session, organizationId } = await requireTenant();
     await requireRole(["owner", "admin"]);
     await connectToDatabase();
     const data = parseForm(categorySchema, formData);
-    await ExpenseCategory.create({ ...data, organizationId });
+    await ExpenseCategory.create({ ...data, organizationId, createdBy: session.user.userId });
     revalidatePath("/categories");
     return { ok: true, message: "Category created" };
   } catch (error) {

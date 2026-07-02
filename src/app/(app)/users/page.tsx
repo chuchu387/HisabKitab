@@ -12,6 +12,8 @@ import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { User } from "@/models/User";
 
+void User;
+
 export default async function UsersPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await requireRole(["owner"]);
@@ -22,7 +24,7 @@ export default async function UsersPage({ searchParams }: any) {
   const query: any = { organizationId };
   if (q) query.$or = [{ name: new RegExp(q, "i") }, { email: new RegExp(q, "i") }];
   if (role) query.role = role;
-  const users = await User.find(query).sort({ createdAt: -1 }).lean();
+  const users = await User.find(query).populate("createdBy").sort({ createdAt: -1 }).lean();
   return (
     <PageShell title="Users" action={<Button asChild><Link href="/users/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
       <form className="flex flex-wrap gap-2">
@@ -39,6 +41,7 @@ export default async function UsersPage({ searchParams }: any) {
         { header: "Name", cell: (u: any) => u.name },
         { header: "Email", cell: (u: any) => u.email },
         { header: "Role", cell: (u: any) => roleLabels[u.role as keyof typeof roleLabels] },
+        { header: "Added By", cell: (u: any) => u.createdBy?.name ?? "Unknown" },
         { header: "Status", cell: (u: any) => <Badge>{u.active ? "Active" : "Disabled"}</Badge> },
         { header: "Actions", cell: (u: any) => <div className="flex gap-2"><Button asChild variant="outline" size="sm"><Link href={`/users/${u._id}/edit`}>Edit</Link></Button><form action={disableUser}><input type="hidden" name="id" value={u._id.toString()} /><ConfirmButton label="Disable" /></form></div> }
       ]} />

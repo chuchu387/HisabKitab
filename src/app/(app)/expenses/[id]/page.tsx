@@ -9,14 +9,16 @@ import { formatDate, money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { Project } from "@/models/Project";
+import { User } from "@/models/User";
 
 void ExpenseCategory;
 void Project;
+void User;
 
 export default async function ExpenseDetailPage({ params }: any) {
   const { organizationId } = await requireTenant();
   await connectToDatabase();
-  const expense = (await Expense.findOne({ _id: params.id, organizationId }).populate("categoryId projectId").lean()) as any;
+  const expense = (await Expense.findOne({ _id: params.id, organizationId }).populate("categoryId projectId createdBy").lean()) as any;
   if (!expense) notFound();
   return (
     <PageShell title="Expense Detail" breadcrumb={[{ label: "Expenses", href: "/expenses" }, { label: "Detail" }]}>
@@ -27,6 +29,7 @@ export default async function ExpenseDetailPage({ params }: any) {
           <p><strong>Amount:</strong> {money(expense.amount)}</p>
           <p><strong>Category:</strong> {(expense.categoryId as any)?.name}</p>
           <p><strong>Project:</strong> {(expense.projectId as any)?.name ?? "General"}</p>
+          <p><strong>Added By:</strong> {(expense.createdBy as any)?.name ?? "Unknown"}</p>
           {expense.receiptImageId && <Button asChild variant="outline"><Link href={`/api/receipts/${expense.receiptImageId}`}>Download Receipt</Link></Button>}
         </CardContent>
       </Card>

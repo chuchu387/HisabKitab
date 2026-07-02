@@ -10,6 +10,9 @@ import { deactivateOrganization } from "@/actions/organizations";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole } from "@/lib/permissions";
 import { Organization } from "@/models/Organization";
+import { User } from "@/models/User";
+
+void User;
 
 export default async function OrganizationsPage({ searchParams }: any) {
   await requireRole(["super_admin"]);
@@ -17,7 +20,7 @@ export default async function OrganizationsPage({ searchParams }: any) {
   const params = await searchParams;
   const q = params?.q ?? "";
   const query = q ? { $or: [{ name: new RegExp(q, "i") }, { code: new RegExp(q, "i") }] } : {};
-  const organizations = await Organization.find(query).sort({ createdAt: -1 }).lean();
+  const organizations = await Organization.find(query).populate("createdBy").sort({ createdAt: -1 }).lean();
   return (
     <PageShell title="Organizations" action={<Button asChild><Link href="/organizations/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
       <form className="flex gap-2"><SearchBar placeholder="Search organizations" defaultValue={q} /><Button variant="outline">Filter</Button></form>
@@ -25,6 +28,7 @@ export default async function OrganizationsPage({ searchParams }: any) {
         { header: "Name", cell: (o: any) => o.name },
         { header: "Code", cell: (o: any) => o.code },
         { header: "Email", cell: (o: any) => o.email },
+        { header: "Added By", cell: (o: any) => o.createdBy?.name ?? "Unknown" },
         { header: "Status", cell: (o: any) => <Badge>{o.status}</Badge> },
         { header: "Actions", cell: (o: any) => <div className="flex gap-2"><Button asChild variant="outline" size="sm"><Link href={`/organizations/${o._id}/edit`}>Edit</Link></Button><form action={deactivateOrganization}><input type="hidden" name="id" value={o._id.toString()} /><ConfirmButton label="Deactivate" /></form></div> }
       ]} />

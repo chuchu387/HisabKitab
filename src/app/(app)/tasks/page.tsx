@@ -23,7 +23,7 @@ export default async function TasksPage({ searchParams }: any) {
   if (params?.assigneeId) query.assigneeId = params.assigneeId;
 
   const [tasks, projects, assignees] = await Promise.all([
-    ProjectTask.find(query).populate("projectId assigneeId").sort({ createdAt: -1 }).lean(),
+    ProjectTask.find(query).populate("projectId assigneeId createdBy").sort({ createdAt: -1 }).lean(),
     Project.find({ organizationId }).sort({ name: 1 }).lean(),
     User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean()
   ]);

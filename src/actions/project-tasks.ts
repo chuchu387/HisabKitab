@@ -24,6 +24,14 @@ async function normalizeAssignee(assigneeId: string | null | undefined, organiza
   return assigneeId;
 }
 
+function taskManageQuery(taskId: string, projectId: string, organizationId: string, session: Awaited<ReturnType<typeof requireTenant>>["session"]) {
+  const query: Record<string, unknown> = { _id: taskId, projectId, organizationId };
+  if (session.user.role === "staff") {
+    query.$or = [{ createdBy: session.user.userId }, { assigneeId: session.user.userId }];
+  }
+  return query;
+}
+
 export async function createProjectTask(projectId: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const { session, organizationId } = await requireTenant();
@@ -66,7 +74,8 @@ export async function updateProjectTask(taskId: string, projectId: string, _: Ac
     const update: Record<string, unknown> = { ...data, assigneeId: await normalizeAssignee(data.assigneeId, organizationId) };
     const image = formData.get("image");
     if (image instanceof File && image.size > 0) update.imageId = await saveReceipt(image, { organizationId, projectId, taskId, entityType: "ProjectTask" });
-    await ProjectTask.findOneAndUpdate({ _id: taskId, projectId, organizationId }, update, { runValidators: true });
+    const updated = await ProjectTask.findOneAndUpdate(taskManageQuery(taskId, projectId, organizationId, session), update, { runValidators: true });
+    if (!updated) throw new Error("Task not found or not allowed");
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Updated", entityType: "ProjectTask", entityId: taskId, metadata: { projectId, status: data.status } });
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/tasks");
@@ -82,7 +91,8 @@ export async function deleteProjectTask(formData: FormData) {
   await connectToDatabase();
   const taskId = String(formData.get("taskId"));
   const projectId = String(formData.get("projectId"));
-  const task = (await ProjectTask.findOneAndDelete({ _id: taskId, projectId, organizationId }).lean()) as any;
+  const task = (await ProjectTask.findOneAndDelete(taskManageQuery(taskId, projectId, organizationId, session)).lean()) as any;
+  if (!task) throw new Error("Task not found or not allowed");
   if (task?.imageId) await deleteReceipt(task.imageId.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Deleted", entityType: "ProjectTask", entityId: taskId, metadata: { projectId } });
   revalidatePath(`/projects/${projectId}`);

@@ -11,6 +11,12 @@ import { saveReceipt, deleteReceipt } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
 import type { ActionState } from "@/types";
 
+function ownableQuery(id: string, organizationId: string, session: Awaited<ReturnType<typeof requireTenant>>["session"]) {
+  const query: Record<string, unknown> = { _id: id, organizationId };
+  if (session.user.role === "staff") query.createdBy = session.user.userId;
+  return query;
+}
+
 export async function createExpense(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const { session, organizationId } = await requireTenant();
@@ -43,7 +49,8 @@ export async function updateExpense(id: string, _: ActionState, formData: FormDa
     const update: Record<string, unknown> = { ...data, projectId: data.projectId || null };
     const receipt = formData.get("receipt");
     if (receipt instanceof File && receipt.size > 0) update.receiptImageId = await saveReceipt(receipt, { organizationId, userId: session.user.userId });
-    await Expense.findOneAndUpdate({ _id: id, organizationId }, update, { runValidators: true });
+    const updated = await Expense.findOneAndUpdate(ownableQuery(id, organizationId, session), update, { runValidators: true });
+    if (!updated) throw new Error("Expense not found or not allowed");
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Updated", entityType: "Expense", entityId: id, metadata: { amount: data.amount } });
     revalidatePath("/expenses");
     return { ok: true, message: "Expense updated" };
@@ -57,7 +64,8 @@ export async function deleteExpense(formData: FormData) {
   await requireRole(["owner", "admin", "staff"]);
   await connectToDatabase();
   const id = String(formData.get("id"));
-  const expense = (await Expense.findOneAndDelete({ _id: id, organizationId }).lean()) as any;
+  const expense = (await Expense.findOneAndDelete(ownableQuery(id, organizationId, session)).lean()) as any;
+  if (!expense) throw new Error("Expense not found or not allowed");
   if (expense?.receiptImageId) await deleteReceipt(expense.receiptImageId.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Deleted", entityType: "Expense", entityId: id });
   revalidatePath("/expenses");

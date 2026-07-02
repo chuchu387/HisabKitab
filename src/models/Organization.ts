@@ -9,6 +9,7 @@ const organizationSchema = new Schema(
     phone: { type: String, default: "" },
     address: { type: String, default: "" },
     generalBudget: { type: Number, default: 0, min: 0 },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     status: { type: String, enum: organizationStatuses, default: "active", index: true }
   },
   { timestamps: true }

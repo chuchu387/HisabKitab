@@ -18,7 +18,7 @@ export default async function ProjectDetailPage({ params }: any) {
   const projectId = params.id;
   const [financials, tasks, assignees] = await Promise.all([
     getProjectFinancials(organizationId, projectId),
-    ProjectTask.find({ organizationId, projectId }).populate("assigneeId").sort({ createdAt: -1 }).lean(),
+    ProjectTask.find({ organizationId, projectId }).populate("assigneeId createdBy").sort({ createdAt: -1 }).lean(),
     User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean()
   ]);
   if (!financials.project) notFound();
@@ -37,6 +37,7 @@ export default async function ProjectDetailPage({ params }: any) {
         <StatCard label="Total Expense" value={financials.expense} currency />
         <StatCard label="Paid Balance After Expenses" value={financials.cashAfterExpenses} currency />
       </div>
+      <p className="text-sm text-muted-foreground">Created by {(financials.project.createdBy as any)?.name ?? "Unknown"}</p>
       <ProjectTasksPanel projectId={projectId} tasks={JSON.parse(JSON.stringify(tasks))} assignees={JSON.parse(JSON.stringify(assignees))} />
     </PageShell>
   );

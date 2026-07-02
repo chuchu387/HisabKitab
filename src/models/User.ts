@@ -8,7 +8,8 @@ const userSchema = new Schema(
     email: { type: String, required: true, lowercase: true, trim: true, unique: true },
     password: { type: String, required: true, select: false },
     role: { type: String, enum: roles, required: true, index: true },
-    active: { type: Boolean, default: true, index: true }
+    active: { type: Boolean, default: true, index: true },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null }
   },
   { timestamps: true }
 );

@@ -123,6 +123,8 @@ function TaskCard({ task, assignees }: { task: any; assignees: any[] }) {
           {task.estimatedHours ?? 0}h
           <span>·</span>
           <span>{task.assigneeId?.name ?? "Unassigned"}</span>
+          <span>·</span>
+          <span>Added by {task.createdBy?.name ?? "Unknown"}</span>
           {task.imageId && (
             <Link className="inline-flex items-center gap-1 text-primary hover:underline" href={`/api/receipts/${task.imageId}`} target="_blank">
               <ImageIcon className="h-3.5 w-3.5" />

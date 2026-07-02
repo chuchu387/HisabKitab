@@ -15,7 +15,7 @@ import type { ActionState } from "@/types";
 
 export async function createOrganization(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    await requireRole(["super_admin"]);
+    const session = await requireRole(["super_admin"]);
     await connectToDatabase();
     const data = parseForm(createOrganizationSchema, formData);
     const existingUser = await User.exists({ email: data.email.toLowerCase() });
@@ -27,6 +27,7 @@ export async function createOrganization(_: ActionState, formData: FormData): Pr
       phone: data.phone,
       address: data.address,
       generalBudget: data.generalBudget,
+      createdBy: session.user.userId,
       status: data.status
     });
     await User.create({

@@ -60,7 +60,7 @@ export async function getAccountingSummary(organizationId: string) {
 
 export async function getProjectFinancials(organizationId: string, projectId: string) {
   const [project, agg] = await Promise.all([
-    Project.findOne({ _id: projectId, organizationId }).lean(),
+    Project.findOne({ _id: projectId, organizationId }).populate("createdBy").lean(),
     Expense.aggregate([
       { $match: { organizationId: new Types.ObjectId(organizationId), projectId: new Types.ObjectId(projectId) } },
       { $group: { _id: null, total: { $sum: "$amount" } } }
