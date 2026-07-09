@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { FolderInput } from "lucide-react";
-import { bulkLinkExpensesToProject, deleteExpense } from "@/actions/expenses";
+import { bulkLinkExpensesToProject, deleteExpense, updateExpenseApproval } from "@/actions/expenses";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { Select } from "@/components/ui/select";
 import { formatDate, money } from "@/lib/utils";
 
-export function BulkLinkExpensesForm({ expenses, projects }: { expenses: any[]; projects: any[] }) {
+export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }: { expenses: any[]; projects: any[]; canApprove?: boolean }) {
   if (!expenses.length) return null;
 
   return (
@@ -42,6 +42,7 @@ export function BulkLinkExpensesForm({ expenses, projects }: { expenses: any[]; 
                 <th className="px-4 py-3 font-medium">Project</th>
                 <th className="px-4 py-3 font-medium">Description</th>
                 <th className="px-4 py-3 font-medium">Added By</th>
+                <th className="px-4 py-3 font-medium">Approval</th>
                 <th className="px-4 py-3 font-medium">Amount</th>
                 <th className="px-4 py-3 font-medium">Actions</th>
               </tr>
@@ -61,6 +62,7 @@ export function BulkLinkExpensesForm({ expenses, projects }: { expenses: any[]; 
                     </Link>
                   </td>
                   <td className="px-4 py-3">{expense.createdBy?.name ?? "Unknown"}</td>
+                  <td className="px-4 py-3">{canApprove ? <ApprovalForm id={expense._id} status={expense.approvalStatus ?? "pending"} /> : (expense.approvalStatus ?? "pending")}</td>
                   <td className="px-4 py-3">{money(expense.amount)}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
@@ -77,6 +79,20 @@ export function BulkLinkExpensesForm({ expenses, projects }: { expenses: any[]; 
         </div>
       </div>
     </div>
+  );
+}
+
+function ApprovalForm({ id, status }: { id: string; status: string }) {
+  return (
+    <form action={updateExpenseApproval} className="flex gap-2">
+      <input type="hidden" name="id" value={id} />
+      <Select name="approvalStatus" defaultValue={status} className="h-8 min-w-28 text-xs">
+        <option value="pending">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+      </Select>
+      <Button size="sm" variant="outline">Save</Button>
+    </form>
   );
 }
 

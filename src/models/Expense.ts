@@ -1,4 +1,5 @@
 import { model, models, Schema, type InferSchemaType, type Model } from "mongoose";
+import { expenseApprovalStatuses } from "@/constants";
 
 const expenseSchema = new Schema(
   {
@@ -8,6 +9,9 @@ const expenseSchema = new Schema(
     amount: { type: Number, required: true, min: 0.01 },
     expenseDate: { type: Date, required: true, index: true },
     description: { type: String, required: true, trim: true },
+    approvalStatus: { type: String, enum: expenseApprovalStatuses, default: "pending", index: true },
+    approvedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+    approvedAt: { type: Date, default: null },
     receiptImageId: { type: Schema.Types.ObjectId, default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true }
   },

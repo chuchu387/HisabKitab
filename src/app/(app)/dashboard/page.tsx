@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
+import { Card, CardContent } from "@/components/ui/card";
 import { BudgetExpenseChart, SimpleBarChart, TrendChart } from "@/components/charts";
 import { connectToDatabase } from "@/lib/db";
 import { requireSession } from "@/lib/permissions";
@@ -30,6 +31,11 @@ export default async function DashboardPage() {
         <StatCard label="General Balance" value={(summary as any).generalBudgetBalance ?? 0} currency />
         <StatCard label="Total Cash Balance" value={(summary as any).organizationCashBalance ?? 0} currency />
       </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        {((summary as any).pendingExpenses ?? 0) > 0 && <AlertCard text={`${(summary as any).pendingExpenses} expenses pending approval`} />}
+        {((summary as any).projectPaidBalance ?? 0) < 0 && <AlertCard text="Project expenses are higher than project payments" />}
+        {((summary as any).generalBudgetBalance ?? 0) < 0 && <AlertCard text="General expenses are higher than general funds" />}
+      </div>
       <div className="grid gap-4 xl:grid-cols-2">
         <SimpleBarChart title="Expenses By Category" data={JSON.parse(JSON.stringify(charts.byCategory))} />
         <SimpleBarChart title="Expenses By Project" data={JSON.parse(JSON.stringify(charts.byProject))} />
@@ -38,4 +44,8 @@ export default async function DashboardPage() {
       </div>
     </PageShell>
   );
+}
+
+function AlertCard({ text }: { text: string }) {
+  return <Card className="border-destructive/40 bg-destructive/5"><CardContent className="p-4 text-sm font-medium text-destructive">{text}</CardContent></Card>;
 }

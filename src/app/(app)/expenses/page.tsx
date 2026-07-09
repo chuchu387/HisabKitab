@@ -52,7 +52,7 @@ export default async function ExpensesPage({ searchParams }: any) {
         <Button variant="outline">Filter</Button>
       </form>
       {expenses.length ? (
-        <BulkLinkExpensesForm expenses={JSON.parse(JSON.stringify(expenses))} projects={JSON.parse(JSON.stringify(projects))} />
+        <BulkLinkExpensesForm expenses={JSON.parse(JSON.stringify(expenses))} projects={JSON.parse(JSON.stringify(projects))} canApprove={["owner", "admin"].includes(session.user.role)} />
       ) : (
         <EmptyState title="No expenses" description="Create an expense or adjust filters." />
       )}

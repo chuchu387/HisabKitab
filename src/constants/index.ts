@@ -1,4 +1,4 @@
-import { Building2, CheckSquare, FolderKanban, Gauge, ListChecks, ReceiptText, ScrollText, Settings, Tags, UserRoundCheck, Users } from "lucide-react";
+import { Banknote, Building2, CheckSquare, FolderKanban, Gauge, Landmark, ListChecks, ReceiptText, ScrollText, Settings, Tags, UserRoundCheck, Users } from "lucide-react";
 
 export const roles = ["super_admin", "owner", "admin", "staff"] as const;
 export type Role = (typeof roles)[number];
@@ -12,6 +12,7 @@ export const roleLabels: Record<Role, string> = {
 
 export const projectStatuses = ["active", "completed", "on_hold"] as const;
 export const projectTaskStatuses = ["to_do", "in_progress", "in_review", "complete"] as const;
+export const expenseApprovalStatuses = ["pending", "approved", "rejected"] as const;
 export const organizationStatuses = ["active", "inactive"] as const;
 
 export const defaultCategories = [
@@ -31,6 +32,8 @@ export const navItems = [
   { href: "/organizations", label: "Organizations", icon: Building2, roles: ["super_admin"] },
   { href: "/users", label: "Users", icon: Users, roles: ["owner"] },
   { href: "/projects", label: "Projects", icon: FolderKanban, roles: ["owner", "admin", "staff"] },
+  { href: "/project-payments", label: "Payments", icon: Banknote, roles: ["owner", "admin"] },
+  { href: "/general-funds", label: "General Funds", icon: Landmark, roles: ["owner", "admin"] },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["owner", "admin", "staff"] },
   { href: "/categories", label: "Categories", icon: Tags, roles: ["owner", "admin"] },
   { href: "/expenses", label: "Expenses", icon: ReceiptText, roles: ["owner", "admin", "staff"] },

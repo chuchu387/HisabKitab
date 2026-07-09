@@ -6,6 +6,7 @@ import { requireRole, requireTenant } from "@/lib/permissions";
 import { Expense } from "@/models/Expense";
 import { Project } from "@/models/Project";
 import { expenseSchema } from "@/validations/schemas";
+import { expenseApprovalSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
 import { saveReceipt, deleteReceipt } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
@@ -29,6 +30,9 @@ export async function createExpense(_: ActionState, formData: FormData): Promise
       ...data,
       organizationId,
       projectId: data.projectId || null,
+      approvalStatus: session.user.role === "staff" ? "pending" : "approved",
+      approvedBy: session.user.role === "staff" ? null : session.user.userId,
+      approvedAt: session.user.role === "staff" ? null : new Date(),
       receiptImageId,
       createdBy: session.user.userId
     });
@@ -93,4 +97,20 @@ export async function bulkLinkExpensesToProject(formData: FormData) {
   });
   revalidatePath("/expenses");
   if (projectId) revalidatePath(`/projects/${projectId}`);
+}
+
+export async function updateExpenseApproval(formData: FormData) {
+  const { session, organizationId } = await requireTenant();
+  await requireRole(["owner", "admin"]);
+  await connectToDatabase();
+  const id = String(formData.get("id"));
+  const data = expenseApprovalSchema.parse({ approvalStatus: formData.get("approvalStatus") });
+  await Expense.findOneAndUpdate(
+    { _id: id, organizationId },
+    { approvalStatus: data.approvalStatus, approvedBy: data.approvalStatus === "approved" ? session.user.userId : null, approvedAt: data.approvalStatus === "approved" ? new Date() : null },
+    { runValidators: true }
+  );
+  await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Approval Updated", entityType: "Expense", entityId: id, metadata: data });
+  revalidatePath("/expenses");
+  revalidatePath("/dashboard");
 }

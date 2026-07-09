@@ -38,6 +38,7 @@ export function ExpenseForm({ expense, categories, projects }: { expense?: any; 
         <ActionMessage state={state} />
         <Button disabled={pending}>{pending ? "Saving..." : "Save Expense"}</Button>
       </div>
+      <p className="text-xs text-muted-foreground md:col-span-2">Staff expenses are saved as pending until Owner/Admin approval. Approved expenses affect accounting totals.</p>
     </form>
   );
 }

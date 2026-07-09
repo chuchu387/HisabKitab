@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { organizationStatuses, projectStatuses, projectTaskStatuses, roles } from "@/constants";
+import { expenseApprovalStatuses, organizationStatuses, projectStatuses, projectTaskStatuses, roles } from "@/constants";
 
 export const objectIdSchema = z.string().min(12);
 
@@ -67,6 +67,23 @@ export const expenseSchema = z.object({
   amount: z.coerce.number().positive(),
   expenseDate: z.coerce.date(),
   description: z.string().min(2).max(1000)
+});
+
+export const expenseApprovalSchema = z.object({
+  approvalStatus: z.enum(expenseApprovalStatuses)
+});
+
+export const projectPaymentSchema = z.object({
+  projectId: objectIdSchema,
+  paymentDate: z.coerce.date(),
+  amount: z.coerce.number().positive(),
+  note: z.string().max(1000).optional().default("")
+});
+
+export const generalFundSchema = z.object({
+  fundDate: z.coerce.date(),
+  amount: z.coerce.number().positive(),
+  note: z.string().max(1000).optional().default("")
 });
 
 export const projectTaskSchema = z.object({

@@ -30,6 +30,7 @@ export default async function ExpenseDetailPage({ params }: any) {
           <p><strong>Category:</strong> {(expense.categoryId as any)?.name}</p>
           <p><strong>Project:</strong> {(expense.projectId as any)?.name ?? "General"}</p>
           <p><strong>Added By:</strong> {(expense.createdBy as any)?.name ?? "Unknown"}</p>
+          <p><strong>Approval:</strong> {expense.approvalStatus ?? "pending"}</p>
           {expense.receiptImageId && <Button asChild variant="outline"><Link href={`/api/receipts/${expense.receiptImageId}`}>Download Receipt</Link></Button>}
         </CardContent>
       </Card>

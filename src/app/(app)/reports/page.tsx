@@ -36,6 +36,7 @@ export default async function ReportsPage({ searchParams }: any) {
         <StatCard label="General Expenses" value={reports.summary.generalExpenses} currency />
         <StatCard label="General Balance" value={(reports.summary as any).generalBudgetBalance ?? 0} currency />
         <StatCard label="Total Cash Balance" value={(reports.summary as any).organizationCashBalance ?? 0} currency />
+        <StatCard label="Pending Approvals" value={(reports.summary as any).pendingExpenses ?? 0} />
       </div>
       <ReportVisuals
         categorySummary={JSON.parse(JSON.stringify(reports.categorySummary))}
