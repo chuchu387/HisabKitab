@@ -1,4 +1,4 @@
-import { Building2, CheckSquare, FolderKanban, Gauge, ListChecks, ReceiptText, ScrollText, Settings, Tags, Users } from "lucide-react";
+import { Building2, CheckSquare, FolderKanban, Gauge, ListChecks, ReceiptText, ScrollText, Settings, Tags, UserRoundCheck, Users } from "lucide-react";
 
 export const roles = ["super_admin", "owner", "admin", "staff"] as const;
 export type Role = (typeof roles)[number];
@@ -34,6 +34,7 @@ export const navItems = [
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["owner", "admin", "staff"] },
   { href: "/categories", label: "Categories", icon: Tags, roles: ["owner", "admin"] },
   { href: "/expenses", label: "Expenses", icon: ReceiptText, roles: ["owner", "admin", "staff"] },
+  { href: "/expense-contributors", label: "Contributors", icon: UserRoundCheck, roles: ["owner", "admin", "staff"] },
   { href: "/reports", label: "Reports", icon: ListChecks, roles: ["owner", "admin", "staff"] },
   { href: "/audit-logs", label: "Audit Logs", icon: ScrollText, roles: ["owner", "admin"] },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["owner", "admin"] }

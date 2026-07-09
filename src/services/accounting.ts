@@ -3,6 +3,7 @@ import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { Organization } from "@/models/Organization";
 import { Project } from "@/models/Project";
+import { User } from "@/models/User";
 
 export type ReportFilters = {
   organizationId: string;
@@ -146,4 +147,106 @@ export async function getReports(filters: ReportFilters) {
     ])
   ]);
   return { summary, projects, expenses, categorySummary, monthlySummary, expenseTypeSummary };
+}
+
+export type ContributorFilters = ReportFilters & {
+  contributorId?: string;
+  expenseType?: "project" | "general";
+};
+
+function contributorExpenseMatch(filters: ContributorFilters) {
+  const match = expenseMatch(filters);
+  if (filters.contributorId) match.createdBy = new Types.ObjectId(filters.contributorId);
+  if (filters.expenseType === "project") match.projectId = { $ne: null };
+  if (filters.expenseType === "general") match.projectId = null;
+  return match;
+}
+
+export async function getExpenseContributorSummaries(organizationId: string, currentUserId?: string) {
+  const match: Record<string, unknown> = { organizationId: new Types.ObjectId(organizationId) };
+  if (currentUserId) match.createdBy = new Types.ObjectId(currentUserId);
+  return Expense.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: "$createdBy",
+        totalAmount: { $sum: "$amount" },
+        expenseCount: { $sum: 1 },
+        projectAmount: { $sum: { $cond: [{ $ne: ["$projectId", null] }, "$amount", 0] } },
+        generalAmount: { $sum: { $cond: [{ $eq: ["$projectId", null] }, "$amount", 0] } },
+        latestExpenseDate: { $max: "$expenseDate" }
+      }
+    },
+    { $lookup: { from: User.collection.name, localField: "_id", foreignField: "_id", as: "user" } },
+    {
+      $project: {
+        userId: "$_id",
+        name: { $ifNull: [{ $first: "$user.name" }, "Unknown"] },
+        email: { $first: "$user.email" },
+        role: { $first: "$user.role" },
+        totalAmount: 1,
+        expenseCount: 1,
+        projectAmount: 1,
+        generalAmount: 1,
+        latestExpenseDate: 1,
+        _id: 0
+      }
+    },
+    { $sort: { totalAmount: -1 } }
+  ]);
+}
+
+export async function getExpenseContributorDetail(filters: ContributorFilters) {
+  const match = contributorExpenseMatch(filters);
+  const contributor = await User.findOne({ _id: filters.contributorId, organizationId: filters.organizationId }).lean();
+  const [totals, categorySummary, projectSummary, monthlySummary, expenses] = await Promise.all([
+    Expense.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: "$amount" },
+          expenseCount: { $sum: 1 },
+          projectAmount: { $sum: { $cond: [{ $ne: ["$projectId", null] }, "$amount", 0] } },
+          generalAmount: { $sum: { $cond: [{ $eq: ["$projectId", null] }, "$amount", 0] } },
+          latestExpenseDate: { $max: "$expenseDate" }
+        }
+      }
+    ]),
+    Expense.aggregate([
+      { $match: match },
+      { $group: { _id: "$categoryId", amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+      { $lookup: { from: ExpenseCategory.collection.name, localField: "_id", foreignField: "_id", as: "category" } },
+      { $project: { name: { $ifNull: [{ $first: "$category.name" }, "Uncategorized"] }, amount: 1, count: 1, _id: 0 } },
+      { $sort: { amount: -1 } }
+    ]),
+    Expense.aggregate([
+      { $match: match },
+      { $group: { _id: "$projectId", amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+      { $lookup: { from: Project.collection.name, localField: "_id", foreignField: "_id", as: "project" } },
+      { $project: { name: { $ifNull: [{ $first: "$project.name" }, "General"] }, amount: 1, count: 1, _id: 0 } },
+      { $sort: { amount: -1 } }
+    ]),
+    Expense.aggregate([
+      { $match: match },
+      { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$expenseDate" } }, amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+      { $project: { month: "$_id", amount: 1, count: 1, _id: 0 } },
+      { $sort: { month: 1 } }
+    ]),
+    Expense.aggregate([
+      { $match: match },
+      { $lookup: { from: ExpenseCategory.collection.name, localField: "categoryId", foreignField: "_id", as: "category" } },
+      { $lookup: { from: Project.collection.name, localField: "projectId", foreignField: "_id", as: "project" } },
+      { $project: { expenseDate: 1, description: 1, amount: 1, category: { $first: "$category.name" }, project: { $ifNull: [{ $first: "$project.name" }, "General"] } } },
+      { $sort: { expenseDate: -1 } }
+    ])
+  ]);
+  return {
+    contributor,
+    totals: totals[0] ?? { totalAmount: 0, expenseCount: 0, projectAmount: 0, generalAmount: 0, latestExpenseDate: null },
+    categorySummary,
+    projectSummary,
+    monthlySummary,
+    expenses
+  };
 }
