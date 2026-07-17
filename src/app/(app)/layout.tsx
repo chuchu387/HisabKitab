@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/permissions";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background/80">
       <Sidebar role={session.user.role} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header name={session.user.name ?? ""} email={session.user.email ?? ""} role={session.user.role} />

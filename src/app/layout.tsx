@@ -3,7 +3,7 @@ import { Toaster } from "sonner";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
-  title: "Organization Expense Manager",
+  title: "HisabKitab",
   description: "Multi-tenant accounting and expense management"
 };
 

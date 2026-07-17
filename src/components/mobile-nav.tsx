@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { BrandLogo } from "@/components/brand";
 import { navItems, type Role } from "@/constants";
 import { cn } from "@/lib/utils";
 
@@ -21,20 +22,20 @@ export function MobileNav({ role }: { role: Role }) {
   const visibleItems = navItems.filter((item) => (item.roles as readonly Role[]).includes(role));
   return (
     <>
-      <button type="button" className="rounded-md p-2 hover:bg-muted lg:hidden" onClick={() => setOpen(true)} aria-label="Open navigation">
+      <button type="button" className="rounded-lg border bg-card p-2 shadow-sm hover:bg-muted lg:hidden" onClick={() => setOpen(true)} aria-label="Open navigation">
         <Menu className="h-5 w-5" />
       </button>
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button type="button" className="absolute inset-0 bg-foreground/30 backdrop-blur-sm" aria-label="Close navigation" onClick={() => setOpen(false)} />
-          <div className="relative h-full w-72 border-r bg-card p-3 shadow-xl">
-            <div className="flex h-12 items-center justify-between px-2">
-              <Link href="/dashboard" className="font-semibold" onClick={() => setOpen(false)}>HisabKitab</Link>
-              <button type="button" className="rounded-md p-2 hover:bg-muted" onClick={() => setOpen(false)} aria-label="Close navigation">
+          <div className="relative h-full w-80 max-w-[88vw] border-r bg-card p-4 shadow-xl">
+            <div className="flex h-14 items-center justify-between gap-3">
+              <BrandLogo onClick={() => setOpen(false)} />
+              <button type="button" className="rounded-lg border bg-background p-2 hover:bg-muted" onClick={() => setOpen(false)} aria-label="Close navigation">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <nav className="mt-3 space-y-5">
+            <nav className="mt-5 space-y-5">
               {navGroups.map((group) => {
                 const items = visibleItems.filter((item) => group.hrefs.includes(item.href));
                 if (!items.length) return null;
@@ -44,7 +45,15 @@ export function MobileNav({ role }: { role: Role }) {
                     {items.map((item) => {
                       const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                       return (
-                        <Link key={item.href} href={item.href} onClick={() => setOpen(false)} className={cn("flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground", active && "bg-primary/10 text-primary")}>
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setOpen(false)}
+                          className={cn(
+                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground outline-none transition-all hover:bg-secondary/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+                            active && "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                          )}
+                        >
                           <item.icon className="h-4 w-4" />
                           {item.label}
                         </Link>

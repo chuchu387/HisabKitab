@@ -8,6 +8,7 @@ import { ActionMessage } from "@/components/action-message";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/loading";
 
 const initialState = { ok: false, message: "" };
 
@@ -37,6 +38,7 @@ export function LoginForm() {
       </div>
       <ActionMessage state={state} />
       <Button className="w-full" disabled={pending}>
+        {pending && <Spinner className="h-4 w-4" />}
         {pending ? "Signing in..." : "Login"}
       </Button>
     </form>

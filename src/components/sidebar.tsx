@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { BrandLogo } from "@/components/brand";
 import { navItems } from "@/constants";
 import type { Role } from "@/constants";
 import { cn } from "@/lib/utils";
@@ -18,11 +19,11 @@ export function Sidebar({ role }: { role: Role }) {
   const pathname = usePathname();
   const visibleItems = navItems.filter((item) => (item.roles as readonly Role[]).includes(role));
   return (
-    <aside className="hidden w-64 shrink-0 border-r bg-card lg:block">
-      <div className="flex h-16 items-center border-b px-5">
-        <Link href="/dashboard" className="font-semibold">HisabKitab</Link>
+    <aside className="hidden w-72 shrink-0 border-r bg-card/95 shadow-sm backdrop-blur lg:block">
+      <div className="flex h-20 items-center border-b px-5">
+        <BrandLogo />
       </div>
-      <nav className="space-y-5 p-3">
+      <nav className="space-y-5 p-4">
         {navGroups.map((group) => {
           const items = visibleItems.filter((item) => group.hrefs.includes(item.href));
           if (!items.length) return null;
@@ -32,7 +33,14 @@ export function Sidebar({ role }: { role: Role }) {
               {items.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
-                  <Link key={item.href} href={item.href} className={cn("flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground", active && "bg-primary/10 text-primary")}>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground outline-none transition-all hover:bg-secondary/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+                      active && "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"
+                    )}
+                  >
                     <item.icon className="h-4 w-4" />
                     {item.label}
                   </Link>
