@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useActionState } from "react";
 import { FolderInput } from "lucide-react";
 import { bulkLinkExpensesToProject, deleteExpense, updateExpenseApproval } from "@/actions/expenses";
+import { ActionMessage } from "@/components/action-message";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { Select } from "@/components/ui/select";
 import { formatDate, money } from "@/lib/utils";
+
+const approvalInitialState = { ok: false, message: "" };
 
 export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }: { expenses: any[]; projects: any[]; canApprove?: boolean }) {
   if (!expenses.length) return null;
@@ -83,16 +87,20 @@ export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }:
 }
 
 function ApprovalForm({ id, status }: { id: string; status: string }) {
+  const [state, formAction, pending] = useActionState(updateExpenseApproval, approvalInitialState);
   return (
-    <form action={updateExpenseApproval} className="flex gap-2">
-      <input type="hidden" name="id" value={id} />
-      <Select name="approvalStatus" defaultValue={status} className="h-8 min-w-28 text-xs">
-        <option value="pending">Pending</option>
-        <option value="approved">Approved</option>
-        <option value="rejected">Rejected</option>
-      </Select>
-      <Button size="sm" variant="outline">Save</Button>
-    </form>
+    <div className="space-y-1">
+      <form action={formAction} className="flex gap-2">
+        <input type="hidden" name="id" value={id} />
+        <Select name="approvalStatus" defaultValue={status} className="h-8 min-w-28 text-xs">
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        </Select>
+        <Button type="submit" size="sm" variant="outline" disabled={pending}>{pending ? "Saving..." : "Save"}</Button>
+      </form>
+      <ActionMessage state={state} />
+    </div>
   );
 }
 

@@ -109,18 +109,23 @@ export async function bulkLinkExpensesToProject(formData: FormData) {
   revalidateExpenseAccounting([...previousExpenses.map((expense: any) => expense.projectId), projectId]);
 }
 
-export async function updateExpenseApproval(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
-  await connectToDatabase();
-  const id = String(formData.get("id"));
-  const data = expenseApprovalSchema.parse({ approvalStatus: formData.get("approvalStatus") });
-  const expense = (await Expense.findOneAndUpdate(
-    { _id: id, organizationId },
-    { approvalStatus: data.approvalStatus, approvedBy: data.approvalStatus === "approved" ? session.user.userId : null, approvedAt: data.approvalStatus === "approved" ? new Date() : null },
-    { new: true, runValidators: true }
-  ).lean()) as any;
-  if (!expense) throw new Error("Expense not found");
-  await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Approval Updated", entityType: "Expense", entityId: id, metadata: data });
-  revalidateExpenseAccounting([expense.projectId]);
+export async function updateExpenseApproval(_: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await requireRole(["owner", "admin"]);
+    await connectToDatabase();
+    const id = String(formData.get("id"));
+    const data = expenseApprovalSchema.parse({ approvalStatus: formData.get("approvalStatus") });
+    const expense = (await Expense.findOneAndUpdate(
+      { _id: id, organizationId },
+      { approvalStatus: data.approvalStatus, approvedBy: data.approvalStatus === "approved" ? session.user.userId : null, approvedAt: data.approvalStatus === "approved" ? new Date() : null },
+      { new: true, runValidators: true }
+    ).lean()) as any;
+    if (!expense) throw new Error("Expense not found");
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Approval Updated", entityType: "Expense", entityId: id, metadata: data });
+    revalidateExpenseAccounting([expense.projectId]);
+    return { ok: true, message: "Approval saved" };
+  } catch (error) {
+    return actionError(error);
+  }
 }
