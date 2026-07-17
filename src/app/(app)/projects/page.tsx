@@ -33,7 +33,7 @@ export default async function ProjectsPage({ searchParams }: any) {
         expenseTotal: {
           $sum: {
             $map: {
-              input: { $filter: { input: "$expenses", as: "expense", cond: { $or: [{ $eq: ["$$expense.approvalStatus", "approved"] }, { $eq: [{ $type: "$$expense.approvalStatus" }, "missing"] }] } } },
+              input: { $filter: { input: "$expenses", as: "expense", cond: { $eq: ["$$expense.approvalStatus", "approved"] } } },
               as: "expense",
               in: "$$expense.amount"
             }

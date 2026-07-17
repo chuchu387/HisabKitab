@@ -54,7 +54,7 @@ export default async function ProjectDetailPage({ params }: any) {
           { header: "Category", cell: (expense: any) => expense.categoryId?.name ?? "-" },
           { header: "Description", cell: (expense: any) => expense.description },
           { header: "Amount", cell: (expense: any) => money(expense.amount) },
-          { header: "Status", cell: (expense: any) => expense.approvalStatus ?? "approved" },
+          { header: "Status", cell: (expense: any) => expense.approvalStatus ?? "pending" },
           { header: "Added By", cell: (expense: any) => expense.createdBy?.name ?? "Unknown" },
           { header: "Open", cell: (expense: any) => <Button asChild variant="outline" size="sm"><Link href={`/expenses/${expense._id}`}>View</Link></Button> }
         ]} />

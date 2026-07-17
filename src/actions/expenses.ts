@@ -38,6 +38,10 @@ export async function createExpense(_: ActionState, formData: FormData): Promise
     });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Created", entityType: "Expense", entityId: expense._id.toString(), metadata: { amount: data.amount } });
     revalidatePath("/expenses");
+    revalidatePath("/dashboard");
+    revalidatePath("/reports");
+    revalidatePath("/projects");
+    if (data.projectId) revalidatePath(`/projects/${data.projectId}`);
     return { ok: true, message: "Expense created" };
   } catch (error) {
     return actionError(error);
@@ -57,6 +61,10 @@ export async function updateExpense(id: string, _: ActionState, formData: FormDa
     if (!updated) throw new Error("Expense not found or not allowed");
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Updated", entityType: "Expense", entityId: id, metadata: { amount: data.amount } });
     revalidatePath("/expenses");
+    revalidatePath("/dashboard");
+    revalidatePath("/reports");
+    revalidatePath("/projects");
+    if (data.projectId) revalidatePath(`/projects/${data.projectId}`);
     return { ok: true, message: "Expense updated" };
   } catch (error) {
     return actionError(error);
@@ -73,6 +81,10 @@ export async function deleteExpense(formData: FormData) {
   if (expense?.receiptImageId) await deleteReceipt(expense.receiptImageId.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Deleted", entityType: "Expense", entityId: id });
   revalidatePath("/expenses");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
+  revalidatePath("/projects");
+  if (expense.projectId) revalidatePath(`/projects/${expense.projectId}`);
 }
 
 export async function bulkLinkExpensesToProject(formData: FormData) {
@@ -96,6 +108,9 @@ export async function bulkLinkExpensesToProject(formData: FormData) {
     metadata: { expenseIds: ids, projectId: projectId || null, count: result.modifiedCount }
   });
   revalidatePath("/expenses");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
+  revalidatePath("/projects");
   if (projectId) revalidatePath(`/projects/${projectId}`);
 }
 
@@ -113,4 +128,6 @@ export async function updateExpenseApproval(formData: FormData) {
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Approval Updated", entityType: "Expense", entityId: id, metadata: data });
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
+  revalidatePath("/reports");
+  revalidatePath("/projects");
 }

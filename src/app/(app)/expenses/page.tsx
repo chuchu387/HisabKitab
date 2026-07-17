@@ -46,10 +46,10 @@ export default async function ExpensesPage({ searchParams }: any) {
   const users = session.user.role === "staff" ? [] : await User.find({ organizationId, active: true }).sort({ name: 1 }).lean();
   const filteredTotal = expenses.reduce((sum: number, expense: any) => sum + (expense.amount ?? 0), 0);
   const approvedTotal = expenses
-    .filter((expense: any) => !expense.approvalStatus || expense.approvalStatus === "approved")
+    .filter((expense: any) => expense.approvalStatus === "approved")
     .reduce((sum: number, expense: any) => sum + (expense.amount ?? 0), 0);
   const pendingTotal = expenses
-    .filter((expense: any) => expense.approvalStatus === "pending")
+    .filter((expense: any) => !expense.approvalStatus || expense.approvalStatus === "pending")
     .reduce((sum: number, expense: any) => sum + (expense.amount ?? 0), 0);
   return (
     <PageShell title="Expenses" action={<Button asChild><Link href="/expenses/new"><Plus className="h-4 w-4" />Create</Link></Button>}>

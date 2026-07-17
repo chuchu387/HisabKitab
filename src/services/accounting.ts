@@ -38,7 +38,11 @@ function expenseMatch(filters: ReportFilters) {
 }
 
 function approvedExpenseCondition() {
-  return { $or: [{ approvalStatus: "approved" }, { approvalStatus: { $exists: false } }] };
+  return { approvalStatus: "approved" };
+}
+
+function pendingExpenseCondition() {
+  return { $or: [{ approvalStatus: "pending" }, { approvalStatus: { $exists: false } }] };
 }
 
 function effectiveReceived(projectReceived: number, paymentTotal: number) {
@@ -63,7 +67,7 @@ export async function getAccountingSummary(organizationId: string) {
     GeneralFund.aggregate([{ $match: { organizationId: oid } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
     Expense.aggregate([{ $match: { organizationId: oid, projectId: { $ne: null }, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Expense.aggregate([{ $match: { organizationId: oid, projectId: null, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
-    Expense.countDocuments({ organizationId, approvalStatus: "pending" }),
+    Expense.countDocuments({ organizationId, ...pendingExpenseCondition() }),
     Project.countDocuments({ organizationId, status: "active" }),
     Project.countDocuments({ organizationId })
   ]);
@@ -102,7 +106,7 @@ export async function getProjectFinancials(organizationId: string, projectId: st
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]),
     Expense.aggregate([
-      { $match: { organizationId: new Types.ObjectId(organizationId), projectId: new Types.ObjectId(projectId), approvalStatus: "pending" } },
+      { $match: { organizationId: new Types.ObjectId(organizationId), projectId: new Types.ObjectId(projectId), ...pendingExpenseCondition() } },
       { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }
     ])
   ]);
@@ -146,7 +150,7 @@ export async function getDashboardCharts(organizationId: string) {
       { $match: { organizationId: oid } },
       { $lookup: { from: ProjectPayment.collection.name, localField: "_id", foreignField: "projectId", as: "payments" } },
       { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
-      { $project: { name: 1, budget: "$totalBudget", received: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] }, expense: { $sum: { $map: { input: { $filter: { input: "$expenses", as: "expense", cond: { $or: [{ $eq: ["$$expense.approvalStatus", "approved"] }, { $eq: [{ $type: "$$expense.approvalStatus" }, "missing"] }] } } }, as: "expense", in: "$$expense.amount" } } }, _id: 0 } },
+      { $project: { name: 1, budget: "$totalBudget", received: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] }, expense: { $sum: { $map: { input: { $filter: { input: "$expenses", as: "expense", cond: { $eq: ["$$expense.approvalStatus", "approved"] } } }, as: "expense", in: "$$expense.amount" } } }, _id: 0 } },
       { $limit: 10 }
     ])
   ]);
@@ -188,7 +192,7 @@ export async function getReports(filters: ReportFilters) {
     GeneralFund.countDocuments({ organizationId: filters.organizationId }),
     Expense.aggregate([{ $match: expenseProjectMatch }, { $group: { _id: "$projectId", total: { $sum: "$amount" } } }]),
     Expense.aggregate([{ $match: { ...match, projectId: null } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
-    Expense.countDocuments({ organizationId: filters.organizationId, approvalStatus: "pending" }),
+    Expense.countDocuments({ organizationId: filters.organizationId, ...pendingExpenseCondition() }),
     Expense.aggregate([
       { $match: match },
       { $lookup: { from: ExpenseCategory.collection.name, localField: "categoryId", foreignField: "_id", as: "category" } },
