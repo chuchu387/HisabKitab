@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
@@ -46,6 +47,22 @@ export default async function ProjectDetailPage({ params }: any) {
       <p className="text-sm text-muted-foreground">
         {financials.project.projectType === "internal" ? "Internal project funded from company cash" : "Client project funded by project receipts"} · Created by {(financials.project.createdBy as any)?.name ?? "Unknown"}
       </p>
+      <Card>
+        <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">
+          <div>
+            <h2 className="text-base font-semibold">Project Cash Breakdown</h2>
+            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+              <div><p className="text-muted-foreground">Received</p><p className="font-semibold text-primary">+ {money(financials.received)}</p></div>
+              <div><p className="text-muted-foreground">Approved expenses</p><p className="font-semibold text-destructive">- {money(financials.expense)}</p></div>
+              <div><p className="text-muted-foreground">Pending expenses</p><p className="font-semibold">{money(financials.pendingExpenseAmount)}</p></div>
+            </div>
+          </div>
+          <div className="rounded-md border bg-muted/40 p-4 text-sm">
+            <p className="text-muted-foreground">{money(financials.received)} - {money(financials.expense)}</p>
+            <p className="mt-1 text-2xl font-semibold">{money(financials.cashAfterExpenses)}</p>
+          </div>
+        </CardContent>
+      </Card>
       <section className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold">Project Expenses</h2>

@@ -37,6 +37,11 @@ export default async function ExpensesPage({ searchParams }: any) {
   } else if (params?.projectId) {
     query.projectId = params.projectId;
   }
+  if (params?.expenseType === "project") query.projectId = { $ne: null };
+  if (params?.expenseType === "general") query.projectId = null;
+  if (params?.approvalStatus === "approved") query.approvalStatus = "approved";
+  if (params?.approvalStatus === "pending") query.$or = [{ approvalStatus: "pending" }, { approvalStatus: { $exists: false } }];
+  if (params?.approvalStatus === "rejected") query.approvalStatus = "rejected";
   if (params?.categoryId) query.categoryId = params.categoryId;
   const [expenses, projects, categories] = await Promise.all([
     Expense.find(query).populate("categoryId projectId createdBy").sort({ expenseDate: -1 }).lean(),
@@ -74,6 +79,13 @@ export default async function ExpensesPage({ searchParams }: any) {
         )}
         <Button variant="outline">Filter</Button>
       </form>
+      <div className="flex flex-wrap gap-2">
+        <QuickFilter href="/expenses" active={!params?.approvalStatus && !params?.expenseType && !params?.projectId}>All</QuickFilter>
+        <QuickFilter href="/expenses?approvalStatus=pending" active={params?.approvalStatus === "pending"}>Pending</QuickFilter>
+        <QuickFilter href="/expenses?approvalStatus=approved" active={params?.approvalStatus === "approved"}>Approved</QuickFilter>
+        <QuickFilter href="/expenses?expenseType=general" active={params?.expenseType === "general" || params?.projectId === "general"}>General</QuickFilter>
+        <QuickFilter href="/expenses?expenseType=project" active={params?.expenseType === "project"}>Project</QuickFilter>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Filtered Expenses" value={filteredTotal} currency />
         <StatCard label="Approved Total" value={approvedTotal} currency />
@@ -86,5 +98,13 @@ export default async function ExpensesPage({ searchParams }: any) {
         <EmptyState title="No expenses" description="Create an expense or adjust filters." />
       )}
     </PageShell>
+  );
+}
+
+function QuickFilter({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Button asChild variant={active ? "secondary" : "outline"} size="sm">
+      <Link href={href}>{children}</Link>
+    </Button>
   );
 }

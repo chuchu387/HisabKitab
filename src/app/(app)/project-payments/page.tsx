@@ -27,6 +27,19 @@ export default async function ProjectPaymentsPage() {
   const totalReceived = payments.reduce((sum: number, payment: any) => sum + (payment.amount ?? 0), 0);
   const clientProjectCount = projects.filter((project: any) => (project.projectType ?? "client") === "client").length;
   const internalProjectCount = projects.filter((project: any) => project.projectType === "internal").length;
+  const receivedByProject = new Map<string, number>();
+  for (const payment of payments as any[]) {
+    const projectId = payment.projectId?._id?.toString?.() ?? payment.projectId?.toString?.();
+    if (projectId) receivedByProject.set(projectId, (receivedByProject.get(projectId) ?? 0) + (payment.amount ?? 0));
+  }
+  const projectSummaries = projects.map((project: any) => {
+    const received = (project.receivedAmount ?? 0) > 0 ? project.receivedAmount : (receivedByProject.get(project._id.toString()) ?? 0);
+    return {
+      ...project,
+      received,
+      due: Math.max((project.totalBudget ?? 0) - received, 0)
+    };
+  });
   return (
     <PageShell title="Project Payments" description="Track client payments by project. These records automatically update each project's received total.">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -36,6 +49,18 @@ export default async function ProjectPaymentsPage() {
         <StatCard label="Internal Projects" value={internalProjectCount} />
       </div>
       <ProjectPaymentForm projects={JSON.parse(JSON.stringify(projects))} />
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Project Payment Summary</h2>
+        <DataTable data={projectSummaries} columns={[
+          { header: "Project", cell: (p: any) => `${p.name} (${p.code})` },
+          { header: "Type", cell: (p: any) => p.projectType === "internal" ? "Internal" : "Client" },
+          { header: "Budget", cell: (p: any) => money(p.totalBudget ?? 0) },
+          { header: "Received", cell: (p: any) => money(p.received ?? 0) },
+          { header: "Due", cell: (p: any) => money(p.due ?? 0) }
+        ]} />
+      </section>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Payment History</h2>
       <DataTable data={payments} columns={[
         { header: "Date", cell: (p: any) => formatDate(p.paymentDate) },
         { header: "Project", cell: (p: any) => p.projectId?.name ?? "-" },
@@ -45,6 +70,7 @@ export default async function ProjectPaymentsPage() {
         { header: "Receipt", cell: (p: any) => p.receiptImageId ? <Link className="text-primary hover:underline" href={`/api/receipts/${p.receiptImageId}`} target="_blank">View</Link> : "-" },
         { header: "Actions", cell: (p: any) => <form action={deleteProjectPayment}><input type="hidden" name="id" value={p._id.toString()} /><ConfirmButton /></form> }
       ]} />
+      </section>
     </PageShell>
   );
 }

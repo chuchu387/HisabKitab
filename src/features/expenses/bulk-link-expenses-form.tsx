@@ -26,6 +26,7 @@ export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }:
     <div className="space-y-3">
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium">{selectedIds.length} selected</p>
           <div className="space-y-1">
             <form id="bulk-expense-link-form" action={moveAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
               {selectedIds.map((id) => <input key={id} type="hidden" name="expenseIds" value={id} />)}
@@ -37,7 +38,7 @@ export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }:
                   </option>
                 ))}
               </Select>
-              <Button type="submit" variant="secondary" disabled={movePending}>
+              <Button type="submit" variant="secondary" disabled={movePending || selectedIds.length === 0}>
                 <FolderInput className="h-4 w-4" />
                 {movePending ? "Moving..." : "Move Selected"}
               </Button>
@@ -128,7 +129,7 @@ function BulkApprovalForm({ selectedIds }: { selectedIds: string[] }) {
           <option value="pending">Pending</option>
           <option value="rejected">Rejected</option>
         </Select>
-        <Button type="submit" variant="outline" disabled={pending}>
+        <Button type="submit" variant="outline" disabled={pending || selectedIds.length === 0}>
           <CheckCircle2 className="h-4 w-4" />
           {pending ? "Saving..." : "Update Selected Approval"}
         </Button>

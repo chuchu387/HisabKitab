@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
@@ -29,6 +30,7 @@ export default async function ReportsPage({ searchParams }: any) {
     ExpenseCategory.find({ organizationId }).sort({ name: 1 }).select("name").lean()
   ]);
   const qs = new URLSearchParams(Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => typeof v === "string")) as Record<string, string>);
+  const periodLabel = filters.from || filters.to ? `${filters.from ?? "Start"} to ${filters.to ?? "Today"}` : "All time";
   return (
     <PageShell title="Reports" description="Summary, project, and expense reports with CSV/PDF exports.">
       <form className="flex flex-wrap gap-2">
@@ -60,6 +62,25 @@ export default async function ReportsPage({ searchParams }: any) {
         <StatCard label="Company Cash Balance" value={(reports.summary as any).organizationCashBalance ?? 0} currency />
         <StatCard label="Pending Approvals" value={(reports.summary as any).pendingExpenses ?? 0} />
       </div>
+      <Card>
+        <CardContent className="grid gap-4 p-5 lg:grid-cols-3">
+          <ReportSummaryBlock title="Money In" rows={[
+            ["Project payments received", (reports.summary as any).totalReceived ?? 0],
+            ["Owner/other funds", (reports.summary as any).generalBudget ?? 0]
+          ]} />
+          <ReportSummaryBlock title="Money Out" rows={[
+            ["Client project expenses", (reports.summary as any).clientProjectExpenses ?? 0],
+            ["Internal project expenses", (reports.summary as any).internalProjectExpenses ?? 0],
+            ["General expenses", reports.summary.generalExpenses]
+          ]} />
+          <div className="rounded-md border bg-muted/40 p-4">
+            <p className="text-sm text-muted-foreground">Report period</p>
+            <p className="font-semibold">{periodLabel}</p>
+            <p className="mt-4 text-sm text-muted-foreground">Net company cash</p>
+            <p className="text-2xl font-semibold">{money((reports.summary as any).organizationCashBalance ?? 0)}</p>
+          </div>
+        </CardContent>
+      </Card>
       <ReportVisuals
         categorySummary={JSON.parse(JSON.stringify(reports.categorySummary))}
         monthlySummary={JSON.parse(JSON.stringify(reports.monthlySummary))}
@@ -88,5 +109,21 @@ export default async function ReportsPage({ searchParams }: any) {
         ]} />
       </section>
     </PageShell>
+  );
+}
+
+function ReportSummaryBlock({ title, rows }: { title: string; rows: Array<[string, number]> }) {
+  return (
+    <div className="rounded-md border p-4">
+      <h2 className="font-semibold">{title}</h2>
+      <div className="mt-3 space-y-2 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between gap-3">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="font-medium">{money(value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

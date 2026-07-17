@@ -18,21 +18,31 @@ export default async function DashboardPage() {
   const charts = session.user.organizationId ? await getDashboardCharts(session.user.organizationId) : { byCategory: [], byProject: [], monthly: [], budgetVsExpense: [] };
   return (
     <PageShell title="Dashboard" description="Live accounting totals and expense trends.">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="p-5">
+          <p className="text-sm font-medium text-muted-foreground">Company Cash Balance</p>
+          <p className="mt-1 text-3xl font-semibold text-primary">{money((summary as any).organizationCashBalance ?? 0)}</p>
+        </CardContent>
+      </Card>
+      <DashboardSection title="Money In">
+        <StatCard label="Project Payments Received" value={(summary as any).totalReceived ?? 0} currency />
+        <StatCard label="Owner/Other Funds" value={(summary as any).generalBudget ?? 0} currency />
+        <StatCard label="Total Funding" value={(summary as any).totalFunding ?? 0} currency />
+      </DashboardSection>
+      <DashboardSection title="Money Out">
+        <StatCard label="Client Project Expenses" value={(summary as any).clientProjectExpenses ?? 0} currency />
+        <StatCard label="Internal Project Expenses" value={(summary as any).internalProjectExpenses ?? 0} currency />
+        <StatCard label="General Expenses" value={summary.generalExpenses} currency />
+        <StatCard label="Total Expenses" value={(summary as any).totalExpenses ?? 0} currency />
+      </DashboardSection>
+      <DashboardSection title="Projects">
         {session.user.role === "super_admin" && <StatCard label="Total Organizations" value={organizationCount} />}
         <StatCard label="Total Projects" value={summary.totalProjects} />
         <StatCard label="Active Projects" value={summary.activeProjects} />
         <StatCard label="Total Budget" value={summary.totalBudget} currency />
-        <StatCard label="Total Project Received" value={(summary as any).totalReceived ?? 0} currency />
         <StatCard label="Due" value={(summary as any).dueAmount ?? 0} currency />
-        <StatCard label="Owner/Other Funds" value={(summary as any).generalBudget ?? 0} currency />
-        <StatCard label="Client Project Expenses" value={(summary as any).clientProjectExpenses ?? 0} currency />
-        <StatCard label="Internal Project Expenses" value={(summary as any).internalProjectExpenses ?? 0} currency />
-        <StatCard label="All Project Expenses" value={summary.projectExpenses} currency />
-        <StatCard label="General Expenses" value={summary.generalExpenses} currency />
         <StatCard label="Company Project Cash Balance" value={summary.remainingBudget} currency />
-        <StatCard label="Company Cash Balance" value={(summary as any).organizationCashBalance ?? 0} currency />
-      </div>
+      </DashboardSection>
       <div className="grid gap-3 md:grid-cols-3">
         {((summary as any).pendingExpenses ?? 0) > 0 && <AlertCard text={`${(summary as any).pendingExpenses} expenses pending approval`} />}
         {((summary as any).projectPaidBalance ?? 0) < 0 && <AlertCard text="Project and internal expenses are higher than project receipts" />}
@@ -51,6 +61,15 @@ export default async function DashboardPage() {
 
 function AlertCard({ text }: { text: string }) {
   return <Card className="border-destructive/40 bg-destructive/5"><CardContent className="p-4 text-sm font-medium text-destructive">{text}</CardContent></Card>;
+}
+
+function DashboardSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{children}</div>
+    </section>
+  );
 }
 
 function CompanyCashBreakdown({ summary }: { summary: any }) {
