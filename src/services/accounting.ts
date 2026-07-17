@@ -49,6 +49,10 @@ function effectiveReceived(projectReceived: number, paymentTotal: number) {
   return projectReceived > 0 ? projectReceived : paymentTotal;
 }
 
+function currency(value: number) {
+  return Number(value.toFixed(2));
+}
+
 export async function getAccountingSummary(organizationId: string) {
   const oid = new Types.ObjectId(organizationId);
   const [organization, projectTotals, fundAgg, projectExpenseAgg, projectExpenseByType, generalExpenseAgg, pendingExpenses, activeProjects, totalProjects] = await Promise.all([
@@ -77,33 +81,33 @@ export async function getAccountingSummary(organizationId: string) {
     Project.countDocuments({ organizationId, status: "active" }),
     Project.countDocuments({ organizationId })
   ]);
-  const totalBudget = projectTotals[0]?.totalBudget ?? 0;
-  const totalReceived = projectTotals[0]?.totalReceived ?? 0;
-  const projectExpenses = projectExpenseAgg[0]?.total ?? 0;
-  const clientProjectExpenses = projectExpenseByType.find((row: any) => row._id === "client")?.total ?? 0;
-  const internalProjectExpenses = projectExpenseByType.find((row: any) => row._id === "internal")?.total ?? 0;
-  const generalExpenses = generalExpenseAgg[0]?.total ?? 0;
-  const generalBudget = fundAgg[0]?.count ? fundAgg[0].total : ((organization as any)?.generalBudget ?? 0);
+  const totalBudget = currency(projectTotals[0]?.totalBudget ?? 0);
+  const totalReceived = currency(projectTotals[0]?.totalReceived ?? 0);
+  const projectExpenses = currency(projectExpenseAgg[0]?.total ?? 0);
+  const clientProjectExpenses = currency(projectExpenseByType.find((row: any) => row._id === "client")?.total ?? 0);
+  const internalProjectExpenses = currency(projectExpenseByType.find((row: any) => row._id === "internal")?.total ?? 0);
+  const generalExpenses = currency(generalExpenseAgg[0]?.total ?? 0);
+  const generalBudget = currency(fundAgg[0]?.count ? fundAgg[0].total : ((organization as any)?.generalBudget ?? 0));
   return {
     totalProjects,
     activeProjects,
     totalBudget,
     totalReceived,
-    totalFunding: totalReceived + generalBudget,
+    totalFunding: currency(totalReceived + generalBudget),
     generalBudget,
     projectExpenses,
     clientProjectExpenses,
     internalProjectExpenses,
     generalExpenses,
-    totalExpenses: projectExpenses + generalExpenses,
+    totalExpenses: currency(projectExpenses + generalExpenses),
     pendingExpenses,
-    dueAmount: totalBudget - totalReceived,
-    remainingBudget: totalReceived - projectExpenses,
-    projectPaidBalance: totalReceived - projectExpenses,
-    generalBudgetBalance: generalBudget - generalExpenses,
-    receivableRemaining: totalBudget - totalReceived,
-    cashAfterExpenses: totalReceived - projectExpenses,
-    organizationCashBalance: totalReceived + generalBudget - projectExpenses - generalExpenses
+    dueAmount: currency(totalBudget - totalReceived),
+    remainingBudget: currency(totalReceived - projectExpenses),
+    projectPaidBalance: currency(totalReceived - projectExpenses),
+    generalBudgetBalance: currency(generalBudget - generalExpenses),
+    receivableRemaining: currency(totalBudget - totalReceived),
+    cashAfterExpenses: currency(totalReceived - projectExpenses),
+    organizationCashBalance: currency(totalReceived + generalBudget - projectExpenses - generalExpenses)
   };
 }
 
@@ -121,16 +125,16 @@ export async function getProjectFinancials(organizationId: string, projectId: st
     ])
   ]);
   const safeProject = project as any;
-  const expense = agg[0]?.total ?? 0;
-  const received = effectiveReceived(safeProject?.receivedAmount ?? 0, paymentAgg[0]?.total ?? 0);
+  const expense = currency(agg[0]?.total ?? 0);
+  const received = currency(effectiveReceived(safeProject?.receivedAmount ?? 0, paymentAgg[0]?.total ?? 0));
   return {
     project: safeProject,
     expense,
     received,
-    remaining: (safeProject?.totalBudget ?? 0) - expense,
-    receivableRemaining: (safeProject?.totalBudget ?? 0) - received,
-    cashAfterExpenses: received - expense,
-    pendingExpenseAmount: pendingAgg[0]?.total ?? 0,
+    remaining: currency((safeProject?.totalBudget ?? 0) - expense),
+    receivableRemaining: currency((safeProject?.totalBudget ?? 0) - received),
+    cashAfterExpenses: currency(received - expense),
+    pendingExpenseAmount: currency(pendingAgg[0]?.total ?? 0),
     pendingExpenseCount: pendingAgg[0]?.count ?? 0
   };
 }
@@ -235,10 +239,10 @@ export async function getReports(filters: ReportFilters) {
   const paymentByProject = new Map(paymentAgg.map((row: any) => [String(row._id), row.total]));
   const expenseByProject = new Map(projectExpenseAgg.map((row: any) => [String(row._id), row.total]));
   const projects = projectDocs.map((project: any) => {
-    const budget = project.totalBudget ?? 0;
-    const paymentTotal = range ? (paymentByProject.get(String(project._id)) ?? 0) : 0;
-    const received = range ? paymentTotal : effectiveReceived(project.receivedAmount ?? 0, paymentByProject.get(String(project._id)) ?? 0);
-    const expense = expenseByProject.get(String(project._id)) ?? 0;
+    const budget = currency(project.totalBudget ?? 0);
+    const paymentTotal = range ? currency(paymentByProject.get(String(project._id)) ?? 0) : 0;
+    const received = currency(range ? paymentTotal : effectiveReceived(project.receivedAmount ?? 0, paymentByProject.get(String(project._id)) ?? 0));
+    const expense = currency(expenseByProject.get(String(project._id)) ?? 0);
     return {
       _id: project._id,
       name: project.name,
@@ -247,39 +251,39 @@ export async function getReports(filters: ReportFilters) {
       budget,
       received,
       expense,
-      remaining: budget - expense,
-      receivableRemaining: budget - received,
-      cashAfterExpenses: received - expense
+      remaining: currency(budget - expense),
+      receivableRemaining: currency(budget - received),
+      cashAfterExpenses: currency(received - expense)
     };
   });
 
-  const totalBudget = projects.reduce((sum: number, project: any) => sum + project.budget, 0);
-  const totalReceived = projects.reduce((sum: number, project: any) => sum + project.received, 0);
-  const projectExpenses = projects.reduce((sum: number, project: any) => sum + project.expense, 0);
-  const clientProjectExpenses = projects.filter((project: any) => project.projectType !== "internal").reduce((sum: number, project: any) => sum + project.expense, 0);
-  const internalProjectExpenses = projects.filter((project: any) => project.projectType === "internal").reduce((sum: number, project: any) => sum + project.expense, 0);
-  const generalExpenses = filters.projectId ? 0 : (generalExpenseAgg[0]?.total ?? 0);
-  const generalBudget = filters.projectId ? 0 : (totalFundDocs === 0 && !range ? ((organization as any)?.generalBudget ?? 0) : (fundAgg[0]?.total ?? 0));
+  const totalBudget = currency(projects.reduce((sum: number, project: any) => sum + project.budget, 0));
+  const totalReceived = currency(projects.reduce((sum: number, project: any) => sum + project.received, 0));
+  const projectExpenses = currency(projects.reduce((sum: number, project: any) => sum + project.expense, 0));
+  const clientProjectExpenses = currency(projects.filter((project: any) => project.projectType !== "internal").reduce((sum: number, project: any) => sum + project.expense, 0));
+  const internalProjectExpenses = currency(projects.filter((project: any) => project.projectType === "internal").reduce((sum: number, project: any) => sum + project.expense, 0));
+  const generalExpenses = currency(filters.projectId ? 0 : (generalExpenseAgg[0]?.total ?? 0));
+  const generalBudget = currency(filters.projectId ? 0 : (totalFundDocs === 0 && !range ? ((organization as any)?.generalBudget ?? 0) : (fundAgg[0]?.total ?? 0)));
   const summary = {
     totalProjects: projects.length,
     activeProjects: projectDocs.filter((project: any) => project.status === "active").length,
     totalBudget,
     totalReceived,
-    totalFunding: totalReceived + generalBudget,
+    totalFunding: currency(totalReceived + generalBudget),
     generalBudget,
     projectExpenses,
     clientProjectExpenses,
     internalProjectExpenses,
     generalExpenses,
-    totalExpenses: projectExpenses + generalExpenses,
+    totalExpenses: currency(projectExpenses + generalExpenses),
     pendingExpenses,
-    dueAmount: totalBudget - totalReceived,
-    remainingBudget: totalReceived - projectExpenses,
-    projectPaidBalance: totalReceived - projectExpenses,
-    generalBudgetBalance: generalBudget - generalExpenses,
-    receivableRemaining: totalBudget - totalReceived,
-    cashAfterExpenses: totalReceived - projectExpenses,
-    organizationCashBalance: totalReceived + generalBudget - projectExpenses - generalExpenses
+    dueAmount: currency(totalBudget - totalReceived),
+    remainingBudget: currency(totalReceived - projectExpenses),
+    projectPaidBalance: currency(totalReceived - projectExpenses),
+    generalBudgetBalance: currency(generalBudget - generalExpenses),
+    receivableRemaining: currency(totalBudget - totalReceived),
+    cashAfterExpenses: currency(totalReceived - projectExpenses),
+    organizationCashBalance: currency(totalReceived + generalBudget - projectExpenses - generalExpenses)
   };
   return { summary, projects, expenses, categorySummary, monthlySummary, expenseTypeSummary };
 }
