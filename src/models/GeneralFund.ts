@@ -13,5 +13,6 @@ const generalFundSchema = new Schema(
 );
 
 generalFundSchema.index({ organizationId: 1, fundDate: -1 });
+generalFundSchema.index({ organizationId: 1, createdBy: 1, fundDate: -1 });
 export type GeneralFundDocument = InferSchemaType<typeof generalFundSchema> & { _id: string };
 export const GeneralFund = (models.GeneralFund || model("GeneralFund", generalFundSchema)) as Model<any>;

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { Types } from "mongoose";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,13 +23,14 @@ export default async function ExpensesPage({ searchParams }: any) {
   const { organizationId, session } = await requireTenant();
   await connectToDatabase();
   const params = await searchParams;
-  const query: any = { organizationId };
+  const organizationObjectId = new Types.ObjectId(organizationId);
+  const query: any = { organizationId: organizationObjectId };
   const q = params?.q ?? "";
   if (q) query.description = new RegExp(q, "i");
   if (session.user.role === "staff") {
-    query.createdBy = session.user.userId;
+    query.createdBy = new Types.ObjectId(session.user.userId);
   } else if (params?.submittedBy) {
-    query.createdBy = params.submittedBy;
+    query.createdBy = new Types.ObjectId(params.submittedBy);
   }
   if (params?.from || params?.to) {
     query.expenseDate = {};
@@ -38,28 +40,39 @@ export default async function ExpensesPage({ searchParams }: any) {
   if (params?.projectId === "general") {
     query.projectId = null;
   } else if (params?.projectId) {
-    query.projectId = params.projectId;
+    query.projectId = new Types.ObjectId(params.projectId);
   }
   if (params?.expenseType === "project") query.projectId = { $ne: null };
   if (params?.expenseType === "general") query.projectId = null;
   if (params?.approvalStatus === "approved") query.approvalStatus = "approved";
   if (params?.approvalStatus === "pending") query.$or = [{ approvalStatus: "pending" }, { approvalStatus: { $exists: false } }];
   if (params?.approvalStatus === "rejected") query.approvalStatus = "rejected";
-  if (params?.categoryId) query.categoryId = params.categoryId;
-  const [expenses, projects, categories, pendingInbox] = await Promise.all([
-    Expense.find(query).populate("categoryId projectId createdBy").sort({ expenseDate: -1 }).lean(),
-    Project.find({ organizationId }).sort({ name: 1 }).lean(),
-    ExpenseCategory.find({ organizationId }).sort({ name: 1 }).lean(),
+  if (params?.categoryId) query.categoryId = new Types.ObjectId(params.categoryId);
+  const pageSize = parsePageSize(params?.pageSize);
+  const page = parsePage(params?.page);
+  const skip = (page - 1) * pageSize;
+  const [expenses, totalCount, totals, projects, categories, pendingInbox] = await Promise.all([
+    Expense.find(query).populate("categoryId projectId createdBy").sort({ expenseDate: -1 }).skip(skip).limit(pageSize).lean(),
+    Expense.countDocuments(query),
+    Expense.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: null,
+          filteredTotal: { $sum: "$amount" },
+          approvedTotal: { $sum: { $cond: [{ $eq: ["$approvalStatus", "approved"] }, "$amount", 0] } },
+          pendingTotal: { $sum: { $cond: [{ $eq: [{ $ifNull: ["$approvalStatus", "pending"] }, "pending"] }, "$amount", 0] } }
+        }
+      }
+    ]),
+    Project.find({ organizationId }).sort({ name: 1 }).select("name code").lean(),
+    ExpenseCategory.find({ organizationId }).sort({ name: 1 }).select("name").lean(),
     session.user.role === "staff" ? [] : Expense.find({ organizationId, $or: [{ approvalStatus: "pending" }, { approvalStatus: { $exists: false } }] }).populate("categoryId projectId createdBy").sort({ expenseDate: -1 }).limit(5).lean()
   ]);
-  const users = session.user.role === "staff" ? [] : await User.find({ organizationId, active: true }).sort({ name: 1 }).lean();
-  const filteredTotal = expenses.reduce((sum: number, expense: any) => sum + (expense.amount ?? 0), 0);
-  const approvedTotal = expenses
-    .filter((expense: any) => expense.approvalStatus === "approved")
-    .reduce((sum: number, expense: any) => sum + (expense.amount ?? 0), 0);
-  const pendingTotal = expenses
-    .filter((expense: any) => !expense.approvalStatus || expense.approvalStatus === "pending")
-    .reduce((sum: number, expense: any) => sum + (expense.amount ?? 0), 0);
+  const users = session.user.role === "staff" ? [] : await User.find({ organizationId, active: true }).sort({ name: 1 }).select("name").lean();
+  const filteredTotal = totals[0]?.filteredTotal ?? 0;
+  const approvedTotal = totals[0]?.approvedTotal ?? 0;
+  const pendingTotal = totals[0]?.pendingTotal ?? 0;
   return (
     <PageShell title="Expenses" action={<Button asChild><Link href="/expenses/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
       <form className="filter-bar">
@@ -94,7 +107,7 @@ export default async function ExpensesPage({ searchParams }: any) {
         <StatCard label="Filtered Expenses" value={filteredTotal} currency />
         <StatCard label="Approved Total" value={approvedTotal} currency />
         <StatCard label="Pending Total" value={pendingTotal} currency />
-        <StatCard label="Expense Count" value={expenses.length} />
+        <StatCard label="Expense Count" value={totalCount} />
       </div>
       {session.user.role !== "staff" && pendingInbox.length > 0 && (
         <Card className="border-accent/30 bg-accent/5">
@@ -124,12 +137,22 @@ export default async function ExpensesPage({ searchParams }: any) {
         </Card>
       )}
       {expenses.length ? (
-        <BulkLinkExpensesForm expenses={JSON.parse(JSON.stringify(expenses))} projects={JSON.parse(JSON.stringify(projects))} canApprove={["owner", "admin"].includes(session.user.role)} />
+        <BulkLinkExpensesForm expenses={JSON.parse(JSON.stringify(expenses))} projects={JSON.parse(JSON.stringify(projects))} canApprove={["owner", "admin"].includes(session.user.role)} pagination={{ total: totalCount, page, pageSize, searchParams: params }} />
       ) : (
         <EmptyState title="No expenses" description="Create an expense or adjust filters." />
       )}
     </PageShell>
   );
+}
+
+function parsePage(value: unknown) {
+  const parsed = Number.parseInt(typeof value === "string" ? value : "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function parsePageSize(value: unknown) {
+  const parsed = Number.parseInt(typeof value === "string" ? value : "", 10);
+  return [10, 25, 50, 100].includes(parsed) ? parsed : 10;
 }
 
 function QuickFilter({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {

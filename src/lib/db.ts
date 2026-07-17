@@ -28,7 +28,11 @@ export async function connectToDatabase() {
   }
   if (global.mongooseCache?.conn) return global.mongooseCache.conn;
   global.mongooseCache!.promise ??= mongoose.connect(withDefaultDatabase(MONGODB_URI), {
-    bufferCommands: false
+    bufferCommands: false,
+    maxPoolSize: 10,
+    minPoolSize: 0,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 30000
   });
   global.mongooseCache!.conn = await global.mongooseCache!.promise;
   return global.mongooseCache!.conn;

@@ -12,7 +12,8 @@
     "create-super-admin": "tsx scripts/create-super-admin.ts",
     "clean-db:keep-super-admin": "tsx scripts/clean-database-except-super-admin.ts",
     "check-super-admin": "tsx scripts/check-super-admin.ts",
-    "verify-login": "tsx scripts/verify-login.ts"
+    "verify-login": "tsx scripts/verify-login.ts",
+    "sync-indexes": "tsx scripts/sync-indexes.ts"
   },
   "dependencies": {
     "@auth/core": "^0.39.0",

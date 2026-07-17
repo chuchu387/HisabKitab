@@ -15,5 +15,6 @@ const userSchema = new Schema(
 );
 
 userSchema.index({ organizationId: 1, role: 1 });
+userSchema.index({ organizationId: 1, active: 1, name: 1 });
 export type UserDocument = InferSchemaType<typeof userSchema> & { _id: string };
 export const User = (models.User || model("User", userSchema)) as Model<any>;

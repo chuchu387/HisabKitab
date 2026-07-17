@@ -20,5 +20,7 @@ const projectSchema = new Schema(
 
 projectSchema.index({ organizationId: 1, code: 1 }, { unique: true });
 projectSchema.index({ organizationId: 1, name: "text", code: "text" });
+projectSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
+projectSchema.index({ organizationId: 1, projectType: 1, name: 1 });
 export type ProjectDocument = InferSchemaType<typeof projectSchema> & { _id: string };
 export const Project = (models.Project || model("Project", projectSchema)) as Model<any>;

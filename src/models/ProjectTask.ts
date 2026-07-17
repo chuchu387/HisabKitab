@@ -17,6 +17,8 @@ const projectTaskSchema = new Schema(
 );
 
 projectTaskSchema.index({ organizationId: 1, projectId: 1, status: 1 });
+projectTaskSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
+projectTaskSchema.index({ organizationId: 1, assigneeId: 1, status: 1 });
 projectTaskSchema.index({ organizationId: 1, title: "text", description: "text" });
 
 export type ProjectTaskDocument = InferSchemaType<typeof projectTaskSchema> & { _id: string };

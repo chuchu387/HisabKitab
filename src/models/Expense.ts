@@ -20,5 +20,10 @@ const expenseSchema = new Schema(
 
 expenseSchema.index({ organizationId: 1, expenseDate: -1 });
 expenseSchema.index({ organizationId: 1, projectId: 1 });
+expenseSchema.index({ organizationId: 1, approvalStatus: 1, expenseDate: -1 });
+expenseSchema.index({ organizationId: 1, categoryId: 1, expenseDate: -1 });
+expenseSchema.index({ organizationId: 1, createdBy: 1, expenseDate: -1 });
+expenseSchema.index({ organizationId: 1, projectId: 1, approvalStatus: 1, expenseDate: -1 });
+expenseSchema.index({ organizationId: 1, description: "text" });
 export type ExpenseDocument = InferSchemaType<typeof expenseSchema> & { _id: string };
 export const Expense = (models.Expense || model("Expense", expenseSchema)) as Model<any>;

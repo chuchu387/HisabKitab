@@ -14,16 +14,25 @@ import { formatDate, money } from "@/lib/utils";
 const approvalInitialState = { ok: false, message: "" };
 const bulkMoveInitialState = { ok: false, message: "" };
 
-export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }: { expenses: any[]; projects: any[]; canApprove?: boolean }) {
+export function BulkLinkExpensesForm({
+  expenses,
+  projects,
+  canApprove = false,
+  pagination
+}: {
+  expenses: any[];
+  projects: any[];
+  canApprove?: boolean;
+  pagination?: { total: number; page: number; pageSize: number; searchParams?: Record<string, string | string[] | undefined> };
+}) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [moveState, moveAction, movePending] = useActionState(bulkLinkExpensesToProject, bulkMoveInitialState);
   if (!expenses.length) return null;
-  const totalPages = Math.max(1, Math.ceil(expenses.length / pageSize));
-  const safePage = Math.min(page, totalPages);
+  const pageSize = pagination?.pageSize ?? expenses.length;
+  const total = pagination?.total ?? expenses.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(pagination?.page ?? 1, totalPages);
   const start = (safePage - 1) * pageSize;
-  const visibleExpenses = expenses.slice(start, start + pageSize);
   const toggleExpense = (id: string, checked: boolean) => {
     setSelectedIds((current) => checked ? [...new Set([...current, id])] : current.filter((selectedId) => selectedId !== id));
   };
@@ -73,7 +82,7 @@ export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }:
               </tr>
             </thead>
             <tbody className="divide-y">
-              {visibleExpenses.map((expense) => (
+              {expenses.map((expense) => (
                 <tr key={expense._id} className="hover:bg-muted/50">
                   <td className="px-4 py-3">
                     <input
@@ -109,34 +118,50 @@ export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }:
         </div>
         <div className="flex flex-col gap-3 border-t bg-muted/25 px-4 py-3 text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
           <div>
-            Showing <span className="font-medium text-foreground">{start + 1}-{start + visibleExpenses.length}</span> of <span className="font-medium text-foreground">{expenses.length}</span> expenses
+            Showing <span className="font-medium text-foreground">{start + 1}-{start + expenses.length}</span> of <span className="font-medium text-foreground">{total}</span> expenses
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex rounded-md border bg-card p-1">
               {[10, 25, 50, 100].map((size) => (
-                <button
+                <Link
                   key={size}
-                  type="button"
+                  href={expensePageHref(pagination?.searchParams, 1, size)}
                   className={size === pageSize ? "rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground" : "rounded px-2 py-1 text-xs font-medium hover:bg-secondary"}
-                  onClick={() => {
-                    setPageSize(size);
-                    setPage(1);
-                  }}
                 >
                   {size}
-                </button>
+                </Link>
               ))}
             </div>
-            <button type="button" className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium disabled:opacity-50" disabled={safePage <= 1} onClick={() => setPage(1)}>First</button>
-            <button type="button" className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium disabled:opacity-50" disabled={safePage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>Prev</button>
+            <ExpensePageLink label="First" href={expensePageHref(pagination?.searchParams, 1, pageSize)} disabled={safePage <= 1} />
+            <ExpensePageLink label="Prev" href={expensePageHref(pagination?.searchParams, Math.max(1, safePage - 1), pageSize)} disabled={safePage <= 1} />
             <span className="px-2 text-xs font-medium">Page {safePage} of {totalPages}</span>
-            <button type="button" className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium disabled:opacity-50" disabled={safePage >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>Next</button>
-            <button type="button" className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium disabled:opacity-50" disabled={safePage >= totalPages} onClick={() => setPage(totalPages)}>Last</button>
+            <ExpensePageLink label="Next" href={expensePageHref(pagination?.searchParams, Math.min(totalPages, safePage + 1), pageSize)} disabled={safePage >= totalPages} />
+            <ExpensePageLink label="Last" href={expensePageHref(pagination?.searchParams, totalPages, pageSize)} disabled={safePage >= totalPages} />
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function ExpensePageLink({ label, href, disabled }: { label: string; href: string; disabled?: boolean }) {
+  if (disabled) return <span className="rounded-md border bg-muted px-2.5 py-1.5 text-xs font-medium opacity-50">{label}</span>;
+  return <Link href={href} className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-secondary">{label}</Link>;
+}
+
+function expensePageHref(searchParams: Record<string, string | string[] | undefined> | undefined, page: number, pageSize: number) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams ?? {})) {
+    if (!value) continue;
+    if (Array.isArray(value)) {
+      for (const item of value) params.append(key, item);
+    } else {
+      params.set(key, value);
+    }
+  }
+  params.set("page", String(page));
+  params.set("pageSize", String(pageSize));
+  return `/expenses?${params.toString()}`;
 }
 
 function BulkApprovalForm({ selectedIds }: { selectedIds: string[] }) {

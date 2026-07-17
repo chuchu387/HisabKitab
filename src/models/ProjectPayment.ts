@@ -14,5 +14,6 @@ const projectPaymentSchema = new Schema(
 );
 
 projectPaymentSchema.index({ organizationId: 1, paymentDate: -1 });
+projectPaymentSchema.index({ organizationId: 1, projectId: 1, paymentDate: -1 });
 export type ProjectPaymentDocument = InferSchemaType<typeof projectPaymentSchema> & { _id: string };
 export const ProjectPayment = (models.ProjectPayment || model("ProjectPayment", projectPaymentSchema)) as Model<any>;
