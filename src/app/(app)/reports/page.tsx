@@ -31,6 +31,11 @@ export default async function ReportsPage({ searchParams }: any) {
   ]);
   const qs = new URLSearchParams(Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => typeof v === "string")) as Record<string, string>);
   const periodLabel = filters.from || filters.to ? `${filters.from ?? "Start"} to ${filters.to ?? "Today"}` : "All time";
+  const now = new Date();
+  const thisMonth = new URLSearchParams({ from: dateInput(new Date(now.getFullYear(), now.getMonth(), 1)), to: dateInput(now) });
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+  const lastMonth = new URLSearchParams({ from: dateInput(lastMonthStart), to: dateInput(lastMonthEnd) });
   return (
     <PageShell title="Reports" description="Summary, project, and expense reports with CSV/PDF exports.">
       <form className="flex flex-wrap gap-2">
@@ -49,6 +54,11 @@ export default async function ReportsPage({ searchParams }: any) {
         <Button asChild variant="secondary"><Link href={`/api/reports/export?format=pdf&${qs}`}><Download className="h-4 w-4" />PDF</Link></Button>
         <Button asChild variant="ghost"><Link href="/reports">Reset</Link></Button>
       </form>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="sm" variant={!filters.from && !filters.to ? "secondary" : "outline"}><Link href="/reports">All Time</Link></Button>
+        <Button asChild size="sm" variant="outline"><Link href={`/reports?${thisMonth}`}>This Month</Link></Button>
+        <Button asChild size="sm" variant="outline"><Link href={`/reports?${lastMonth}`}>Last Month</Link></Button>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total Budget" value={reports.summary.totalBudget} currency />
         <StatCard label="Total Project Received" value={(reports.summary as any).totalReceived ?? 0} currency />
@@ -108,8 +118,24 @@ export default async function ReportsPage({ searchParams }: any) {
           { header: "Amount", cell: (e: any) => money(e.amount) }
         ]} />
       </section>
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <div>
+            <h2 className="font-semibold">Export Report</h2>
+            <p className="text-sm text-muted-foreground">Exports use the current filters and report period.</p>
+          </div>
+          <div className="flex gap-2">
+            <Button asChild variant="secondary"><Link href={`/api/reports/export?format=csv&${qs}`}><Download className="h-4 w-4" />CSV</Link></Button>
+            <Button asChild variant="secondary"><Link href={`/api/reports/export?format=pdf&${qs}`}><Download className="h-4 w-4" />PDF</Link></Button>
+          </div>
+        </CardContent>
+      </Card>
     </PageShell>
   );
+}
+
+function dateInput(date: Date) {
+  return date.toISOString().slice(0, 10);
 }
 
 function ReportSummaryBlock({ title, rows }: { title: string; rows: Array<[string, number]> }) {

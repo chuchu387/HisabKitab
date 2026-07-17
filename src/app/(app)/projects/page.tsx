@@ -56,10 +56,42 @@ export default async function ProjectsPage({ searchParams }: any) {
         { header: "Due", cell: (p: any) => money((p.totalBudget ?? 0) - (p.paidTotal ?? 0)) },
         { header: "Expense", cell: (p: any) => money(p.expenseTotal ?? 0) },
         { header: "Project Balance", cell: (p: any) => money((p.paidTotal ?? 0) - (p.expenseTotal ?? 0)) },
+        { header: "Health", cell: (p: any) => <ProjectHealth project={p} /> },
         { header: "Created By", cell: (p: any) => p.creator?.[0]?.name ?? "Unknown" },
-        { header: "Status", cell: (p: any) => <Badge>{p.status}</Badge> },
+        { header: "Status", cell: (p: any) => <Badge variant={p.status === "active" ? "success" : p.status === "completed" ? "info" : "warning"}>{p.status}</Badge> },
         { header: "Actions", cell: (p: any) => canManage ? <div className="flex gap-2"><Button asChild variant="outline" size="sm"><Link href={`/projects/${p._id}/edit`}>Edit</Link></Button><form action={deleteProject}><input type="hidden" name="id" value={p._id.toString()} /><ConfirmButton /></form></div> : null }
       ]} />
     </PageShell>
+  );
+}
+
+function ProjectHealth({ project }: { project: any }) {
+  const received = project.paidTotal ?? 0;
+  const expense = project.expenseTotal ?? 0;
+  const budget = project.totalBudget ?? 0;
+  const balance = received - expense;
+  const receivedPercent = budget > 0 ? Math.min(100, Math.round((received / budget) * 100)) : 0;
+  const spendPercent = received > 0 ? Math.min(100, Math.round((expense / received) * 100)) : expense > 0 ? 100 : 0;
+  const label = project.projectType === "internal"
+    ? expense > 0 ? "Funded by company cash" : "No spend"
+    : balance < 0 ? "Overspent" : received < budget ? "Due" : "Healthy";
+  const variant = balance < 0 ? "danger" : project.projectType === "internal" ? "info" : received < budget ? "warning" : "success";
+  return (
+    <div className="min-w-40 space-y-2">
+      <Badge variant={variant as any}>{label}</Badge>
+      <div className="space-y-1">
+        <Progress label="Received" value={receivedPercent} />
+        <Progress label="Spent" value={spendPercent} danger={spendPercent > 90} />
+      </div>
+    </div>
+  );
+}
+
+function Progress({ label, value, danger = false }: { label: string; value: number; danger?: boolean }) {
+  return (
+    <div>
+      <div className="flex justify-between text-[11px] text-muted-foreground"><span>{label}</span><span>{value}%</span></div>
+      <div className="h-1.5 rounded-full bg-muted"><div className={danger ? "h-1.5 rounded-full bg-destructive" : "h-1.5 rounded-full bg-primary"} style={{ width: `${value}%` }} /></div>
+    </div>
   );
 }
