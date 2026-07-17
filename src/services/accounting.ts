@@ -47,10 +47,19 @@ function effectiveReceived(projectReceived: number, paymentTotal: number) {
 
 export async function getAccountingSummary(organizationId: string) {
   const oid = new Types.ObjectId(organizationId);
-  const [organization, budgetAgg, paymentAgg, fundAgg, projectExpenseAgg, generalExpenseAgg, pendingExpenses, activeProjects, totalProjects] = await Promise.all([
+  const [organization, projectTotals, fundAgg, projectExpenseAgg, generalExpenseAgg, pendingExpenses, activeProjects, totalProjects] = await Promise.all([
     Organization.findById(organizationId).lean(),
-    Project.aggregate([{ $match: { organizationId: oid } }, { $group: { _id: null, total: { $sum: "$totalBudget" }, legacyReceived: { $sum: { $ifNull: ["$receivedAmount", 0] } } } }]),
-    ProjectPayment.aggregate([{ $match: { organizationId: oid } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
+    Project.aggregate([
+      { $match: { organizationId: oid } },
+      { $lookup: { from: ProjectPayment.collection.name, localField: "_id", foreignField: "projectId", as: "payments" } },
+      {
+        $project: {
+          totalBudget: 1,
+          received: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] }
+        }
+      },
+      { $group: { _id: null, totalBudget: { $sum: "$totalBudget" }, totalReceived: { $sum: "$received" } } }
+    ]),
     GeneralFund.aggregate([{ $match: { organizationId: oid } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
     Expense.aggregate([{ $match: { organizationId: oid, projectId: { $ne: null }, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Expense.aggregate([{ $match: { organizationId: oid, projectId: null, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
@@ -58,8 +67,8 @@ export async function getAccountingSummary(organizationId: string) {
     Project.countDocuments({ organizationId, status: "active" }),
     Project.countDocuments({ organizationId })
   ]);
-  const totalBudget = budgetAgg[0]?.total ?? 0;
-  const totalReceived = effectiveReceived(budgetAgg[0]?.legacyReceived ?? 0, paymentAgg[0]?.total ?? 0);
+  const totalBudget = projectTotals[0]?.totalBudget ?? 0;
+  const totalReceived = projectTotals[0]?.totalReceived ?? 0;
   const projectExpenses = projectExpenseAgg[0]?.total ?? 0;
   const generalExpenses = generalExpenseAgg[0]?.total ?? 0;
   const generalBudget = fundAgg[0]?.count ? fundAgg[0].total : ((organization as any)?.generalBudget ?? 0);
