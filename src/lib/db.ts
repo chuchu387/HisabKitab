@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
 
+mongoose.set("autoIndex", false);
+mongoose.set("autoCreate", false);
+
 declare global {
   // eslint-disable-next-line no-var
   var mongooseCache: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null } | undefined;
@@ -29,6 +32,8 @@ export async function connectToDatabase() {
   if (global.mongooseCache?.conn) return global.mongooseCache.conn;
   global.mongooseCache!.promise ??= mongoose.connect(withDefaultDatabase(MONGODB_URI), {
     bufferCommands: false,
+    autoIndex: false,
+    autoCreate: false,
     maxPoolSize: 10,
     minPoolSize: 0,
     serverSelectionTimeoutMS: 5000,

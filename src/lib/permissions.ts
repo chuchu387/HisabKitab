@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { auth } from "@/lib/auth";
 import type { Role } from "@/constants";
 
@@ -9,8 +10,10 @@ const rank: Record<Role, number> = {
   super_admin: 4
 };
 
+const getSession = cache(async () => auth());
+
 export async function requireSession() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user?.userId || !session.user.active) redirect("/login");
   return session;
 }

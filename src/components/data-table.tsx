@@ -13,6 +13,7 @@ type PaginationConfig = {
   searchParams?: Record<string, string | string[] | undefined>;
   page?: number;
   pageSize?: number;
+  total?: number;
   pageParam?: string;
   pageSizeParam?: string;
 };
@@ -25,11 +26,12 @@ export function DataTable<T>({ data, columns, pagination }: { data: T[]; columns
   const pageSizeParam = pagination?.pageSizeParam ?? "pageSize";
   const requestedPageSize = pagination?.pageSize ?? parsePositiveInt(pagination?.searchParams?.[pageSizeParam], 10);
   const pageSize = pageSizeOptions.includes(requestedPageSize) ? requestedPageSize : 10;
-  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const totalRows = pagination?.total ?? data.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
   const requestedPage = pagination?.page ?? parsePositiveInt(pagination?.searchParams?.[pageParam], 1);
   const page = Math.min(Math.max(requestedPage, 1), totalPages);
   const start = (page - 1) * pageSize;
-  const rows = pagination ? data.slice(start, start + pageSize) : data;
+  const rows = pagination?.total === undefined && pagination ? data.slice(start, start + pageSize) : data;
   return (
     <div className="overflow-hidden rounded-lg border bg-card shadow-sm shadow-foreground/5">
       <div className="overflow-x-auto">
@@ -56,7 +58,7 @@ export function DataTable<T>({ data, columns, pagination }: { data: T[]; columns
           searchParams={pagination.searchParams}
           page={page}
           pageSize={pageSize}
-          totalRows={data.length}
+          totalRows={totalRows}
           totalPages={totalPages}
           pageParam={pageParam}
           pageSizeParam={pageSizeParam}

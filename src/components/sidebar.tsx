@@ -36,6 +36,7 @@ export function Sidebar({ role }: { role: Role }) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     className={cn(
                       "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground outline-none transition-all hover:bg-secondary/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
                       active && "bg-primary text-primary-foreground shadow-sm hover:bg-primary hover:text-primary-foreground"

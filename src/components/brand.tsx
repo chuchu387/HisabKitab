@@ -22,7 +22,7 @@ export function BrandMark({ className }: { className?: string }) {
 
 export function BrandLogo({ href = "/dashboard", compact = false, inverse = false, onClick }: { href?: string; compact?: boolean; inverse?: boolean; onClick?: () => void }) {
   return (
-    <Link href={href} onClick={onClick} className="flex min-w-0 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link href={href} prefetch={false} onClick={onClick} className="flex min-w-0 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <BrandMark />
       {!compact && (
         <span className="min-w-0">

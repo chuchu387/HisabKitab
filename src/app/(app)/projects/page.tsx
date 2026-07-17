@@ -20,34 +20,42 @@ export default async function ProjectsPage({ searchParams }: any) {
   await connectToDatabase();
   const params = await searchParams;
   const q = params?.q ?? "";
+  const pageSize = parsePageSize(params?.pageSize);
+  const page = parsePage(params?.page);
+  const skip = (page - 1) * pageSize;
   const query: any = { organizationId: new Types.ObjectId(organizationId) };
   if (q) query.$or = [{ name: new RegExp(q, "i") }, { code: new RegExp(q, "i") }];
-  const projects = await Project.aggregate([
-    { $match: query },
-    { $lookup: { from: ProjectPayment.collection.name, localField: "_id", foreignField: "projectId", as: "payments" } },
-    { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
-    { $lookup: { from: "users", localField: "createdBy", foreignField: "_id", as: "creator" } },
-    {
-      $addFields: {
-        paidTotal: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] },
-        expenseTotal: {
-          $sum: {
-            $map: {
-              input: { $filter: { input: "$expenses", as: "expense", cond: { $eq: ["$$expense.approvalStatus", "approved"] } } },
-              as: "expense",
-              in: "$$expense.amount"
+  const [projects, totalProjects] = await Promise.all([
+    Project.aggregate([
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: pageSize },
+      { $lookup: { from: ProjectPayment.collection.name, localField: "_id", foreignField: "projectId", as: "payments" } },
+      { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
+      { $lookup: { from: "users", localField: "createdBy", foreignField: "_id", as: "creator" } },
+      {
+        $addFields: {
+          paidTotal: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] },
+          expenseTotal: {
+            $sum: {
+              $map: {
+                input: { $filter: { input: "$expenses", as: "expense", cond: { $eq: ["$$expense.approvalStatus", "approved"] } } },
+                as: "expense",
+                in: "$$expense.amount"
+              }
             }
           }
         }
       }
-    },
-    { $sort: { createdAt: -1 } }
+    ]),
+    Project.countDocuments(query)
   ]);
   const canManage = ["owner", "admin"].includes(session.user.role);
   return (
     <PageShell title="Projects" action={canManage && <Button asChild><Link href="/projects/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
       <form className="filter-bar"><SearchBar placeholder="Search projects" defaultValue={q} /><Button variant="outline">Filter</Button></form>
-      <DataTable data={projects} pagination={{ basePath: "/projects", searchParams: params }} columns={[
+      <DataTable data={projects} pagination={{ basePath: "/projects", searchParams: params, page, pageSize, total: totalProjects }} columns={[
         { header: "Name", cell: (p: any) => <Link className="font-medium hover:text-primary" href={`/projects/${p._id}`}>{p.name}</Link> },
         { header: "Code", cell: (p: any) => p.code },
         { header: "Type", cell: (p: any) => <Badge>{p.projectType === "internal" ? "Internal" : "Client"}</Badge> },
@@ -63,6 +71,16 @@ export default async function ProjectsPage({ searchParams }: any) {
       ]} />
     </PageShell>
   );
+}
+
+function parsePage(value: unknown) {
+  const parsed = Number.parseInt(typeof value === "string" ? value : "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function parsePageSize(value: unknown) {
+  const parsed = Number.parseInt(typeof value === "string" ? value : "", 10);
+  return [10, 25, 50, 100].includes(parsed) ? parsed : 10;
 }
 
 function ProjectHealth({ project }: { project: any }) {
