@@ -27,7 +27,7 @@ export function TasksBoard({ tasks, projects, assignees }: { tasks: any[]; proje
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-4">
+      <div className="grid gap-4 rounded-lg border bg-card p-4 sm:p-5 md:grid-cols-4">
         <div>
           <p className="text-sm text-muted-foreground">Total Tasks</p>
           <p className="text-2xl font-semibold">{tasks.length}</p>
@@ -44,7 +44,7 @@ export function TasksBoard({ tasks, projects, assignees }: { tasks: any[]; proje
         ))}
       </div>
 
-      <form action={formAction} encType="multipart/form-data" className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-2">
+      <form action={formAction} encType="multipart/form-data" className="grid gap-4 rounded-lg border bg-card p-4 sm:p-5 md:grid-cols-2">
         <Field name="title" label="Task" placeholder="Task title" />
         <div className="space-y-2">
           <Label>Project</Label>
@@ -67,7 +67,7 @@ export function TasksBoard({ tasks, projects, assignees }: { tasks: any[]; proje
           <Label>Task Image</Label>
           <Input name="image" type="file" accept="image/*" />
         </div>
-        <div className="flex items-center justify-between md:col-span-2">
+        <div className="grid gap-3 sm:flex sm:items-center sm:justify-between md:col-span-2">
           <ActionMessage state={state} />
           <Button disabled={pending}>
             <Plus className="h-4 w-4" />

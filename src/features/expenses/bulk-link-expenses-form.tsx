@@ -43,7 +43,7 @@ export function BulkLinkExpensesForm({
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium">{selectedIds.length} selected</p>
           <div className="space-y-1">
-            <form id="bulk-expense-link-form" action={moveAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <form id="bulk-expense-link-form" action={moveAction} className="grid gap-2 sm:flex sm:items-center">
               {selectedIds.map((id) => <input key={id} type="hidden" name="expenseIds" value={id} />)}
               <Select name="projectId" className="sm:w-72" defaultValue="">
                 <option value="">General Expense</option>
@@ -53,7 +53,7 @@ export function BulkLinkExpensesForm({
                   </option>
                 ))}
               </Select>
-              <Button type="submit" variant="secondary" disabled={movePending || selectedIds.length === 0}>
+              <Button type="submit" variant="secondary" disabled={movePending || selectedIds.length === 0} className="w-full sm:w-auto">
                 <FolderInput className="h-4 w-4" />
                 {movePending ? "Moving..." : "Move Selected"}
               </Button>
@@ -65,9 +65,9 @@ export function BulkLinkExpensesForm({
         <p className="text-sm text-muted-foreground">Select expenses below, then move them to a project or back to general.</p>
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-sm">
+      <div className="max-w-full overflow-hidden rounded-lg border bg-card">
+        <div className="overflow-x-auto overscroll-x-contain">
+          <table className="w-full min-w-[820px] text-sm">
             <thead className="bg-muted text-left text-muted-foreground">
               <tr>
                 <th className="w-12 px-4 py-3 font-medium">Pick</th>
@@ -116,12 +116,12 @@ export function BulkLinkExpensesForm({
             </tbody>
           </table>
         </div>
-        <div className="flex flex-col gap-3 border-t bg-muted/25 px-4 py-3 text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 border-t bg-muted/25 px-3 py-3 text-sm text-muted-foreground sm:px-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             Showing <span className="font-medium text-foreground">{start + 1}-{start + expenses.length}</span> of <span className="font-medium text-foreground">{total}</span> expenses
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex rounded-md border bg-card p-1">
+          <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <div className="flex w-full overflow-x-auto rounded-md border bg-card p-1 sm:w-auto">
               {[10, 25, 50, 100].map((size) => (
                 <Link
                   key={size}
@@ -132,11 +132,13 @@ export function BulkLinkExpensesForm({
                 </Link>
               ))}
             </div>
-            <ExpensePageLink label="First" href={expensePageHref(pagination?.searchParams, 1, pageSize)} disabled={safePage <= 1} />
+            <div className="flex w-full items-center gap-1 overflow-x-auto sm:w-auto">
+            <ExpensePageLink className="hidden sm:inline-flex" label="First" href={expensePageHref(pagination?.searchParams, 1, pageSize)} disabled={safePage <= 1} />
             <ExpensePageLink label="Prev" href={expensePageHref(pagination?.searchParams, Math.max(1, safePage - 1), pageSize)} disabled={safePage <= 1} />
             <span className="px-2 text-xs font-medium">Page {safePage} of {totalPages}</span>
             <ExpensePageLink label="Next" href={expensePageHref(pagination?.searchParams, Math.min(totalPages, safePage + 1), pageSize)} disabled={safePage >= totalPages} />
-            <ExpensePageLink label="Last" href={expensePageHref(pagination?.searchParams, totalPages, pageSize)} disabled={safePage >= totalPages} />
+            <ExpensePageLink className="hidden sm:inline-flex" label="Last" href={expensePageHref(pagination?.searchParams, totalPages, pageSize)} disabled={safePage >= totalPages} />
+            </div>
           </div>
         </div>
       </div>
@@ -144,9 +146,9 @@ export function BulkLinkExpensesForm({
   );
 }
 
-function ExpensePageLink({ label, href, disabled }: { label: string; href: string; disabled?: boolean }) {
-  if (disabled) return <span className="rounded-md border bg-muted px-2.5 py-1.5 text-xs font-medium opacity-50">{label}</span>;
-  return <Link href={href} className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-secondary">{label}</Link>;
+function ExpensePageLink({ label, href, disabled, className = "" }: { label: string; href: string; disabled?: boolean; className?: string }) {
+  if (disabled) return <span className={`rounded-md border bg-muted px-2.5 py-1.5 text-xs font-medium opacity-50 ${className}`}>{label}</span>;
+  return <Link href={href} className={`rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium hover:bg-secondary ${className}`}>{label}</Link>;
 }
 
 function expensePageHref(searchParams: Record<string, string | string[] | undefined> | undefined, page: number, pageSize: number) {
@@ -180,14 +182,14 @@ function BulkApprovalForm({ selectedIds }: { selectedIds: string[] }) {
 
   return (
     <div className="space-y-1">
-      <form id="bulk-expense-approval-form" action={submitBulkApproval} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <form id="bulk-expense-approval-form" action={submitBulkApproval} className="grid gap-2 sm:flex sm:items-center">
         {selectedIds.map((id) => <input key={id} type="hidden" name="expenseIds" value={id} />)}
         <Select name="approvalStatus" defaultValue="approved" className="sm:w-72">
           <option value="approved">Approved</option>
           <option value="pending">Pending</option>
           <option value="rejected">Rejected</option>
         </Select>
-        <Button type="submit" variant="outline" disabled={pending || selectedIds.length === 0}>
+        <Button type="submit" variant="outline" disabled={pending || selectedIds.length === 0} className="w-full sm:w-auto">
           <CheckCircle2 className="h-4 w-4" />
           {pending ? "Saving..." : "Update Selected Approval"}
         </Button>

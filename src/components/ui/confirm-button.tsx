@@ -33,10 +33,10 @@ export function ConfirmButton({
   }
 
   const modal = open ? (
-    <div className="fixed inset-0 z-[9999] grid place-items-center bg-foreground/45 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] grid place-items-center bg-foreground/45 p-3 backdrop-blur-sm sm:p-4">
       <button type="button" className="absolute inset-0 cursor-default" aria-label="Cancel confirmation" onClick={() => setOpen(false)} />
       <div role="dialog" aria-modal="true" aria-labelledby="confirm-title" className="relative w-full max-w-md overflow-hidden rounded-lg border bg-card shadow-2xl">
-        <div className="border-b bg-muted/30 p-5">
+        <div className="border-b bg-muted/30 p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
               <Icon className="h-5 w-5" />
@@ -47,7 +47,7 @@ export function ConfirmButton({
             </div>
           </div>
         </div>
-        <div className="flex justify-end gap-2 p-4">
+        <div className="grid gap-2 p-4 sm:flex sm:justify-end">
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           <Button type="button" variant="destructive" onClick={confirmAction}>{label}</Button>
         </div>

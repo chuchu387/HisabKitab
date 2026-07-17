@@ -28,14 +28,14 @@ export function MobileNav({ role }: { role: Role }) {
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button type="button" className="absolute inset-0 bg-foreground/30 backdrop-blur-sm" aria-label="Close navigation" onClick={() => setOpen(false)} />
-          <div className="relative h-full w-80 max-w-[88vw] border-r bg-card p-4 shadow-xl">
-            <div className="flex h-14 items-center justify-between gap-3">
+          <div className="relative flex h-dvh w-80 max-w-[88vw] flex-col overflow-hidden border-r bg-card p-3 shadow-xl sm:p-4">
+            <div className="flex h-14 shrink-0 items-center justify-between gap-3">
               <BrandLogo onClick={() => setOpen(false)} />
               <button type="button" className="rounded-lg border bg-background p-2 hover:bg-muted" onClick={() => setOpen(false)} aria-label="Close navigation">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <nav className="mt-5 space-y-5">
+            <nav className="mt-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain pb-4">
               {navGroups.map((group) => {
                 const items = visibleItems.filter((item) => group.hrefs.includes(item.href));
                 if (!items.length) return null;

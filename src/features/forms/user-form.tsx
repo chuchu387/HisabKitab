@@ -15,7 +15,7 @@ export function UserForm({ user }: { user?: any }) {
   const action = user ? updateUser.bind(null, user._id.toString()) : createUser;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
-    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-5 shadow-sm shadow-foreground/5 md:grid-cols-2">
+    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-4 sm:p-5 shadow-sm shadow-foreground/5 md:grid-cols-2">
       <Field name="name" label="Name" defaultValue={user?.name} />
       <Field name="email" label="Email" type="email" defaultValue={user?.email} />
       <Field name="password" label={user ? "New Password" : "Password"} type="password" required={!user} />
@@ -26,7 +26,7 @@ export function UserForm({ user }: { user?: any }) {
         </Select>
       </div>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" value="true" defaultChecked={user?.active ?? true} /> Active</label>
-      <div className="flex items-end justify-between gap-3 md:col-span-2">
+      <div className="grid gap-3 sm:flex sm:items-end sm:justify-between md:col-span-2">
         <ActionMessage state={state} />
         <Button disabled={pending}>{pending ? "Saving..." : "Save User"}</Button>
       </div>

@@ -8,7 +8,7 @@ export function StatCard({ label, value, currency }: { label: string; value: num
         <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <p className="text-2xl font-semibold text-foreground">{currency ? money(value) : value.toLocaleString()}</p>
+        <p className="break-words text-xl font-semibold text-foreground sm:text-2xl">{currency ? money(value) : value.toLocaleString()}</p>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
           <div className="h-full w-2/3 rounded-full bg-primary/70" />
         </div>

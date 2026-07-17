@@ -33,9 +33,9 @@ export function DataTable<T>({ data, columns, pagination }: { data: T[]; columns
   const start = (page - 1) * pageSize;
   const rows = pagination?.total === undefined && pagination ? data.slice(start, start + pageSize) : data;
   return (
-    <div className="overflow-hidden rounded-lg border bg-card shadow-sm shadow-foreground/5">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-sm">
+    <div className="max-w-full overflow-hidden rounded-lg border bg-card shadow-sm shadow-foreground/5">
+      <div className="overflow-x-auto overscroll-x-contain">
+        <table className="w-full min-w-[680px] text-sm">
           <thead className="sticky top-0 z-10 bg-foreground text-left text-primary-foreground">
             <tr>{columns.map((column) => <th key={column.header} className={cn("whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide", column.className)}>{column.header}</th>)}</tr>
           </thead>
@@ -95,7 +95,7 @@ function AdvancedPagination({
 }) {
   const pages = pageWindow(page, totalPages);
   return (
-    <div className="flex flex-col gap-3 border-t bg-muted/25 px-4 py-3 text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 border-t bg-muted/25 px-3 py-3 text-sm text-muted-foreground sm:px-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap items-center gap-2">
         <span>
           Showing <span className="font-medium text-foreground">{start + 1}-{start + visibleRows}</span> of <span className="font-medium text-foreground">{totalRows}</span>
@@ -103,8 +103,8 @@ function AdvancedPagination({
         <span className="hidden text-border sm:inline">|</span>
         <span>Page {page} of {totalPages}</span>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 rounded-lg border bg-card p-1 shadow-sm">
+      <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+        <div className="flex w-full items-center gap-1 overflow-x-auto rounded-lg border bg-card p-1 shadow-sm sm:w-auto">
           {pageSizeOptions.map((option) => (
             <Link
               key={option}
@@ -118,8 +118,8 @@ function AdvancedPagination({
             </Link>
           ))}
         </div>
-        <div className="flex items-center gap-1">
-          <PageLink label="First" href={pageHref(basePath, searchParams, pageParam, 1, pageSizeParam, pageSize)} disabled={page <= 1} />
+        <div className="flex w-full items-center gap-1 overflow-x-auto sm:w-auto">
+          <PageLink className="hidden sm:inline-flex" label="First" href={pageHref(basePath, searchParams, pageParam, 1, pageSizeParam, pageSize)} disabled={page <= 1} />
           <PageLink label="Prev" href={pageHref(basePath, searchParams, pageParam, page - 1, pageSizeParam, pageSize)} disabled={page <= 1} />
           {pages.map((item, index) => item === "gap" ? (
             <span key={`${item}-${index}`} className="px-2">...</span>
@@ -127,23 +127,24 @@ function AdvancedPagination({
             <PageLink key={item} label={String(item)} href={pageHref(basePath, searchParams, pageParam, item, pageSizeParam, pageSize)} active={item === page} />
           ))}
           <PageLink label="Next" href={pageHref(basePath, searchParams, pageParam, page + 1, pageSizeParam, pageSize)} disabled={page >= totalPages} />
-          <PageLink label="Last" href={pageHref(basePath, searchParams, pageParam, totalPages, pageSizeParam, pageSize)} disabled={page >= totalPages} />
+          <PageLink className="hidden sm:inline-flex" label="Last" href={pageHref(basePath, searchParams, pageParam, totalPages, pageSizeParam, pageSize)} disabled={page >= totalPages} />
         </div>
       </div>
     </div>
   );
 }
 
-function PageLink({ label, href, active, disabled }: { label: string; href: string; active?: boolean; disabled?: boolean }) {
+function PageLink({ label, href, active, disabled, className }: { label: string; href: string; active?: boolean; disabled?: boolean; className?: string }) {
   if (disabled) {
-    return <span className="rounded-lg border bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground opacity-60">{label}</span>;
+    return <span className={cn("rounded-lg border bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground opacity-60", className)}>{label}</span>;
   }
   return (
     <Link
       href={href}
       className={cn(
         "rounded-lg border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-secondary hover:text-secondary-foreground",
-        active && "border-primary bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+        active && "border-primary bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+        className
       )}
     >
       {label}

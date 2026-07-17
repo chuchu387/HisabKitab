@@ -4,7 +4,7 @@ import { LoginForm } from "@/features/auth/login-form";
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4">
+    <main className="flex min-h-dvh items-center justify-center bg-background p-3 sm:p-4">
       <Card className="w-full max-w-md shadow-sm">
         <CardHeader className="space-y-5">
           <BrandLogo />

@@ -32,7 +32,7 @@ export function ProjectTasksPanel({ projectId, tasks, assignees }: { projectId: 
         <p className="text-sm text-muted-foreground">{tasks.length} tasks · {totalHours} estimated hours</p>
       </div>
 
-      <form action={formAction} encType="multipart/form-data" className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-2">
+      <form action={formAction} encType="multipart/form-data" className="grid gap-4 rounded-lg border bg-card p-4 sm:p-5 md:grid-cols-2">
         <Field name="title" label="Task" placeholder="Task title" />
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
@@ -51,7 +51,7 @@ export function ProjectTasksPanel({ projectId, tasks, assignees }: { projectId: 
           <Label htmlFor="image">Task Image</Label>
           <Input id="image" name="image" type="file" accept="image/*" />
         </div>
-        <div className="flex items-center justify-between gap-3 md:col-span-2">
+        <div className="grid gap-3 sm:flex sm:items-center sm:justify-between sm:gap-3 md:col-span-2">
           <ActionMessage state={state} />
           <Button disabled={pending}>
             <Plus className="h-4 w-4" />

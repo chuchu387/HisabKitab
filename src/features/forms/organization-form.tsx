@@ -15,7 +15,7 @@ export function OrganizationForm({ organization }: { organization?: any }) {
   const action = organization ? updateOrganization.bind(null, organization._id.toString()) : createOrganization;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
-    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-5 shadow-sm shadow-foreground/5 md:grid-cols-2">
+    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-4 sm:p-5 shadow-sm shadow-foreground/5 md:grid-cols-2">
       <Field name="name" label="Name" defaultValue={organization?.name} />
       <Field name="code" label="Code" defaultValue={organization?.code} />
       <Field name="email" label={organization ? "Email" : "Admin Login Email"} type="email" defaultValue={organization?.email} />
@@ -38,7 +38,7 @@ export function OrganizationForm({ organization }: { organization?: any }) {
           <option value="inactive">Inactive</option>
         </Select>
       </div>
-      <div className="flex items-end justify-between gap-3 md:col-span-2">
+      <div className="grid gap-3 sm:flex sm:items-end sm:justify-between md:col-span-2">
         <ActionMessage state={state} />
         <Button disabled={pending}>{pending ? "Saving..." : "Save Organization"}</Button>
       </div>

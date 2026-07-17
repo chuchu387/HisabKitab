@@ -13,7 +13,7 @@ export function ReportVisuals({ categorySummary, monthlySummary, expenseTypeSumm
     <div className="grid gap-4 xl:grid-cols-2">
       <ReportChart title="Expense Allocation">
         <PieChart>
-          <Pie data={expenseTypeSummary} dataKey="amount" nameKey="name" innerRadius={58} outerRadius={96} paddingAngle={2}>
+          <Pie data={expenseTypeSummary} dataKey="amount" nameKey="name" innerRadius={46} outerRadius={78} paddingAngle={2}>
             {expenseTypeSummary.map((_, index) => <Cell key={index} fill={palette[index % palette.length]} />)}
           </Pie>
           <Tooltip formatter={tooltipFormatter} />
@@ -23,8 +23,8 @@ export function ReportVisuals({ categorySummary, monthlySummary, expenseTypeSumm
       <ReportChart title="Expense by Category">
         <BarChart data={categorySummary}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="name" />
-          <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
+          <XAxis dataKey="name" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+          <YAxis width={42} tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value) / 1000}k`} />
           <Tooltip formatter={tooltipFormatter} />
           <Bar dataKey="amount" radius={[5, 5, 0, 0]}>
             {categorySummary.map((_, index) => <Cell key={index} fill={palette[index % palette.length]} />)}
@@ -40,8 +40,8 @@ export function ReportVisuals({ categorySummary, monthlySummary, expenseTypeSumm
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="month" />
-          <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
+          <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+          <YAxis width={42} tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value) / 1000}k`} />
           <Tooltip formatter={tooltipFormatter} />
           <Area type="monotone" dataKey="amount" stroke="#f59e0b" strokeWidth={3} fill="url(#reportMonthly)" />
         </AreaChart>
@@ -49,8 +49,8 @@ export function ReportVisuals({ categorySummary, monthlySummary, expenseTypeSumm
       <ReportChart title="Project Received vs Expense">
         <ComposedChart data={topProjects}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="name" />
-          <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
+          <XAxis dataKey="name" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+          <YAxis width={42} tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value) / 1000}k`} />
           <Tooltip formatter={tooltipFormatter} />
           <Legend />
           <Bar dataKey="received" fill="#168f84" radius={[5, 5, 0, 0]} />
@@ -67,7 +67,7 @@ function ReportChart({ title, children }: { title: string; children: React.React
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent className="h-80">
+      <CardContent className="h-64 sm:h-80">
         <ResponsiveContainer width="100%" height="100%">
           {children}
         </ResponsiveContainer>

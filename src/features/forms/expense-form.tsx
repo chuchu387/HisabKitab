@@ -16,7 +16,7 @@ export function ExpenseForm({ expense, categories, projects }: { expense?: any; 
   const action = expense ? updateExpense.bind(null, expense._id.toString()) : createExpense;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
-    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-5 shadow-sm shadow-foreground/5 md:grid-cols-2" encType="multipart/form-data">
+    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-4 sm:p-5 shadow-sm shadow-foreground/5 md:grid-cols-2" encType="multipart/form-data">
       <Field name="expenseDate" label="Expense Date" type="date" defaultValue={formatDate(expense?.expenseDate ?? new Date())} />
       <Field name="amount" label="Amount" type="number" min="0.01" step="0.01" defaultValue={expense?.amount} />
       <div className="space-y-2">
@@ -34,7 +34,7 @@ export function ExpenseForm({ expense, categories, projects }: { expense?: any; 
       </div>
       <div className="space-y-2 md:col-span-2"><Label htmlFor="description">Description</Label><Textarea id="description" name="description" defaultValue={expense?.description} /></div>
       <div className="space-y-2 md:col-span-2"><Label htmlFor="receipt">Receipt Image</Label><Input id="receipt" name="receipt" type="file" accept="image/*" /></div>
-      <div className="flex items-end justify-between gap-3 md:col-span-2">
+      <div className="grid gap-3 sm:flex sm:items-end sm:justify-between md:col-span-2">
         <ActionMessage state={state} />
         <Button disabled={pending}>{pending ? "Saving..." : "Save Expense"}</Button>
       </div>

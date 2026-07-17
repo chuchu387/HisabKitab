@@ -12,12 +12,12 @@ export function SimpleBarChart({ title, data, xKey = "name", yKey = "amount" }: 
   return (
     <Card className="shadow-sm">
       <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
-      <CardContent className="h-72">
+      <CardContent className="h-64 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey={xKey} />
-            <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
+            <XAxis dataKey={xKey} tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+            <YAxis width={42} tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value) / 1000}k`} />
             <Tooltip formatter={tooltipFormatter} />
             <Bar dataKey={yKey} radius={[5, 5, 0, 0]}>
               {data.map((_, index) => <Cell key={index} fill={palette[index % palette.length]} />)}
@@ -33,7 +33,7 @@ export function TrendChart({ data }: { data: Record<string, unknown>[] }) {
   return (
     <Card className="shadow-sm">
       <CardHeader><CardTitle>Monthly Expense Trend</CardTitle></CardHeader>
-      <CardContent className="h-72">
+      <CardContent className="h-64 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
             <defs>
@@ -43,8 +43,8 @@ export function TrendChart({ data }: { data: Record<string, unknown>[] }) {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="month" />
-            <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
+            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+            <YAxis width={42} tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value) / 1000}k`} />
             <Tooltip formatter={tooltipFormatter} />
             <Area type="monotone" dataKey="amount" stroke="#f59e0b" strokeWidth={3} fill="url(#expenseTrend)" />
           </AreaChart>
@@ -58,12 +58,12 @@ export function BudgetExpenseChart({ data }: { data: Record<string, unknown>[] }
   return (
     <Card className="shadow-sm">
       <CardHeader><CardTitle>Budget, Received, and Expense</CardTitle></CardHeader>
-      <CardContent className="h-72">
+      <CardContent className="h-64 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="name" />
-            <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
+            <XAxis dataKey="name" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+            <YAxis width={42} tick={{ fontSize: 11 }} tickFormatter={(value) => `${Number(value) / 1000}k`} />
             <Tooltip formatter={tooltipFormatter} />
             <Legend />
             <Bar dataKey="budget" fill="#2563eb" radius={[5, 5, 0, 0]} />
@@ -80,10 +80,10 @@ export function DonutChart({ title, data, nameKey = "name", valueKey = "amount" 
   return (
     <Card className="shadow-sm">
       <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
-      <CardContent className="h-72">
+      <CardContent className="h-64 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={data} dataKey={valueKey} nameKey={nameKey} innerRadius={58} outerRadius={94} paddingAngle={2}>
+            <Pie data={data} dataKey={valueKey} nameKey={nameKey} innerRadius={46} outerRadius={78} paddingAngle={2}>
               {data.map((_, index) => <Cell key={index} fill={palette[index % palette.length]} />)}
             </Pie>
             <Tooltip formatter={tooltipFormatter} />
