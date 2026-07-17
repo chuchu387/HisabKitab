@@ -51,8 +51,10 @@ export default async function ReportsPage({ searchParams }: any) {
         <StatCard label="Total Budget" value={reports.summary.totalBudget} currency />
         <StatCard label="Total Project Received" value={(reports.summary as any).totalReceived ?? 0} currency />
         <StatCard label="Due" value={(reports.summary as any).dueAmount ?? 0} currency />
-        <StatCard label="Project Expenses" value={reports.summary.projectExpenses} currency />
-        <StatCard label="Project Balance" value={(reports.summary as any).projectPaidBalance ?? 0} currency />
+        <StatCard label="Client Project Expenses" value={(reports.summary as any).clientProjectExpenses ?? 0} currency />
+        <StatCard label="Internal Project Expenses" value={(reports.summary as any).internalProjectExpenses ?? 0} currency />
+        <StatCard label="All Project Expenses" value={reports.summary.projectExpenses} currency />
+        <StatCard label="Company Project Cash Balance" value={(reports.summary as any).projectPaidBalance ?? 0} currency />
         <StatCard label="General Budget" value={(reports.summary as any).generalBudget ?? 0} currency />
         <StatCard label="General Expenses" value={reports.summary.generalExpenses} currency />
         <StatCard label="General Balance" value={(reports.summary as any).generalBudgetBalance ?? 0} currency />
@@ -69,6 +71,7 @@ export default async function ReportsPage({ searchParams }: any) {
         <h2 className="text-lg font-semibold">Project Report</h2>
         <DataTable data={reports.projects} columns={[
           { header: "Project", cell: (p: any) => `${p.name} (${p.code})` },
+          { header: "Type", cell: (p: any) => p.projectType === "internal" ? "Internal" : "Client" },
           { header: "Budget", cell: (p: any) => money(p.budget) },
           { header: "Received", cell: (p: any) => money(p.received ?? 0) },
           { header: "Due", cell: (p: any) => money(p.receivableRemaining ?? 0) },

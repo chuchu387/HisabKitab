@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { expenseApprovalStatuses, organizationStatuses, projectStatuses, projectTaskStatuses, roles } from "@/constants";
+import { expenseApprovalStatuses, organizationStatuses, projectStatuses, projectTaskStatuses, projectTypes, roles } from "@/constants";
 
 export const objectIdSchema = z.string().min(12);
 
@@ -44,6 +44,7 @@ export const projectSchema = z
     name: z.string().min(2).max(120),
     code: z.string().min(2).max(30),
     description: z.string().max(1000).optional().default(""),
+    projectType: z.enum(projectTypes).default("client"),
     totalBudget: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0)),
     receivedAmount: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0).default(0)),
     startDate: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date({ required_error: "Start date is required", invalid_type_error: "Start date is required" })),

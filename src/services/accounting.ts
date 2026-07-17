@@ -51,7 +51,7 @@ function effectiveReceived(projectReceived: number, paymentTotal: number) {
 
 export async function getAccountingSummary(organizationId: string) {
   const oid = new Types.ObjectId(organizationId);
-  const [organization, projectTotals, fundAgg, projectExpenseAgg, generalExpenseAgg, pendingExpenses, activeProjects, totalProjects] = await Promise.all([
+  const [organization, projectTotals, fundAgg, projectExpenseAgg, projectExpenseByType, generalExpenseAgg, pendingExpenses, activeProjects, totalProjects] = await Promise.all([
     Organization.findById(organizationId).lean(),
     Project.aggregate([
       { $match: { organizationId: oid } },
@@ -66,6 +66,12 @@ export async function getAccountingSummary(organizationId: string) {
     ]),
     GeneralFund.aggregate([{ $match: { organizationId: oid } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
     Expense.aggregate([{ $match: { organizationId: oid, projectId: { $ne: null }, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
+    Expense.aggregate([
+      { $match: { organizationId: oid, projectId: { $ne: null }, ...approvedExpenseCondition() } },
+      { $lookup: { from: Project.collection.name, localField: "projectId", foreignField: "_id", as: "project" } },
+      { $project: { amount: 1, projectType: { $ifNull: [{ $first: "$project.projectType" }, "client"] } } },
+      { $group: { _id: "$projectType", total: { $sum: "$amount" } } }
+    ]),
     Expense.aggregate([{ $match: { organizationId: oid, projectId: null, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Expense.countDocuments({ organizationId, ...pendingExpenseCondition() }),
     Project.countDocuments({ organizationId, status: "active" }),
@@ -74,6 +80,8 @@ export async function getAccountingSummary(organizationId: string) {
   const totalBudget = projectTotals[0]?.totalBudget ?? 0;
   const totalReceived = projectTotals[0]?.totalReceived ?? 0;
   const projectExpenses = projectExpenseAgg[0]?.total ?? 0;
+  const clientProjectExpenses = projectExpenseByType.find((row: any) => row._id === "client")?.total ?? 0;
+  const internalProjectExpenses = projectExpenseByType.find((row: any) => row._id === "internal")?.total ?? 0;
   const generalExpenses = generalExpenseAgg[0]?.total ?? 0;
   const generalBudget = fundAgg[0]?.count ? fundAgg[0].total : ((organization as any)?.generalBudget ?? 0);
   return {
@@ -84,6 +92,8 @@ export async function getAccountingSummary(organizationId: string) {
     totalFunding: totalReceived + generalBudget,
     generalBudget,
     projectExpenses,
+    clientProjectExpenses,
+    internalProjectExpenses,
     generalExpenses,
     totalExpenses: projectExpenses + generalExpenses,
     pendingExpenses,
@@ -215,7 +225,9 @@ export async function getReports(filters: ReportFilters) {
     ]),
     Expense.aggregate([
       { $match: match },
-      { $group: { _id: { $cond: [{ $eq: ["$projectId", null] }, "General", "Project"] }, amount: { $sum: "$amount" }, count: { $sum: 1 } } },
+      { $lookup: { from: Project.collection.name, localField: "projectId", foreignField: "_id", as: "project" } },
+      { $project: { amount: 1, typeName: { $cond: [{ $eq: ["$projectId", null] }, "General", { $cond: [{ $eq: [{ $ifNull: [{ $first: "$project.projectType" }, "client"] }, "internal"] }, "Internal Project", "Client Project"] }] } } },
+      { $group: { _id: "$typeName", amount: { $sum: "$amount" }, count: { $sum: 1 } } },
       { $project: { name: "$_id", amount: 1, count: 1, _id: 0 } }
     ])
   ]);
@@ -231,6 +243,7 @@ export async function getReports(filters: ReportFilters) {
       _id: project._id,
       name: project.name,
       code: project.code,
+      projectType: project.projectType ?? "client",
       budget,
       received,
       expense,
@@ -243,6 +256,8 @@ export async function getReports(filters: ReportFilters) {
   const totalBudget = projects.reduce((sum: number, project: any) => sum + project.budget, 0);
   const totalReceived = projects.reduce((sum: number, project: any) => sum + project.received, 0);
   const projectExpenses = projects.reduce((sum: number, project: any) => sum + project.expense, 0);
+  const clientProjectExpenses = projects.filter((project: any) => project.projectType !== "internal").reduce((sum: number, project: any) => sum + project.expense, 0);
+  const internalProjectExpenses = projects.filter((project: any) => project.projectType === "internal").reduce((sum: number, project: any) => sum + project.expense, 0);
   const generalExpenses = filters.projectId ? 0 : (generalExpenseAgg[0]?.total ?? 0);
   const generalBudget = filters.projectId ? 0 : (totalFundDocs === 0 && !range ? ((organization as any)?.generalBudget ?? 0) : (fundAgg[0]?.total ?? 0));
   const summary = {
@@ -253,6 +268,8 @@ export async function getReports(filters: ReportFilters) {
     totalFunding: totalReceived + generalBudget,
     generalBudget,
     projectExpenses,
+    clientProjectExpenses,
+    internalProjectExpenses,
     generalExpenses,
     totalExpenses: projectExpenses + generalExpenses,
     pendingExpenses,

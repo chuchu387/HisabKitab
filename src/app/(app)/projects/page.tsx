@@ -50,6 +50,7 @@ export default async function ProjectsPage({ searchParams }: any) {
       <DataTable data={projects} columns={[
         { header: "Name", cell: (p: any) => <Link className="font-medium hover:text-primary" href={`/projects/${p._id}`}>{p.name}</Link> },
         { header: "Code", cell: (p: any) => p.code },
+        { header: "Type", cell: (p: any) => <Badge>{p.projectType === "internal" ? "Internal" : "Client"}</Badge> },
         { header: "Total Budget", cell: (p: any) => money(p.totalBudget) },
         { header: "Received", cell: (p: any) => money(p.paidTotal ?? 0) },
         { header: "Due", cell: (p: any) => money((p.totalBudget ?? 0) - (p.paidTotal ?? 0)) },

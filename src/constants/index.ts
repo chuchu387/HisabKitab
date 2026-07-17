@@ -11,6 +11,7 @@ export const roleLabels: Record<Role, string> = {
 };
 
 export const projectStatuses = ["active", "completed", "on_hold"] as const;
+export const projectTypes = ["client", "internal"] as const;
 export const projectTaskStatuses = ["to_do", "in_progress", "in_review", "complete"] as const;
 export const expenseApprovalStatuses = ["pending", "approved", "rejected"] as const;
 export const organizationStatuses = ["active", "inactive"] as const;

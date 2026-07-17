@@ -20,6 +20,14 @@ export function ProjectForm({ project }: { project?: any }) {
     <form action={formAction} className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-2">
       <Field name="name" label="Name" defaultValue={project?.name} error={state.fieldErrors?.name?.[0]} />
       <Field name="code" label="Code" defaultValue={project?.code} error={state.fieldErrors?.code?.[0]} />
+      <div className="space-y-2">
+        <Label htmlFor="projectType">Project Type</Label>
+        <Select id="projectType" name="projectType" defaultValue={project?.projectType ?? "client"}>
+          <option value="client">Client Project</option>
+          <option value="internal">Internal Project</option>
+        </Select>
+        {state.fieldErrors?.projectType?.[0] && <p className="text-xs text-destructive">{state.fieldErrors.projectType[0]}</p>}
+      </div>
       <Field name="totalBudget" label="Total Budget" type="number" min="0" step="0.01" defaultValue={project?.totalBudget ?? 0} error={state.fieldErrors?.totalBudget?.[0]} />
       <Field name="receivedAmount" label="Total Received Till Now" type="number" min="0" step="0.01" defaultValue={project?.receivedAmount ?? 0} error={state.fieldErrors?.receivedAmount?.[0]} />
       <div className="space-y-2">

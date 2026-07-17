@@ -43,7 +43,9 @@ export default async function ProjectDetailPage({ params }: any) {
         <StatCard label="Total Expense" value={financials.expense} currency />
         <StatCard label="Project Balance After Expenses" value={financials.cashAfterExpenses} currency />
       </div>
-      <p className="text-sm text-muted-foreground">Created by {(financials.project.createdBy as any)?.name ?? "Unknown"}</p>
+      <p className="text-sm text-muted-foreground">
+        {financials.project.projectType === "internal" ? "Internal project funded from company cash" : "Client project funded by project receipts"} · Created by {(financials.project.createdBy as any)?.name ?? "Unknown"}
+      </p>
       <section className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold">Project Expenses</h2>
