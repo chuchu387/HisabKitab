@@ -47,7 +47,7 @@ export default async function ProjectsPage({ searchParams }: any) {
   return (
     <PageShell title="Projects" action={canManage && <Button asChild><Link href="/projects/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
       <form className="flex gap-2"><SearchBar placeholder="Search projects" defaultValue={q} /><Button variant="outline">Filter</Button></form>
-      <DataTable data={projects} columns={[
+      <DataTable data={projects} pagination={{ basePath: "/projects", searchParams: params }} columns={[
         { header: "Name", cell: (p: any) => <Link className="font-medium hover:text-primary" href={`/projects/${p._id}`}>{p.name}</Link> },
         { header: "Code", cell: (p: any) => p.code },
         { header: "Type", cell: (p: any) => <Badge>{p.projectType === "internal" ? "Internal" : "Client"}</Badge> },

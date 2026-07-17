@@ -16,10 +16,11 @@ import { User } from "@/models/User";
 void Project;
 void User;
 
-export default async function ProjectPaymentsPage() {
+export default async function ProjectPaymentsPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
+  const params = await searchParams;
   const [projects, payments] = await Promise.all([
     Project.find({ organizationId }).sort({ name: 1 }).lean(),
     ProjectPayment.find({ organizationId }).populate("projectId createdBy").sort({ paymentDate: -1 }).lean()
@@ -51,7 +52,7 @@ export default async function ProjectPaymentsPage() {
       <ProjectPaymentForm projects={JSON.parse(JSON.stringify(projects))} />
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Project Payment Summary</h2>
-        <DataTable data={projectSummaries} columns={[
+        <DataTable data={projectSummaries} pagination={{ basePath: "/project-payments", searchParams: params, pageParam: "summaryPage", pageSizeParam: "summaryPageSize" }} columns={[
           { header: "Project", cell: (p: any) => `${p.name} (${p.code})` },
           { header: "Type", cell: (p: any) => p.projectType === "internal" ? "Internal" : "Client" },
           { header: "Budget", cell: (p: any) => money(p.totalBudget ?? 0) },
@@ -61,7 +62,7 @@ export default async function ProjectPaymentsPage() {
       </section>
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Payment History</h2>
-      <DataTable data={payments} columns={[
+      <DataTable data={payments} pagination={{ basePath: "/project-payments", searchParams: params, pageParam: "historyPage", pageSizeParam: "historyPageSize" }} columns={[
         { header: "Date", cell: (p: any) => formatDate(p.paymentDate) },
         { header: "Project", cell: (p: any) => p.projectId?.name ?? "-" },
         { header: "Amount", cell: (p: any) => money(p.amount) },

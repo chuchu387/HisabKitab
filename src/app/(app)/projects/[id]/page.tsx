@@ -18,10 +18,12 @@ import { getProjectFinancials } from "@/services/accounting";
 void ExpenseCategory;
 void User;
 
-export default async function ProjectDetailPage({ params }: any) {
+export default async function ProjectDetailPage({ params, searchParams }: any) {
   const { organizationId, session } = await requireTenant();
   await connectToDatabase();
-  const projectId = params.id;
+  const routeParams = await params;
+  const queryParams = await searchParams;
+  const projectId = routeParams.id;
   const [financials, projectExpenses, tasks, assignees] = await Promise.all([
     getProjectFinancials(organizationId, projectId),
     Expense.find({ organizationId, projectId }).populate("categoryId createdBy").sort({ expenseDate: -1 }).lean(),
@@ -68,7 +70,7 @@ export default async function ProjectDetailPage({ params }: any) {
           <h2 className="text-lg font-semibold">Project Expenses</h2>
           <p className="text-sm text-muted-foreground">Expenses linked to this project only. Approved expenses are used in the project spent total.</p>
         </div>
-        <DataTable data={JSON.parse(JSON.stringify(projectExpenses))} columns={[
+        <DataTable data={JSON.parse(JSON.stringify(projectExpenses))} pagination={{ basePath: `/projects/${projectId}`, searchParams: queryParams }} columns={[
           { header: "Date", cell: (expense: any) => formatDate(expense.expenseDate) },
           { header: "Category", cell: (expense: any) => expense.categoryId?.name ?? "-" },
           { header: "Description", cell: (expense: any) => expense.description },

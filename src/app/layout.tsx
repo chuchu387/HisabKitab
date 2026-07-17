@@ -4,7 +4,11 @@ import "@/app/globals.css";
 
 export const metadata: Metadata = {
   title: "HisabKitab",
-  description: "Multi-tenant accounting and expense management"
+  description: "Multi-tenant accounting and expense management",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/apple-icon.svg"
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

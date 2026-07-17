@@ -16,8 +16,14 @@ const bulkMoveInitialState = { ok: false, message: "" };
 
 export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }: { expenses: any[]; projects: any[]; canApprove?: boolean }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [moveState, moveAction, movePending] = useActionState(bulkLinkExpensesToProject, bulkMoveInitialState);
   if (!expenses.length) return null;
+  const totalPages = Math.max(1, Math.ceil(expenses.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * pageSize;
+  const visibleExpenses = expenses.slice(start, start + pageSize);
   const toggleExpense = (id: string, checked: boolean) => {
     setSelectedIds((current) => checked ? [...new Set([...current, id])] : current.filter((selectedId) => selectedId !== id));
   };
@@ -67,7 +73,7 @@ export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }:
               </tr>
             </thead>
             <tbody className="divide-y">
-              {expenses.map((expense) => (
+              {visibleExpenses.map((expense) => (
                 <tr key={expense._id} className="hover:bg-muted/50">
                   <td className="px-4 py-3">
                     <input
@@ -100,6 +106,33 @@ export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }:
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="flex flex-col gap-3 border-t bg-muted/25 px-4 py-3 text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            Showing <span className="font-medium text-foreground">{start + 1}-{start + visibleExpenses.length}</span> of <span className="font-medium text-foreground">{expenses.length}</span> expenses
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-md border bg-card p-1">
+              {[10, 25, 50, 100].map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  className={size === pageSize ? "rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground" : "rounded px-2 py-1 text-xs font-medium hover:bg-secondary"}
+                  onClick={() => {
+                    setPageSize(size);
+                    setPage(1);
+                  }}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium disabled:opacity-50" disabled={safePage <= 1} onClick={() => setPage(1)}>First</button>
+            <button type="button" className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium disabled:opacity-50" disabled={safePage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>Prev</button>
+            <span className="px-2 text-xs font-medium">Page {safePage} of {totalPages}</span>
+            <button type="button" className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium disabled:opacity-50" disabled={safePage >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>Next</button>
+            <button type="button" className="rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium disabled:opacity-50" disabled={safePage >= totalPages} onClick={() => setPage(totalPages)}>Last</button>
+          </div>
         </div>
       </div>
     </div>

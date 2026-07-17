@@ -50,7 +50,7 @@ export default async function ExpenseContributorDetailPage({ params, searchParam
       <ContributorCharts categorySummary={JSON.parse(JSON.stringify(detail.categorySummary))} projectSummary={JSON.parse(JSON.stringify(detail.projectSummary))} monthlySummary={JSON.parse(JSON.stringify(detail.monthlySummary))} />
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Submitted Expenses</h2>
-        <DataTable data={detail.expenses} columns={[
+        <DataTable data={detail.expenses} pagination={{ basePath: `/expense-contributors/${userId}`, searchParams: queryParams }} columns={[
           { header: "Date", cell: (expense: any) => formatDate(expense.expenseDate) },
           { header: "Category", cell: (expense: any) => expense.category ?? "-" },
           { header: "Project", cell: (expense: any) => expense.project ?? "General" },

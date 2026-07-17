@@ -12,15 +12,16 @@ import { User } from "@/models/User";
 
 void User;
 
-export default async function GeneralFundsPage() {
+export default async function GeneralFundsPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
+  const params = await searchParams;
   const funds = await GeneralFund.find({ organizationId }).populate("createdBy").sort({ fundDate: -1 }).lean();
   return (
     <PageShell title="Owner/Other Funds" description="Track extra company cash added outside client project payments.">
       <GeneralFundForm />
-      <DataTable data={funds} columns={[
+      <DataTable data={funds} pagination={{ basePath: "/general-funds", searchParams: params }} columns={[
         { header: "Date", cell: (f: any) => formatDate(f.fundDate) },
         { header: "Amount", cell: (f: any) => money(f.amount) },
         { header: "Note", cell: (f: any) => f.note || "-" },

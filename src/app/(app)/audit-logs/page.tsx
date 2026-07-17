@@ -8,14 +8,15 @@ import { User } from "@/models/User";
 
 void User;
 
-export default async function AuditLogsPage() {
+export default async function AuditLogsPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
+  const params = await searchParams;
   const logs = await AuditLog.find({ organizationId }).populate("userId").sort({ createdAt: -1 }).limit(200).lean();
   return (
     <PageShell title="Audit Logs">
-      <DataTable data={logs} columns={[
+      <DataTable data={logs} pagination={{ basePath: "/audit-logs", searchParams: params }} columns={[
         { header: "Date", cell: (l: any) => formatDate(l.createdAt) },
         { header: "User", cell: (l: any) => l.userId?.name ?? "Unknown" },
         { header: "Action", cell: (l: any) => l.action },

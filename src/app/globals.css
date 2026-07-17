@@ -35,3 +35,15 @@ body {
 a {
   @apply transition-colors;
 }
+
+@keyframes loader-slide {
+  0% {
+    transform: translateX(-110%);
+  }
+  50% {
+    transform: translateX(60%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}

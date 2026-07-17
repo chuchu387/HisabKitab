@@ -9,9 +9,10 @@ import { requireTenant } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { getExpenseContributorSummaries } from "@/services/accounting";
 
-export default async function ExpenseContributorsPage() {
+export default async function ExpenseContributorsPage({ searchParams }: any) {
   const { organizationId, session } = await requireTenant();
   await connectToDatabase();
+  const params = await searchParams;
   const staffScopedUserId = session.user.role === "staff" ? session.user.userId : undefined;
   const contributors = await getExpenseContributorSummaries(organizationId, staffScopedUserId);
   const totalAmount = contributors.reduce((sum: number, row: any) => sum + (row.totalAmount ?? 0), 0);
@@ -27,7 +28,7 @@ export default async function ExpenseContributorsPage() {
         <StatCard label="Project Expenses" value={projectAmount} currency />
         <StatCard label="General Expenses" value={generalAmount} currency />
       </div>
-      <DataTable data={contributors} columns={[
+      <DataTable data={contributors} pagination={{ basePath: "/expense-contributors", searchParams: params }} columns={[
         { header: "User", cell: (row: any) => <div><p className="font-medium">{row.name}</p><p className="text-xs text-muted-foreground">{row.email ?? "-"}</p></div> },
         { header: "Role", cell: (row: any) => <Badge>{row.role ?? "unknown"}</Badge> },
         { header: "Total", cell: (row: any) => money(row.totalAmount) },

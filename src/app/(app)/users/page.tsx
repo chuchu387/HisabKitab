@@ -37,7 +37,7 @@ export default async function UsersPage({ searchParams }: any) {
         </select>
         <Button variant="outline">Filter</Button>
       </form>
-      <DataTable data={users} columns={[
+      <DataTable data={users} pagination={{ basePath: "/users", searchParams: params }} columns={[
         { header: "Name", cell: (u: any) => u.name },
         { header: "Email", cell: (u: any) => u.email },
         { header: "Role", cell: (u: any) => roleLabels[u.role as keyof typeof roleLabels] },

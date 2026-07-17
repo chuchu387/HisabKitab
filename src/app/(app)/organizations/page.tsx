@@ -24,7 +24,7 @@ export default async function OrganizationsPage({ searchParams }: any) {
   return (
     <PageShell title="Organizations" action={<Button asChild><Link href="/organizations/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
       <form className="flex gap-2"><SearchBar placeholder="Search organizations" defaultValue={q} /><Button variant="outline">Filter</Button></form>
-      <DataTable data={organizations} columns={[
+      <DataTable data={organizations} pagination={{ basePath: "/organizations", searchParams: params }} columns={[
         { header: "Name", cell: (o: any) => o.name },
         { header: "Code", cell: (o: any) => o.code },
         { header: "Email", cell: (o: any) => o.email },

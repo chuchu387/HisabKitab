@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { Download, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
@@ -36,6 +36,11 @@ export default async function ReportsPage({ searchParams }: any) {
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
   const lastMonth = new URLSearchParams({ from: dateInput(lastMonthStart), to: dateInput(lastMonthEnd) });
+  const summary = reports.summary as any;
+  const collectionRate = summary.totalBudget > 0 ? Math.round((summary.totalReceived / summary.totalBudget) * 100) : 0;
+  const spendRate = summary.totalFunding > 0 ? Math.round((summary.totalExpenses / summary.totalFunding) * 100) : 0;
+  const topCategories = [...reports.categorySummary].slice(0, 5);
+  const topProjects = [...reports.projects].sort((a: any, b: any) => (b.expense ?? 0) - (a.expense ?? 0)).slice(0, 5);
   return (
     <PageShell title="Reports" description="Summary, project, and expense reports with CSV/PDF exports.">
       <form className="flex flex-wrap gap-2">
@@ -72,6 +77,13 @@ export default async function ReportsPage({ searchParams }: any) {
         <StatCard label="Company Cash Balance" value={(reports.summary as any).organizationCashBalance ?? 0} currency />
         <StatCard label="Pending Approvals" value={(reports.summary as any).pendingExpenses ?? 0} />
       </div>
+      <Card className="overflow-hidden border-primary/25 shadow-sm">
+        <CardContent className="grid gap-4 p-5 lg:grid-cols-[1fr_1fr_1fr]">
+          <ReportKpi label="Collection Rate" value={`${collectionRate}%`} detail={`${money(summary.totalReceived ?? 0)} received from ${money(summary.totalBudget ?? 0)}`} positive={collectionRate >= 70} />
+          <ReportKpi label="Spend Rate" value={`${spendRate}%`} detail={`${money(summary.totalExpenses ?? 0)} spent from ${money(summary.totalFunding ?? 0)} funding`} positive={spendRate <= 75} inverted />
+          <ReportKpi label="Net Cash" value={money(summary.organizationCashBalance ?? 0)} detail="Company cash after all approved expenses" positive={(summary.organizationCashBalance ?? 0) >= 0} />
+        </CardContent>
+      </Card>
       <Card>
         <CardContent className="grid gap-4 p-5 lg:grid-cols-3">
           <ReportSummaryBlock title="Money In" rows={[
@@ -97,9 +109,13 @@ export default async function ReportsPage({ searchParams }: any) {
         expenseTypeSummary={JSON.parse(JSON.stringify(reports.expenseTypeSummary))}
         projects={JSON.parse(JSON.stringify(reports.projects))}
       />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RankingCard title="Top Expense Categories" rows={topCategories.map((row: any) => ({ label: row.name, value: row.amount, detail: `${row.count} records` }))} />
+        <RankingCard title="Highest Spending Projects" rows={topProjects.map((row: any) => ({ label: `${row.name} (${row.code})`, value: row.expense, detail: `${money(row.received ?? 0)} received` }))} />
+      </div>
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Project Report</h2>
-        <DataTable data={reports.projects} columns={[
+        <DataTable data={reports.projects} pagination={{ basePath: "/reports", searchParams: params, pageParam: "projectPage", pageSizeParam: "projectPageSize" }} columns={[
           { header: "Project", cell: (p: any) => `${p.name} (${p.code})` },
           { header: "Type", cell: (p: any) => p.projectType === "internal" ? "Internal" : "Client" },
           { header: "Budget", cell: (p: any) => money(p.budget) },
@@ -111,7 +127,7 @@ export default async function ReportsPage({ searchParams }: any) {
       </section>
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Expense Report</h2>
-        <DataTable data={reports.expenses} columns={[
+        <DataTable data={reports.expenses} pagination={{ basePath: "/reports", searchParams: params, pageParam: "expensePage", pageSizeParam: "expensePageSize" }} columns={[
           { header: "Date", cell: (e: any) => formatDate(e.expenseDate) },
           { header: "Category", cell: (e: any) => e.category },
           { header: "Project", cell: (e: any) => e.project },
@@ -151,5 +167,45 @@ function ReportSummaryBlock({ title, rows }: { title: string; rows: Array<[strin
         ))}
       </div>
     </div>
+  );
+}
+
+function ReportKpi({ label, value, detail, positive, inverted = false }: { label: string; value: string; detail: string; positive: boolean; inverted?: boolean }) {
+  const Icon = positive ? TrendingUp : TrendingDown;
+  const color = positive ? "text-primary" : inverted ? "text-accent" : "text-destructive";
+  return (
+    <div className="rounded-lg border bg-muted/25 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <Icon className={`h-4 w-4 ${color}`} />
+      </div>
+      <p className={`mt-2 text-2xl font-semibold ${color}`}>{value}</p>
+      <p className="mt-2 text-xs text-muted-foreground">{detail}</p>
+    </div>
+  );
+}
+
+function RankingCard({ title, rows }: { title: string; rows: Array<{ label: string; value: number; detail: string }> }) {
+  const max = Math.max(...rows.map((row) => row.value), 1);
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <h2 className="font-semibold">{title}</h2>
+        <div className="mt-4 space-y-3">
+          {rows.length ? rows.map((row) => (
+            <div key={row.label} className="space-y-1">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="font-medium">{row.label}</span>
+                <span className="font-semibold">{money(row.value)}</span>
+              </div>
+              <div className="h-2 rounded-full bg-muted">
+                <div className="h-2 rounded-full bg-primary" style={{ width: `${Math.max(6, (row.value / max) * 100)}%` }} />
+              </div>
+              <p className="text-xs text-muted-foreground">{row.detail}</p>
+            </div>
+          )) : <p className="text-sm text-muted-foreground">No report data for the selected filters.</p>}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

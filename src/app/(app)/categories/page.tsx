@@ -26,7 +26,7 @@ export default async function CategoriesPage({ searchParams }: any) {
   return (
     <PageShell title="Categories" action={<Button asChild><Link href="/categories/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
       <form className="flex gap-2"><SearchBar placeholder="Search categories" defaultValue={q} /><Button variant="outline">Filter</Button></form>
-      <DataTable data={categories} columns={[
+      <DataTable data={categories} pagination={{ basePath: "/categories", searchParams: params }} columns={[
         { header: "Name", cell: (c: any) => c.name },
         { header: "Description", cell: (c: any) => c.description || "-" },
         { header: "Added By", cell: (c: any) => c.createdBy?.name ?? "Unknown" },
