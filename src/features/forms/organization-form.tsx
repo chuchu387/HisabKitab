@@ -20,7 +20,7 @@ export function OrganizationForm({ organization }: { organization?: any }) {
       <Field name="code" label="Code" defaultValue={organization?.code} />
       <Field name="email" label={organization ? "Email" : "Admin Login Email"} type="email" defaultValue={organization?.email} />
       <Field name="phone" label="Phone" defaultValue={organization?.phone} />
-      <Field name="generalBudget" label="General Budget" type="number" min="0" step="0.01" defaultValue={organization?.generalBudget ?? 0} />
+      <Field name="generalBudget" label="Owner/Other Funds" type="number" min="0" step="0.01" defaultValue={organization?.generalBudget ?? 0} />
       {!organization && (
         <>
           <Field name="adminName" label="Admin Name" defaultValue="" />

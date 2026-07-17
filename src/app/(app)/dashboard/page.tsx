@@ -24,19 +24,18 @@ export default async function DashboardPage() {
         <StatCard label="Total Budget" value={summary.totalBudget} currency />
         <StatCard label="Total Project Received" value={(summary as any).totalReceived ?? 0} currency />
         <StatCard label="Due" value={(summary as any).dueAmount ?? 0} currency />
-        <StatCard label="General Budget" value={(summary as any).generalBudget ?? 0} currency />
+        <StatCard label="Owner/Other Funds" value={(summary as any).generalBudget ?? 0} currency />
         <StatCard label="Client Project Expenses" value={(summary as any).clientProjectExpenses ?? 0} currency />
         <StatCard label="Internal Project Expenses" value={(summary as any).internalProjectExpenses ?? 0} currency />
         <StatCard label="All Project Expenses" value={summary.projectExpenses} currency />
         <StatCard label="General Expenses" value={summary.generalExpenses} currency />
         <StatCard label="Company Project Cash Balance" value={summary.remainingBudget} currency />
-        <StatCard label="General Balance" value={(summary as any).generalBudgetBalance ?? 0} currency />
-        <StatCard label="Total Cash Balance" value={(summary as any).organizationCashBalance ?? 0} currency />
+        <StatCard label="Company Cash Balance" value={(summary as any).organizationCashBalance ?? 0} currency />
       </div>
       <div className="grid gap-3 md:grid-cols-3">
         {((summary as any).pendingExpenses ?? 0) > 0 && <AlertCard text={`${(summary as any).pendingExpenses} expenses pending approval`} />}
         {((summary as any).projectPaidBalance ?? 0) < 0 && <AlertCard text="Project and internal expenses are higher than project receipts" />}
-        {((summary as any).generalBudgetBalance ?? 0) < 0 && <AlertCard text="General expenses are higher than general funds" />}
+        {((summary as any).organizationCashBalance ?? 0) < 0 && <AlertCard text="Approved expenses are higher than company cash received" />}
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
         <SimpleBarChart title="Expenses By Category" data={JSON.parse(JSON.stringify(charts.byCategory))} />

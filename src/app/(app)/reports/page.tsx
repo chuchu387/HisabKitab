@@ -55,10 +55,9 @@ export default async function ReportsPage({ searchParams }: any) {
         <StatCard label="Internal Project Expenses" value={(reports.summary as any).internalProjectExpenses ?? 0} currency />
         <StatCard label="All Project Expenses" value={reports.summary.projectExpenses} currency />
         <StatCard label="Company Project Cash Balance" value={(reports.summary as any).projectPaidBalance ?? 0} currency />
-        <StatCard label="General Budget" value={(reports.summary as any).generalBudget ?? 0} currency />
+        <StatCard label="Owner/Other Funds" value={(reports.summary as any).generalBudget ?? 0} currency />
         <StatCard label="General Expenses" value={reports.summary.generalExpenses} currency />
-        <StatCard label="General Balance" value={(reports.summary as any).generalBudgetBalance ?? 0} currency />
-        <StatCard label="Total Cash Balance" value={(reports.summary as any).organizationCashBalance ?? 0} currency />
+        <StatCard label="Company Cash Balance" value={(reports.summary as any).organizationCashBalance ?? 0} currency />
         <StatCard label="Pending Approvals" value={(reports.summary as any).pendingExpenses ?? 0} />
       </div>
       <ReportVisuals

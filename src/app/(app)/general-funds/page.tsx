@@ -18,7 +18,7 @@ export default async function GeneralFundsPage() {
   await connectToDatabase();
   const funds = await GeneralFund.find({ organizationId }).populate("createdBy").sort({ fundDate: -1 }).lean();
   return (
-    <PageShell title="General Funds" description="Track funding for general expenses. These records calculate General Budget automatically.">
+    <PageShell title="Owner/Other Funds" description="Track extra company cash added outside client project payments.">
       <GeneralFundForm />
       <DataTable data={funds} columns={[
         { header: "Date", cell: (f: any) => formatDate(f.fundDate) },

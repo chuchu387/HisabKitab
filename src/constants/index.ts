@@ -34,7 +34,7 @@ export const navItems = [
   { href: "/users", label: "Users", icon: Users, roles: ["owner"] },
   { href: "/projects", label: "Projects", icon: FolderKanban, roles: ["owner", "admin", "staff"] },
   { href: "/project-payments", label: "Payments", icon: Banknote, roles: ["owner", "admin"] },
-  { href: "/general-funds", label: "General Funds", icon: Landmark, roles: ["owner", "admin"] },
+  { href: "/general-funds", label: "Funds", icon: Landmark, roles: ["owner", "admin"] },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["owner", "admin", "staff"] },
   { href: "/categories", label: "Categories", icon: Tags, roles: ["owner", "admin"] },
   { href: "/expenses", label: "Expenses", icon: ReceiptText, roles: ["owner", "admin", "staff"] },

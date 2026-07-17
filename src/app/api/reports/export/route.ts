@@ -25,10 +25,9 @@ export async function GET(request: NextRequest) {
     { section: "Summary", metric: "Internal Project Expenses", value: (reports.summary as any).internalProjectExpenses ?? 0 },
     { section: "Summary", metric: "All Project Expenses", value: reports.summary.projectExpenses },
     { section: "Summary", metric: "Company Project Cash Balance", value: (reports.summary as any).projectPaidBalance ?? 0 },
-    { section: "Summary", metric: "General Budget", value: (reports.summary as any).generalBudget ?? 0 },
+    { section: "Summary", metric: "Owner/Other Funds", value: (reports.summary as any).generalBudget ?? 0 },
     { section: "Summary", metric: "General Expenses", value: reports.summary.generalExpenses },
-    { section: "Summary", metric: "General Balance", value: (reports.summary as any).generalBudgetBalance ?? 0 },
-    { section: "Summary", metric: "Total Cash Balance", value: (reports.summary as any).organizationCashBalance ?? 0 },
+    { section: "Summary", metric: "Company Cash Balance", value: (reports.summary as any).organizationCashBalance ?? 0 },
     { section: "Summary", metric: "Pending Approvals", value: (reports.summary as any).pendingExpenses ?? 0 }
   ];
   const projectRows = reports.projects.map((project: any) => ({

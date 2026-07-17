@@ -17,7 +17,7 @@ export function SettingsForm({ organization }: { organization: any }) {
       <Field name="name" label="Name" defaultValue={organization.name} />
       <Field name="email" label="Email" type="email" defaultValue={organization.email} />
       <Field name="phone" label="Phone" defaultValue={organization.phone} />
-      <Field name="generalBudget" label="General Budget" type="number" min="0" step="0.01" defaultValue={organization.generalBudget ?? 0} />
+      <Field name="generalBudget" label="Owner/Other Funds" type="number" min="0" step="0.01" defaultValue={organization.generalBudget ?? 0} />
       <div className="space-y-2 md:col-span-2"><Label htmlFor="address">Address</Label><Textarea id="address" name="address" defaultValue={organization.address} /></div>
       <div className="flex items-end justify-between gap-3 md:col-span-2">
         <ActionMessage state={state} />
