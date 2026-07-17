@@ -8,23 +8,44 @@ import { ReportVisuals } from "@/features/reports/report-visuals";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
+import { ExpenseCategory } from "@/models/ExpenseCategory";
+import { Project } from "@/models/Project";
 import { getReports } from "@/services/accounting";
 
 export default async function ReportsPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await connectToDatabase();
   const params = await searchParams;
-  const filters = { organizationId, from: params?.from, to: params?.to, projectId: params?.projectId, categoryId: params?.categoryId };
-  const reports = await getReports(filters);
+  const filters = {
+    organizationId,
+    from: typeof params?.from === "string" ? params.from : undefined,
+    to: typeof params?.to === "string" ? params.to : undefined,
+    projectId: typeof params?.projectId === "string" ? params.projectId : undefined,
+    categoryId: typeof params?.categoryId === "string" ? params.categoryId : undefined
+  };
+  const [reports, projects, categories] = await Promise.all([
+    getReports(filters),
+    Project.find({ organizationId }).sort({ name: 1 }).select("name code").lean(),
+    ExpenseCategory.find({ organizationId }).sort({ name: 1 }).select("name").lean()
+  ]);
   const qs = new URLSearchParams(Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => typeof v === "string")) as Record<string, string>);
   return (
     <PageShell title="Reports" description="Summary, project, and expense reports with CSV/PDF exports.">
       <form className="flex flex-wrap gap-2">
-        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="from" defaultValue={params?.from} />
-        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="to" defaultValue={params?.to} />
+        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="from" defaultValue={filters.from} />
+        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="to" defaultValue={filters.to} />
+        <select className="h-10 rounded-md border bg-background px-3 text-sm" name="projectId" defaultValue={filters.projectId ?? ""}>
+          <option value="">All projects</option>
+          {projects.map((project: any) => <option key={String(project._id)} value={String(project._id)}>{project.name} ({project.code})</option>)}
+        </select>
+        <select className="h-10 rounded-md border bg-background px-3 text-sm" name="categoryId" defaultValue={filters.categoryId ?? ""}>
+          <option value="">All categories</option>
+          {categories.map((category: any) => <option key={String(category._id)} value={String(category._id)}>{category.name}</option>)}
+        </select>
         <Button variant="outline">Filter</Button>
         <Button asChild variant="secondary"><Link href={`/api/reports/export?format=csv&${qs}`}><Download className="h-4 w-4" />CSV</Link></Button>
         <Button asChild variant="secondary"><Link href={`/api/reports/export?format=pdf&${qs}`}><Download className="h-4 w-4" />PDF</Link></Button>
+        <Button asChild variant="ghost"><Link href="/reports">Reset</Link></Button>
       </form>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total Budget" value={reports.summary.totalBudget} currency />
