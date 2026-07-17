@@ -22,12 +22,12 @@ export default async function DashboardPage() {
         <StatCard label="Total Projects" value={summary.totalProjects} />
         <StatCard label="Active Projects" value={summary.activeProjects} />
         <StatCard label="Total Budget" value={summary.totalBudget} currency />
-        <StatCard label="Total Paid" value={(summary as any).totalReceived ?? 0} currency />
+        <StatCard label="Total Project Received" value={(summary as any).totalReceived ?? 0} currency />
         <StatCard label="Due" value={(summary as any).dueAmount ?? 0} currency />
         <StatCard label="General Budget" value={(summary as any).generalBudget ?? 0} currency />
         <StatCard label="Project Expenses" value={summary.projectExpenses} currency />
         <StatCard label="General Expenses" value={summary.generalExpenses} currency />
-        <StatCard label="Paid Balance After Expenses" value={summary.remainingBudget} currency />
+        <StatCard label="Project Balance After Expenses" value={summary.remainingBudget} currency />
         <StatCard label="General Balance" value={(summary as any).generalBudgetBalance ?? 0} currency />
         <StatCard label="Total Cash Balance" value={(summary as any).organizationCashBalance ?? 0} currency />
       </div>

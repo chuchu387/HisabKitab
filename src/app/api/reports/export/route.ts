@@ -19,10 +19,10 @@ export async function GET(request: NextRequest) {
   });
   const summaryRows = [
     { section: "Summary", metric: "Total Budget", value: reports.summary.totalBudget },
-    { section: "Summary", metric: "Total Paid", value: (reports.summary as any).totalReceived ?? 0 },
+    { section: "Summary", metric: "Total Project Received", value: (reports.summary as any).totalReceived ?? 0 },
     { section: "Summary", metric: "Due", value: (reports.summary as any).dueAmount ?? 0 },
     { section: "Summary", metric: "Project Expenses", value: reports.summary.projectExpenses },
-    { section: "Summary", metric: "Project Paid Balance", value: (reports.summary as any).projectPaidBalance ?? 0 },
+    { section: "Summary", metric: "Project Balance", value: (reports.summary as any).projectPaidBalance ?? 0 },
     { section: "Summary", metric: "General Budget", value: (reports.summary as any).generalBudget ?? 0 },
     { section: "Summary", metric: "General Expenses", value: reports.summary.generalExpenses },
     { section: "Summary", metric: "General Balance", value: (reports.summary as any).generalBudgetBalance ?? 0 },

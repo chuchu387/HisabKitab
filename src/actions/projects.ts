@@ -20,6 +20,8 @@ export async function createProject(_: ActionState, formData: FormData): Promise
     const project = await Project.create({ ...data, organizationId, createdBy: session.user.userId });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Created", entityType: "Project", entityId: project._id.toString(), metadata: { code: data.code } });
     revalidatePath("/projects");
+    revalidatePath("/dashboard");
+    revalidatePath("/reports");
     return { ok: true, message: "Project created" };
   } catch (error) {
     return actionError(error);
@@ -35,6 +37,9 @@ export async function updateProject(id: string, _: ActionState, formData: FormDa
     await Project.findOneAndUpdate({ _id: id, organizationId }, data, { runValidators: true });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Updated", entityType: "Project", entityId: id, metadata: { code: data.code } });
     revalidatePath("/projects");
+    revalidatePath("/dashboard");
+    revalidatePath("/reports");
+    revalidatePath(`/projects/${id}`);
     return { ok: true, message: "Project updated" };
   } catch (error) {
     return actionError(error);
@@ -51,4 +56,6 @@ export async function deleteProject(formData: FormData) {
   await ProjectPayment.deleteMany({ projectId: id, organizationId });
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Deleted", entityType: "Project", entityId: id });
   revalidatePath("/projects");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
 }

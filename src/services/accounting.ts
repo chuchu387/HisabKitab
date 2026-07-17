@@ -41,6 +41,10 @@ function approvedExpenseCondition() {
   return { $or: [{ approvalStatus: "approved" }, { approvalStatus: { $exists: false } }] };
 }
 
+function effectiveReceived(projectReceived: number, paymentTotal: number) {
+  return projectReceived > 0 ? projectReceived : paymentTotal;
+}
+
 export async function getAccountingSummary(organizationId: string) {
   const oid = new Types.ObjectId(organizationId);
   const [organization, budgetAgg, paymentAgg, fundAgg, projectExpenseAgg, generalExpenseAgg, pendingExpenses, activeProjects, totalProjects] = await Promise.all([
@@ -55,7 +59,7 @@ export async function getAccountingSummary(organizationId: string) {
     Project.countDocuments({ organizationId })
   ]);
   const totalBudget = budgetAgg[0]?.total ?? 0;
-  const totalReceived = paymentAgg[0]?.count ? paymentAgg[0].total : (budgetAgg[0]?.legacyReceived ?? 0);
+  const totalReceived = effectiveReceived(budgetAgg[0]?.legacyReceived ?? 0, paymentAgg[0]?.total ?? 0);
   const projectExpenses = projectExpenseAgg[0]?.total ?? 0;
   const generalExpenses = generalExpenseAgg[0]?.total ?? 0;
   const generalBudget = fundAgg[0]?.count ? fundAgg[0].total : ((organization as any)?.generalBudget ?? 0);
@@ -95,7 +99,7 @@ export async function getProjectFinancials(organizationId: string, projectId: st
   ]);
   const safeProject = project as any;
   const expense = agg[0]?.total ?? 0;
-  const received = paymentAgg[0]?.count ? paymentAgg[0].total : (safeProject?.receivedAmount ?? 0);
+  const received = effectiveReceived(safeProject?.receivedAmount ?? 0, paymentAgg[0]?.total ?? 0);
   return {
     project: safeProject,
     expense,
@@ -133,7 +137,7 @@ export async function getDashboardCharts(organizationId: string) {
       { $match: { organizationId: oid } },
       { $lookup: { from: ProjectPayment.collection.name, localField: "_id", foreignField: "projectId", as: "payments" } },
       { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
-      { $project: { name: 1, budget: "$totalBudget", received: { $cond: [{ $gt: [{ $size: "$payments" }, 0] }, { $sum: "$payments.amount" }, { $ifNull: ["$receivedAmount", 0] }] }, expense: { $sum: { $map: { input: { $filter: { input: "$expenses", as: "expense", cond: { $or: [{ $eq: ["$$expense.approvalStatus", "approved"] }, { $eq: [{ $type: "$$expense.approvalStatus" }, "missing"] }] } } }, as: "expense", in: "$$expense.amount" } } }, _id: 0 } },
+      { $project: { name: 1, budget: "$totalBudget", received: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] }, expense: { $sum: { $map: { input: { $filter: { input: "$expenses", as: "expense", cond: { $or: [{ $eq: ["$$expense.approvalStatus", "approved"] }, { $eq: [{ $type: "$$expense.approvalStatus" }, "missing"] }] } } }, as: "expense", in: "$$expense.amount" } } }, _id: 0 } },
       { $limit: 10 }
     ])
   ]);
@@ -158,7 +162,6 @@ export async function getReports(filters: ReportFilters) {
     organization,
     projectDocs,
     paymentAgg,
-    totalPaymentDocs,
     fundAgg,
     totalFundDocs,
     projectExpenseAgg,
@@ -172,7 +175,6 @@ export async function getReports(filters: ReportFilters) {
     Organization.findById(filters.organizationId).lean(),
     Project.find(projectScope).sort({ name: 1 }).lean(),
     ProjectPayment.aggregate([{ $match: paymentMatch }, { $group: { _id: "$projectId", total: { $sum: "$amount" } } }]),
-    ProjectPayment.countDocuments({ organizationId: filters.organizationId, ...(filters.projectId && selectedProjectId ? { projectId: selectedProjectId } : {}) }),
     GeneralFund.aggregate([{ $match: fundMatch }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     GeneralFund.countDocuments({ organizationId: filters.organizationId }),
     Expense.aggregate([{ $match: expenseProjectMatch }, { $group: { _id: "$projectId", total: { $sum: "$amount" } } }]),
@@ -207,10 +209,10 @@ export async function getReports(filters: ReportFilters) {
 
   const paymentByProject = new Map(paymentAgg.map((row: any) => [String(row._id), row.total]));
   const expenseByProject = new Map(projectExpenseAgg.map((row: any) => [String(row._id), row.total]));
-  const useLegacyProjectPayments = totalPaymentDocs === 0 && !range;
   const projects = projectDocs.map((project: any) => {
     const budget = project.totalBudget ?? 0;
-    const received = useLegacyProjectPayments ? (project.receivedAmount ?? 0) : (paymentByProject.get(String(project._id)) ?? 0);
+    const paymentTotal = range ? (paymentByProject.get(String(project._id)) ?? 0) : 0;
+    const received = range ? paymentTotal : effectiveReceived(project.receivedAmount ?? 0, paymentByProject.get(String(project._id)) ?? 0);
     const expense = expenseByProject.get(String(project._id)) ?? 0;
     return {
       _id: project._id,

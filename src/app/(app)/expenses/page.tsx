@@ -12,7 +12,6 @@ import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { Project } from "@/models/Project";
 import { User } from "@/models/User";
 
-void ExpenseCategory;
 void User;
 
 export default async function ExpensesPage({ searchParams }: any) {
@@ -32,9 +31,16 @@ export default async function ExpensesPage({ searchParams }: any) {
     if (params.from) query.expenseDate.$gte = new Date(params.from);
     if (params.to) query.expenseDate.$lte = new Date(params.to);
   }
-  const [expenses, projects] = await Promise.all([
+  if (params?.projectId === "general") {
+    query.projectId = null;
+  } else if (params?.projectId) {
+    query.projectId = params.projectId;
+  }
+  if (params?.categoryId) query.categoryId = params.categoryId;
+  const [expenses, projects, categories] = await Promise.all([
     Expense.find(query).populate("categoryId projectId createdBy").sort({ expenseDate: -1 }).lean(),
-    Project.find({ organizationId }).sort({ name: 1 }).lean()
+    Project.find({ organizationId }).sort({ name: 1 }).lean(),
+    ExpenseCategory.find({ organizationId }).sort({ name: 1 }).lean()
   ]);
   const users = session.user.role === "staff" ? [] : await User.find({ organizationId, active: true }).sort({ name: 1 }).lean();
   return (
@@ -43,6 +49,15 @@ export default async function ExpensesPage({ searchParams }: any) {
         <SearchBar placeholder="Search description" defaultValue={q} />
         <input className="h-10 rounded-md border px-3 text-sm" type="date" name="from" defaultValue={params?.from ?? ""} />
         <input className="h-10 rounded-md border px-3 text-sm" type="date" name="to" defaultValue={params?.to ?? ""} />
+        <select name="projectId" defaultValue={params?.projectId ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
+          <option value="">All projects and general</option>
+          <option value="general">General expenses only</option>
+          {projects.map((project: any) => <option key={project._id.toString()} value={project._id.toString()}>{project.name} ({project.code})</option>)}
+        </select>
+        <select name="categoryId" defaultValue={params?.categoryId ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
+          <option value="">All categories</option>
+          {categories.map((category: any) => <option key={category._id.toString()} value={category._id.toString()}>{category.name}</option>)}
+        </select>
         {session.user.role !== "staff" && (
           <select name="submittedBy" defaultValue={params?.submittedBy ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
             <option value="">All submitters</option>

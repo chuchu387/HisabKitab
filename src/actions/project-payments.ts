@@ -22,9 +22,12 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
     const receipt = formData.get("receipt");
     const receiptImageId = receipt instanceof File && receipt.size > 0 ? await saveReceipt(receipt, { organizationId, projectId: data.projectId, entityType: "ProjectPayment" }) : null;
     const payment = await ProjectPayment.create({ ...data, organizationId, receiptImageId, createdBy: session.user.userId });
+    await Project.updateOne({ _id: data.projectId, organizationId }, { $inc: { receivedAmount: data.amount } });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Payment Created", entityType: "ProjectPayment", entityId: payment._id.toString(), metadata: { projectId: data.projectId, amount: data.amount } });
     revalidatePath("/project-payments");
     revalidatePath("/dashboard");
+    revalidatePath("/projects");
+    revalidatePath("/reports");
     revalidatePath(`/projects/${data.projectId}`);
     return { ok: true, message: "Payment added" };
   } catch (error) {
@@ -39,9 +42,14 @@ export async function deleteProjectPayment(formData: FormData) {
   const id = String(formData.get("id"));
   const payment = (await ProjectPayment.findOneAndDelete({ _id: id, organizationId }).lean()) as any;
   if (!payment) throw new Error("Payment not found");
+  if (payment.projectId) {
+    await Project.updateOne({ _id: payment.projectId, organizationId }, { $inc: { receivedAmount: -payment.amount } });
+  }
   if (payment.receiptImageId) await deleteReceipt(payment.receiptImageId.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Payment Deleted", entityType: "ProjectPayment", entityId: id, metadata: { projectId: payment.projectId?.toString(), amount: payment.amount } });
   revalidatePath("/project-payments");
   revalidatePath("/dashboard");
+  revalidatePath("/projects");
+  revalidatePath("/reports");
   if (payment.projectId) revalidatePath(`/projects/${payment.projectId}`);
 }

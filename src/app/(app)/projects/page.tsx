@@ -29,7 +29,7 @@ export default async function ProjectsPage({ searchParams }: any) {
     { $lookup: { from: "users", localField: "createdBy", foreignField: "_id", as: "creator" } },
     {
       $addFields: {
-        paidTotal: { $cond: [{ $gt: [{ $size: "$payments" }, 0] }, { $sum: "$payments.amount" }, { $ifNull: ["$receivedAmount", 0] }] },
+        paidTotal: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] },
         expenseTotal: {
           $sum: {
             $map: {
@@ -51,10 +51,10 @@ export default async function ProjectsPage({ searchParams }: any) {
         { header: "Name", cell: (p: any) => <Link className="font-medium hover:text-primary" href={`/projects/${p._id}`}>{p.name}</Link> },
         { header: "Code", cell: (p: any) => p.code },
         { header: "Total Budget", cell: (p: any) => money(p.totalBudget) },
-        { header: "Total Paid", cell: (p: any) => money(p.paidTotal ?? 0) },
+        { header: "Received", cell: (p: any) => money(p.paidTotal ?? 0) },
         { header: "Due", cell: (p: any) => money((p.totalBudget ?? 0) - (p.paidTotal ?? 0)) },
         { header: "Expense", cell: (p: any) => money(p.expenseTotal ?? 0) },
-        { header: "Paid Balance", cell: (p: any) => money((p.paidTotal ?? 0) - (p.expenseTotal ?? 0)) },
+        { header: "Project Balance", cell: (p: any) => money((p.paidTotal ?? 0) - (p.expenseTotal ?? 0)) },
         { header: "Created By", cell: (p: any) => p.creator?.[0]?.name ?? "Unknown" },
         { header: "Status", cell: (p: any) => <Badge>{p.status}</Badge> },
         { header: "Actions", cell: (p: any) => canManage ? <div className="flex gap-2"><Button asChild variant="outline" size="sm"><Link href={`/projects/${p._id}/edit`}>Edit</Link></Button><form action={deleteProject}><input type="hidden" name="id" value={p._id.toString()} /><ConfirmButton /></form></div> : null }

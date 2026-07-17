@@ -24,7 +24,7 @@ export default async function ProjectPaymentsPage() {
     ProjectPayment.find({ organizationId }).populate("projectId createdBy").sort({ paymentDate: -1 }).lean()
   ]);
   return (
-    <PageShell title="Project Payments" description="Track client payments by project. These records calculate Total Paid automatically.">
+    <PageShell title="Project Payments" description="Track client payments by project. These records automatically update each project's received total.">
       <ProjectPaymentForm projects={JSON.parse(JSON.stringify(projects))} />
       <DataTable data={payments} columns={[
         { header: "Date", cell: (p: any) => formatDate(p.paymentDate) },

@@ -33,7 +33,7 @@ export function ReportVisuals({ categorySummary, monthlySummary, expenseTypeSumm
           <Bar dataKey="amount" fill="#2563eb" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ReportChart>
-      <ReportChart title="Project Paid vs Expense">
+      <ReportChart title="Project Received vs Expense">
         <BarChart data={projects}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="name" />
