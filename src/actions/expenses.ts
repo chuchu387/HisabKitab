@@ -85,28 +85,33 @@ export async function deleteExpense(formData: FormData) {
   revalidateExpenseAccounting([expense.projectId]);
 }
 
-export async function bulkLinkExpensesToProject(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
-  await connectToDatabase();
-  const ids = formData.getAll("expenseIds").map(String).filter(Boolean);
-  const projectId = String(formData.get("projectId") ?? "");
-  if (!ids.length) return;
-  if (projectId) {
-    const project = await Project.exists({ _id: projectId, organizationId });
-    if (!project) throw new Error("Project not found");
+export async function bulkLinkExpensesToProject(_: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await requireRole(["owner", "admin"]);
+    await connectToDatabase();
+    const ids = formData.getAll("expenseIds").map(String).filter(Boolean);
+    const projectId = String(formData.get("projectId") ?? "");
+    if (!ids.length) throw new Error("Select at least one expense");
+    if (projectId) {
+      const project = await Project.exists({ _id: projectId, organizationId });
+      if (!project) throw new Error("Project not found");
+    }
+    const previousExpenses = await Expense.find({ _id: { $in: ids }, organizationId }).select("projectId").lean();
+    const result = await Expense.updateMany({ _id: { $in: ids }, organizationId }, { $set: { projectId: projectId || null } });
+    await writeAuditLog({
+      organizationId,
+      userId: session.user.userId,
+      action: projectId ? "Expenses Linked To Project" : "Expenses Unlinked From Project",
+      entityType: "Expense",
+      entityId: ids[0],
+      metadata: { expenseIds: ids, projectId: projectId || null, count: result.modifiedCount }
+    });
+    revalidateExpenseAccounting([...previousExpenses.map((expense: any) => expense.projectId), projectId]);
+    return { ok: true, message: `${result.modifiedCount} expenses moved` };
+  } catch (error) {
+    return actionError(error);
   }
-  const previousExpenses = await Expense.find({ _id: { $in: ids }, organizationId }).select("projectId").lean();
-  const result = await Expense.updateMany({ _id: { $in: ids }, organizationId }, { $set: { projectId: projectId || null } });
-  await writeAuditLog({
-    organizationId,
-    userId: session.user.userId,
-    action: projectId ? "Expenses Linked To Project" : "Expenses Unlinked From Project",
-    entityType: "Expense",
-    entityId: ids[0],
-    metadata: { expenseIds: ids, projectId: projectId || null, count: result.modifiedCount }
-  });
-  revalidateExpenseAccounting([...previousExpenses.map((expense: any) => expense.projectId), projectId]);
 }
 
 export async function bulkUpdateExpenseApproval(_: ActionState, formData: FormData): Promise<ActionState> {

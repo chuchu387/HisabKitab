@@ -12,9 +12,11 @@ import { formatDate, money } from "@/lib/utils";
 
 const approvalInitialState = { ok: false, message: "" };
 const bulkApprovalInitialState = { ok: false, message: "" };
+const bulkMoveInitialState = { ok: false, message: "" };
 
 export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }: { expenses: any[]; projects: any[]; canApprove?: boolean }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [moveState, moveAction, movePending] = useActionState(bulkLinkExpensesToProject, bulkMoveInitialState);
   if (!expenses.length) return null;
   const toggleExpense = (id: string, checked: boolean) => {
     setSelectedIds((current) => checked ? [...new Set([...current, id])] : current.filter((selectedId) => selectedId !== id));
@@ -24,21 +26,24 @@ export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }:
     <div className="space-y-3">
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2">
-          <form id="bulk-expense-link-form" action={bulkLinkExpensesToProject} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {selectedIds.map((id) => <input key={id} type="hidden" name="expenseIds" value={id} />)}
-            <Select name="projectId" className="sm:w-72" defaultValue="">
-              <option value="">General Expense</option>
-              {projects.map((project) => (
-                <option key={project._id} value={project._id}>
-                  {project.name} ({project.code})
-                </option>
-              ))}
-            </Select>
-            <Button type="submit" variant="secondary">
-              <FolderInput className="h-4 w-4" />
-              Move Selected
-            </Button>
-          </form>
+          <div className="space-y-1">
+            <form id="bulk-expense-link-form" action={moveAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              {selectedIds.map((id) => <input key={id} type="hidden" name="expenseIds" value={id} />)}
+              <Select name="projectId" className="sm:w-72" defaultValue="">
+                <option value="">General Expense</option>
+                {projects.map((project) => (
+                  <option key={project._id} value={project._id}>
+                    {project.name} ({project.code})
+                  </option>
+                ))}
+              </Select>
+              <Button type="submit" variant="secondary" disabled={movePending}>
+                <FolderInput className="h-4 w-4" />
+                {movePending ? "Moving..." : "Move Selected"}
+              </Button>
+            </form>
+            <ActionMessage state={moveState} />
+          </div>
           {canApprove && <BulkApprovalForm selectedIds={selectedIds} />}
         </div>
         <p className="text-sm text-muted-foreground">Select expenses below, then move them to a project or back to general.</p>
