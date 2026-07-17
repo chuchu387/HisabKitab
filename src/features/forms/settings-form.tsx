@@ -13,7 +13,7 @@ const initialState = { ok: false, message: "" };
 export function SettingsForm({ organization }: { organization: any }) {
   const [state, formAction, pending] = useActionState(updateOrganizationSettings, initialState);
   return (
-    <form action={formAction} className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-2">
+    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-5 shadow-sm shadow-foreground/5 md:grid-cols-2">
       <Field name="name" label="Name" defaultValue={organization.name} />
       <Field name="email" label="Email" type="email" defaultValue={organization.email} />
       <Field name="phone" label="Phone" defaultValue={organization.phone} />

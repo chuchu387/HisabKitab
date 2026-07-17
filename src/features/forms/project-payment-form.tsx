@@ -14,7 +14,7 @@ const initialState = { ok: false, message: "" };
 export function ProjectPaymentForm({ projects }: { projects: any[] }) {
   const [state, formAction, pending] = useActionState(createProjectPayment, initialState);
   return (
-    <form action={formAction} encType="multipart/form-data" className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-2">
+    <form action={formAction} encType="multipart/form-data" className="grid gap-4 rounded-lg border bg-card/95 p-5 shadow-sm shadow-foreground/5 md:grid-cols-2">
       <div className="space-y-2">
         <Label>Project</Label>
         <Select name="projectId" required defaultValue="">

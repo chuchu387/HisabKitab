@@ -6,7 +6,7 @@ import type { Role } from "@/constants";
 
 export function Header({ name, email, role }: { name: string; email: string; role: Role }) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/85 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/75 lg:px-6">
+    <header className="z-30 flex h-16 shrink-0 items-center justify-between border-b bg-background/90 px-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/75 lg:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <MobileNav role={role} />
         <div className="hidden items-center gap-3 rounded-full border bg-card px-3 py-1.5 shadow-sm sm:flex">

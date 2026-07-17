@@ -62,28 +62,28 @@ export default async function ExpensesPage({ searchParams }: any) {
     .reduce((sum: number, expense: any) => sum + (expense.amount ?? 0), 0);
   return (
     <PageShell title="Expenses" action={<Button asChild><Link href="/expenses/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
-      <form className="flex flex-wrap gap-2">
+      <form className="filter-bar">
         <SearchBar placeholder="Search description" defaultValue={q} />
-        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="from" defaultValue={params?.from ?? ""} />
-        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="to" defaultValue={params?.to ?? ""} />
-        <select name="projectId" defaultValue={params?.projectId ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
+        <input className="native-control" type="date" name="from" defaultValue={params?.from ?? ""} />
+        <input className="native-control" type="date" name="to" defaultValue={params?.to ?? ""} />
+        <select name="projectId" defaultValue={params?.projectId ?? ""} className="native-control">
           <option value="">All projects and general</option>
           <option value="general">General expenses only</option>
           {projects.map((project: any) => <option key={project._id.toString()} value={project._id.toString()}>{project.name} ({project.code})</option>)}
         </select>
-        <select name="categoryId" defaultValue={params?.categoryId ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
+        <select name="categoryId" defaultValue={params?.categoryId ?? ""} className="native-control">
           <option value="">All categories</option>
           {categories.map((category: any) => <option key={category._id.toString()} value={category._id.toString()}>{category.name}</option>)}
         </select>
         {session.user.role !== "staff" && (
-          <select name="submittedBy" defaultValue={params?.submittedBy ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
+          <select name="submittedBy" defaultValue={params?.submittedBy ?? ""} className="native-control">
             <option value="">All submitters</option>
             {users.map((user: any) => <option key={user._id.toString()} value={user._id.toString()}>{user.name}</option>)}
           </select>
         )}
         <Button variant="outline">Filter</Button>
       </form>
-      <div className="flex flex-wrap gap-2">
+      <div className="filter-bar">
         <QuickFilter href="/expenses" active={!params?.approvalStatus && !params?.expenseType && !params?.projectId}>All</QuickFilter>
         <QuickFilter href="/expenses?approvalStatus=pending" active={params?.approvalStatus === "pending"}>Pending</QuickFilter>
         <QuickFilter href="/expenses?approvalStatus=approved" active={params?.approvalStatus === "approved"}>Approved</QuickFilter>

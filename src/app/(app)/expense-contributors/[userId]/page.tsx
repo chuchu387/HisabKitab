@@ -30,10 +30,10 @@ export default async function ExpenseContributorDetailPage({ params, searchParam
 
   return (
     <PageShell title={`${(detail.contributor as any).name} Expense Profile`} description={`${(detail.contributor as any).email ?? ""} · ${(detail.contributor as any).role ?? ""}`} breadcrumb={[{ label: "Expense Contributors", href: "/expense-contributors" }, { label: (detail.contributor as any).name }]}>
-      <form className="flex flex-wrap gap-2">
-        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="from" defaultValue={queryParams?.from ?? ""} />
-        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="to" defaultValue={queryParams?.to ?? ""} />
-        <select name="expenseType" defaultValue={queryParams?.expenseType ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
+      <form className="filter-bar">
+        <input className="native-control" type="date" name="from" defaultValue={queryParams?.from ?? ""} />
+        <input className="native-control" type="date" name="to" defaultValue={queryParams?.to ?? ""} />
+        <select name="expenseType" defaultValue={queryParams?.expenseType ?? ""} className="native-control">
           <option value="">All expenses</option>
           <option value="project">Project only</option>
           <option value="general">General only</option>

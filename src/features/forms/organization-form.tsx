@@ -15,7 +15,7 @@ export function OrganizationForm({ organization }: { organization?: any }) {
   const action = organization ? updateOrganization.bind(null, organization._id.toString()) : createOrganization;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
-    <form action={formAction} className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-2">
+    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-5 shadow-sm shadow-foreground/5 md:grid-cols-2">
       <Field name="name" label="Name" defaultValue={organization?.name} />
       <Field name="code" label="Code" defaultValue={organization?.code} />
       <Field name="email" label={organization ? "Email" : "Admin Login Email"} type="email" defaultValue={organization?.email} />

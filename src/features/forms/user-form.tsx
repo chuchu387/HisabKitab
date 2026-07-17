@@ -15,7 +15,7 @@ export function UserForm({ user }: { user?: any }) {
   const action = user ? updateUser.bind(null, user._id.toString()) : createUser;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
-    <form action={formAction} className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-2">
+    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-5 shadow-sm shadow-foreground/5 md:grid-cols-2">
       <Field name="name" label="Name" defaultValue={user?.name} />
       <Field name="email" label="Email" type="email" defaultValue={user?.email} />
       <Field name="password" label={user ? "New Password" : "Password"} type="password" required={!user} />

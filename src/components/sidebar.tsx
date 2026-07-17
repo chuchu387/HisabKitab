@@ -19,11 +19,11 @@ export function Sidebar({ role }: { role: Role }) {
   const pathname = usePathname();
   const visibleItems = navItems.filter((item) => (item.roles as readonly Role[]).includes(role));
   return (
-    <aside className="hidden w-72 shrink-0 border-r bg-card/95 shadow-sm backdrop-blur lg:block">
-      <div className="flex h-20 items-center border-b px-5">
+    <aside className="hidden h-screen w-72 shrink-0 overflow-hidden border-r bg-card/95 shadow-sm backdrop-blur lg:flex lg:flex-col">
+      <div className="flex h-20 shrink-0 items-center border-b px-5">
         <BrandLogo />
       </div>
-      <nav className="space-y-5 p-4">
+      <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4">
         {navGroups.map((group) => {
           const items = visibleItems.filter((item) => group.hrefs.includes(item.href));
           if (!items.length) return null;

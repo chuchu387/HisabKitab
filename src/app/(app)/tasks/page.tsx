@@ -30,20 +30,20 @@ export default async function TasksPage({ searchParams }: any) {
 
   return (
     <PageShell title="To Do Checklist" description="Manage project tasks across all projects with status, assignee, time estimate, and images.">
-      <form className="flex flex-wrap gap-2">
+      <form className="filter-bar">
         <SearchBar placeholder="Search tasks" defaultValue={q} />
-        <select name="status" defaultValue={params?.status ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
+        <select name="status" defaultValue={params?.status ?? ""} className="native-control">
           <option value="">All statuses</option>
           <option value="to_do">To Do</option>
           <option value="in_progress">In Progress</option>
           <option value="in_review">In Review</option>
           <option value="complete">Complete</option>
         </select>
-        <select name="projectId" defaultValue={params?.projectId ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
+        <select name="projectId" defaultValue={params?.projectId ?? ""} className="native-control">
           <option value="">All projects</option>
           {projects.map((project: any) => <option key={project._id.toString()} value={project._id.toString()}>{project.name}</option>)}
         </select>
-        <select name="assigneeId" defaultValue={params?.assigneeId ?? ""} className="h-10 rounded-md border bg-background px-3 text-sm">
+        <select name="assigneeId" defaultValue={params?.assigneeId ?? ""} className="native-control">
           <option value="">All assignees</option>
           {assignees.map((user: any) => <option key={user._id.toString()} value={user._id.toString()}>{user.name}</option>)}
         </select>

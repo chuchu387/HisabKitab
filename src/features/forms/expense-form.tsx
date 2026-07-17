@@ -16,7 +16,7 @@ export function ExpenseForm({ expense, categories, projects }: { expense?: any; 
   const action = expense ? updateExpense.bind(null, expense._id.toString()) : createExpense;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
-    <form action={formAction} className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-2" encType="multipart/form-data">
+    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-5 shadow-sm shadow-foreground/5 md:grid-cols-2" encType="multipart/form-data">
       <Field name="expenseDate" label="Expense Date" type="date" defaultValue={formatDate(expense?.expenseDate ?? new Date())} />
       <Field name="amount" label="Amount" type="number" min="0.01" step="0.01" defaultValue={expense?.amount} />
       <div className="space-y-2">

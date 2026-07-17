@@ -31,15 +31,15 @@ export function DataTable<T>({ data, columns, pagination }: { data: T[]; columns
   const start = (page - 1) * pageSize;
   const rows = pagination ? data.slice(start, start + pageSize) : data;
   return (
-    <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+    <div className="overflow-hidden rounded-lg border bg-card shadow-sm shadow-foreground/5">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
-          <thead className="sticky top-0 z-10 bg-muted text-left text-muted-foreground">
-            <tr>{columns.map((column) => <th key={column.header} className={cn("whitespace-nowrap px-4 py-3 font-medium", column.className)}>{column.header}</th>)}</tr>
+          <thead className="sticky top-0 z-10 bg-foreground text-left text-primary-foreground">
+            <tr>{columns.map((column) => <th key={column.header} className={cn("whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide", column.className)}>{column.header}</th>)}</tr>
           </thead>
           <tbody className="divide-y">
             {rows.map((row, index) => (
-              <tr key={index} className="transition-colors hover:bg-muted/50">
+              <tr key={index} className="transition-colors even:bg-muted/20 hover:bg-secondary/45">
                 {columns.map((column) => (
                   <td key={column.header} className={cn("px-4 py-3 align-middle", column.className)}>
                     {column.cell(row)}
@@ -102,7 +102,7 @@ function AdvancedPagination({
         <span>Page {page} of {totalPages}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 rounded-md border bg-card p-1">
+        <div className="flex items-center gap-1 rounded-lg border bg-card p-1 shadow-sm">
           {pageSizeOptions.map((option) => (
             <Link
               key={option}
@@ -134,13 +134,13 @@ function AdvancedPagination({
 
 function PageLink({ label, href, active, disabled }: { label: string; href: string; active?: boolean; disabled?: boolean }) {
   if (disabled) {
-    return <span className="rounded-md border bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground opacity-60">{label}</span>;
+    return <span className="rounded-lg border bg-muted px-2.5 py-1.5 text-xs font-medium text-muted-foreground opacity-60">{label}</span>;
   }
   return (
     <Link
       href={href}
       className={cn(
-        "rounded-md border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary hover:text-secondary-foreground",
+        "rounded-lg border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-secondary hover:text-secondary-foreground",
         active && "border-primary bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
       )}
     >

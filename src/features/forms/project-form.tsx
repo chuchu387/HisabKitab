@@ -17,7 +17,7 @@ export function ProjectForm({ project }: { project?: any }) {
   const action = project ? updateProject.bind(null, project._id.toString()) : createProject;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
-    <form action={formAction} className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-2">
+    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-5 shadow-sm shadow-foreground/5 md:grid-cols-2">
       <Field name="name" label="Name" defaultValue={project?.name} error={state.fieldErrors?.name?.[0]} />
       <Field name="code" label="Code" defaultValue={project?.code} error={state.fieldErrors?.code?.[0]} />
       <div className="space-y-2">

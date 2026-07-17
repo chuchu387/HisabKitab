@@ -27,9 +27,9 @@ export default async function UsersPage({ searchParams }: any) {
   const users = await User.find(query).populate("createdBy").sort({ createdAt: -1 }).lean();
   return (
     <PageShell title="Users" action={<Button asChild><Link href="/users/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
-      <form className="flex flex-wrap gap-2">
+      <form className="filter-bar">
         <SearchBar placeholder="Search users" defaultValue={q} />
-        <select name="role" defaultValue={role} className="h-10 rounded-md border bg-background px-3 text-sm">
+        <select name="role" defaultValue={role} className="native-control">
           <option value="">All roles</option>
           <option value="owner">Owner</option>
           <option value="admin">Admin</option>

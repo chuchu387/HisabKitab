@@ -43,14 +43,14 @@ export default async function ReportsPage({ searchParams }: any) {
   const topProjects = [...reports.projects].sort((a: any, b: any) => (b.expense ?? 0) - (a.expense ?? 0)).slice(0, 5);
   return (
     <PageShell title="Reports" description="Summary, project, and expense reports with CSV/PDF exports.">
-      <form className="flex flex-wrap gap-2">
-        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="from" defaultValue={filters.from} />
-        <input className="h-10 rounded-md border px-3 text-sm" type="date" name="to" defaultValue={filters.to} />
-        <select className="h-10 rounded-md border bg-background px-3 text-sm" name="projectId" defaultValue={filters.projectId ?? ""}>
+      <form className="filter-bar">
+        <input className="native-control" type="date" name="from" defaultValue={filters.from} />
+        <input className="native-control" type="date" name="to" defaultValue={filters.to} />
+        <select className="native-control" name="projectId" defaultValue={filters.projectId ?? ""}>
           <option value="">All projects</option>
           {projects.map((project: any) => <option key={String(project._id)} value={String(project._id)}>{project.name} ({project.code})</option>)}
         </select>
-        <select className="h-10 rounded-md border bg-background px-3 text-sm" name="categoryId" defaultValue={filters.categoryId ?? ""}>
+        <select className="native-control" name="categoryId" defaultValue={filters.categoryId ?? ""}>
           <option value="">All categories</option>
           {categories.map((category: any) => <option key={String(category._id)} value={String(category._id)}>{category.name}</option>)}
         </select>
@@ -59,7 +59,7 @@ export default async function ReportsPage({ searchParams }: any) {
         <Button asChild variant="secondary"><Link href={`/api/reports/export?format=pdf&${qs}`}><Download className="h-4 w-4" />PDF</Link></Button>
         <Button asChild variant="ghost"><Link href="/reports">Reset</Link></Button>
       </form>
-      <div className="flex flex-wrap gap-2">
+      <div className="filter-bar">
         <Button asChild size="sm" variant={!filters.from && !filters.to ? "secondary" : "outline"}><Link href="/reports">All Time</Link></Button>
         <Button asChild size="sm" variant="outline"><Link href={`/reports?${thisMonth}`}>This Month</Link></Button>
         <Button asChild size="sm" variant="outline"><Link href={`/reports?${lastMonth}`}>Last Month</Link></Button>

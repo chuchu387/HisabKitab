@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .filter-bar {
+    @apply flex flex-wrap items-center gap-2 rounded-lg border bg-card/90 p-3 shadow-sm shadow-foreground/5;
+  }
+
+  .native-control {
+    @apply h-10 rounded-lg border bg-card px-3 text-sm shadow-sm outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring;
+  }
+}
+
 :root {
   --background: 210 30% 98%;
   --foreground: 222 45% 10%;

@@ -23,7 +23,7 @@ export default async function OrganizationsPage({ searchParams }: any) {
   const organizations = await Organization.find(query).populate("createdBy").sort({ createdAt: -1 }).lean();
   return (
     <PageShell title="Organizations" action={<Button asChild><Link href="/organizations/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
-      <form className="flex gap-2"><SearchBar placeholder="Search organizations" defaultValue={q} /><Button variant="outline">Filter</Button></form>
+      <form className="filter-bar"><SearchBar placeholder="Search organizations" defaultValue={q} /><Button variant="outline">Filter</Button></form>
       <DataTable data={organizations} pagination={{ basePath: "/organizations", searchParams: params }} columns={[
         { header: "Name", cell: (o: any) => o.name },
         { header: "Code", cell: (o: any) => o.code },

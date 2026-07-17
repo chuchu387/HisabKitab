@@ -14,7 +14,7 @@ export function CategoryForm({ category }: { category?: any }) {
   const action = category ? updateCategory.bind(null, category._id.toString()) : createCategory;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
-    <form action={formAction} className="grid gap-4 rounded-lg border bg-card p-5">
+    <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-5 shadow-sm shadow-foreground/5">
       <Field name="name" label="Name" defaultValue={category?.name} />
       <div className="space-y-2"><Label htmlFor="description">Description</Label><Textarea id="description" name="description" defaultValue={category?.description} /></div>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" value="true" defaultChecked={category?.active ?? true} /> Active</label>
