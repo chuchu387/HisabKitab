@@ -109,6 +109,37 @@ export async function bulkLinkExpensesToProject(formData: FormData) {
   revalidateExpenseAccounting([...previousExpenses.map((expense: any) => expense.projectId), projectId]);
 }
 
+export async function bulkUpdateExpenseApproval(_: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await requireRole(["owner", "admin"]);
+    await connectToDatabase();
+    const ids = formData.getAll("expenseIds").map(String).filter(Boolean);
+    if (!ids.length) throw new Error("Select at least one expense");
+    const data = expenseApprovalSchema.parse({ approvalStatus: formData.get("approvalStatus") });
+    const expenses = await Expense.find({ _id: { $in: ids }, organizationId }).select("projectId").lean();
+    if (!expenses.length) throw new Error("No matching expenses found");
+    const approvalFields = {
+      approvalStatus: data.approvalStatus,
+      approvedBy: data.approvalStatus === "approved" ? session.user.userId : null,
+      approvedAt: data.approvalStatus === "approved" ? new Date() : null
+    };
+    const result = await Expense.updateMany({ _id: { $in: ids }, organizationId }, { $set: approvalFields }, { runValidators: true });
+    await writeAuditLog({
+      organizationId,
+      userId: session.user.userId,
+      action: "Expense Approval Bulk Updated",
+      entityType: "Expense",
+      entityId: ids[0],
+      metadata: { expenseIds: ids, approvalStatus: data.approvalStatus, count: result.modifiedCount }
+    });
+    revalidateExpenseAccounting(expenses.map((expense: any) => expense.projectId));
+    return { ok: true, message: `${result.modifiedCount} expenses updated` };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function updateExpenseApproval(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const { session, organizationId } = await requireTenant();
