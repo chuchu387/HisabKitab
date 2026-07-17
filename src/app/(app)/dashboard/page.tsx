@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { BudgetExpenseChart, SimpleBarChart, TrendChart } from "@/components/charts";
 import { connectToDatabase } from "@/lib/db";
 import { requireSession } from "@/lib/permissions";
+import { money } from "@/lib/utils";
 import { Organization } from "@/models/Organization";
 import { getAccountingSummary, getDashboardCharts } from "@/services/accounting";
 
@@ -37,6 +38,7 @@ export default async function DashboardPage() {
         {((summary as any).projectPaidBalance ?? 0) < 0 && <AlertCard text="Project and internal expenses are higher than project receipts" />}
         {((summary as any).organizationCashBalance ?? 0) < 0 && <AlertCard text="Approved expenses are higher than company cash received" />}
       </div>
+      <CompanyCashBreakdown summary={summary as any} />
       <div className="grid gap-4 xl:grid-cols-2">
         <SimpleBarChart title="Expenses By Category" data={JSON.parse(JSON.stringify(charts.byCategory))} />
         <SimpleBarChart title="Expenses By Project" data={JSON.parse(JSON.stringify(charts.byProject))} />
@@ -49,4 +51,42 @@ export default async function DashboardPage() {
 
 function AlertCard({ text }: { text: string }) {
   return <Card className="border-destructive/40 bg-destructive/5"><CardContent className="p-4 text-sm font-medium text-destructive">{text}</CardContent></Card>;
+}
+
+function CompanyCashBreakdown({ summary }: { summary: any }) {
+  const projectReceived = summary.totalReceived ?? 0;
+  const ownerOtherFunds = summary.generalBudget ?? 0;
+  const projectExpenses = summary.projectExpenses ?? 0;
+  const generalExpenses = summary.generalExpenses ?? 0;
+  const companyCashBalance = summary.organizationCashBalance ?? 0;
+  return (
+    <Card>
+      <CardContent className="grid gap-4 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div>
+          <h2 className="text-base font-semibold">Company Cash Breakdown</h2>
+          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <BreakdownItem label="Project payments received" value={projectReceived} positive />
+            <BreakdownItem label="Owner/other funds" value={ownerOtherFunds} positive />
+            <BreakdownItem label="All project expenses" value={projectExpenses} />
+            <BreakdownItem label="General expenses" value={generalExpenses} />
+          </div>
+        </div>
+        <div className="rounded-md border bg-muted/40 p-4 text-sm">
+          <p className="text-muted-foreground">
+            {money(projectReceived)} + {money(ownerOtherFunds)} - {money(projectExpenses)} - {money(generalExpenses)}
+          </p>
+          <p className="mt-1 text-2xl font-semibold">{money(companyCashBalance)}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function BreakdownItem({ label, value, positive = false }: { label: string; value: number; positive?: boolean }) {
+  return (
+    <div>
+      <p className="text-muted-foreground">{label}</p>
+      <p className={positive ? "font-semibold text-primary" : "font-semibold text-destructive"}>{positive ? "+" : "-"} {money(value)}</p>
+    </div>
+  );
 }
