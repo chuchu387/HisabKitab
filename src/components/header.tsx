@@ -1,6 +1,6 @@
-import { LogOut, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { signOut } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 
 export function Header({ name, email }: { name: string; email: string }) {
   return (
@@ -18,10 +18,13 @@ export function Header({ name, email }: { name: string; email: string }) {
           await signOut({ redirectTo: "/login" });
         }}
       >
-        <Button variant="ghost" size="sm" type="submit">
-          <LogOut className="h-4 w-4" />
-          Logout
-        </Button>
+        <ConfirmButton
+          label="Logout"
+          title="Logout from HisabKitab?"
+          description="You will be returned to the login screen. Any unsaved form changes will be lost."
+          icon="logout"
+          variant="ghost"
+        />
       </form>
     </header>
   );
