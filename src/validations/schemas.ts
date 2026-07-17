@@ -44,10 +44,10 @@ export const projectSchema = z
     name: z.string().min(2).max(120),
     code: z.string().min(2).max(30),
     description: z.string().max(1000).optional().default(""),
-    totalBudget: z.coerce.number().min(0),
-    receivedAmount: z.coerce.number().min(0).default(0),
-    startDate: z.coerce.date(),
-    endDate: z.coerce.date(),
+    totalBudget: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0)),
+    receivedAmount: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0).default(0)),
+    startDate: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date({ required_error: "Start date is required", invalid_type_error: "Start date is required" })),
+    endDate: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date({ required_error: "End date is required", invalid_type_error: "End date is required" })),
     status: z.enum(projectStatuses).default("active")
   })
   .refine((value) => value.endDate >= value.startDate, {
