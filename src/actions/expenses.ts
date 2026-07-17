@@ -18,6 +18,16 @@ function ownableQuery(id: string, organizationId: string, session: Awaited<Retur
   return query;
 }
 
+function revalidateExpenseAccounting(projectIds: Array<unknown>) {
+  revalidatePath("/expenses");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
+  revalidatePath("/projects");
+  for (const projectId of projectIds) {
+    if (projectId) revalidatePath(`/projects/${projectId.toString()}`);
+  }
+}
+
 export async function createExpense(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const { session, organizationId } = await requireTenant();
@@ -37,11 +47,7 @@ export async function createExpense(_: ActionState, formData: FormData): Promise
       createdBy: session.user.userId
     });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Created", entityType: "Expense", entityId: expense._id.toString(), metadata: { amount: data.amount } });
-    revalidatePath("/expenses");
-    revalidatePath("/dashboard");
-    revalidatePath("/reports");
-    revalidatePath("/projects");
-    if (data.projectId) revalidatePath(`/projects/${data.projectId}`);
+    revalidateExpenseAccounting([data.projectId]);
     return { ok: true, message: "Expense created" };
   } catch (error) {
     return actionError(error);
@@ -57,14 +63,10 @@ export async function updateExpense(id: string, _: ActionState, formData: FormDa
     const update: Record<string, unknown> = { ...data, projectId: data.projectId || null };
     const receipt = formData.get("receipt");
     if (receipt instanceof File && receipt.size > 0) update.receiptImageId = await saveReceipt(receipt, { organizationId, userId: session.user.userId });
-    const updated = await Expense.findOneAndUpdate(ownableQuery(id, organizationId, session), update, { runValidators: true });
+    const updated = (await Expense.findOneAndUpdate(ownableQuery(id, organizationId, session), update, { new: false, runValidators: true }).lean()) as any;
     if (!updated) throw new Error("Expense not found or not allowed");
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Updated", entityType: "Expense", entityId: id, metadata: { amount: data.amount } });
-    revalidatePath("/expenses");
-    revalidatePath("/dashboard");
-    revalidatePath("/reports");
-    revalidatePath("/projects");
-    if (data.projectId) revalidatePath(`/projects/${data.projectId}`);
+    revalidateExpenseAccounting([updated.projectId, data.projectId]);
     return { ok: true, message: "Expense updated" };
   } catch (error) {
     return actionError(error);
@@ -80,11 +82,7 @@ export async function deleteExpense(formData: FormData) {
   if (!expense) throw new Error("Expense not found or not allowed");
   if (expense?.receiptImageId) await deleteReceipt(expense.receiptImageId.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Deleted", entityType: "Expense", entityId: id });
-  revalidatePath("/expenses");
-  revalidatePath("/dashboard");
-  revalidatePath("/reports");
-  revalidatePath("/projects");
-  if (expense.projectId) revalidatePath(`/projects/${expense.projectId}`);
+  revalidateExpenseAccounting([expense.projectId]);
 }
 
 export async function bulkLinkExpensesToProject(formData: FormData) {
@@ -98,6 +96,7 @@ export async function bulkLinkExpensesToProject(formData: FormData) {
     const project = await Project.exists({ _id: projectId, organizationId });
     if (!project) throw new Error("Project not found");
   }
+  const previousExpenses = await Expense.find({ _id: { $in: ids }, organizationId }).select("projectId").lean();
   const result = await Expense.updateMany({ _id: { $in: ids }, organizationId }, { $set: { projectId: projectId || null } });
   await writeAuditLog({
     organizationId,
@@ -107,11 +106,7 @@ export async function bulkLinkExpensesToProject(formData: FormData) {
     entityId: ids[0],
     metadata: { expenseIds: ids, projectId: projectId || null, count: result.modifiedCount }
   });
-  revalidatePath("/expenses");
-  revalidatePath("/dashboard");
-  revalidatePath("/reports");
-  revalidatePath("/projects");
-  if (projectId) revalidatePath(`/projects/${projectId}`);
+  revalidateExpenseAccounting([...previousExpenses.map((expense: any) => expense.projectId), projectId]);
 }
 
 export async function updateExpenseApproval(formData: FormData) {
@@ -120,14 +115,12 @@ export async function updateExpenseApproval(formData: FormData) {
   await connectToDatabase();
   const id = String(formData.get("id"));
   const data = expenseApprovalSchema.parse({ approvalStatus: formData.get("approvalStatus") });
-  await Expense.findOneAndUpdate(
+  const expense = (await Expense.findOneAndUpdate(
     { _id: id, organizationId },
     { approvalStatus: data.approvalStatus, approvedBy: data.approvalStatus === "approved" ? session.user.userId : null, approvedAt: data.approvalStatus === "approved" ? new Date() : null },
-    { runValidators: true }
-  );
+    { new: true, runValidators: true }
+  ).lean()) as any;
+  if (!expense) throw new Error("Expense not found");
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Approval Updated", entityType: "Expense", entityId: id, metadata: data });
-  revalidatePath("/expenses");
-  revalidatePath("/dashboard");
-  revalidatePath("/reports");
-  revalidatePath("/projects");
+  revalidateExpenseAccounting([expense.projectId]);
 }
