@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { CheckCircle2, FolderInput } from "lucide-react";
 import { bulkLinkExpensesToProject, bulkUpdateExpenseApproval, deleteExpense, updateExpenseApproval } from "@/actions/expenses";
 import { ActionMessage } from "@/components/action-message";
@@ -11,7 +12,6 @@ import { Select } from "@/components/ui/select";
 import { formatDate, money } from "@/lib/utils";
 
 const approvalInitialState = { ok: false, message: "" };
-const bulkApprovalInitialState = { ok: false, message: "" };
 const bulkMoveInitialState = { ok: false, message: "" };
 
 export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }: { expenses: any[]; projects: any[]; canApprove?: boolean }) {
@@ -106,10 +106,22 @@ export function BulkLinkExpensesForm({ expenses, projects, canApprove = false }:
 }
 
 function BulkApprovalForm({ selectedIds }: { selectedIds: string[] }) {
-  const [state, formAction, pending] = useActionState(bulkUpdateExpenseApproval, bulkApprovalInitialState);
+  const [pending, startTransition] = useTransition();
+  const [message, setMessage] = useState("");
+
+  function submitBulkApproval(formData: FormData) {
+    setMessage("");
+    startTransition(async () => {
+      const result = await bulkUpdateExpenseApproval({ ok: false, message: "" }, formData);
+      setMessage(result.message);
+      if (result.ok) toast.success(result.message);
+      else toast.error(result.message);
+    });
+  }
+
   return (
     <div className="space-y-1">
-      <form id="bulk-expense-approval-form" action={formAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <form id="bulk-expense-approval-form" action={submitBulkApproval} className="flex flex-col gap-2 sm:flex-row sm:items-center">
         {selectedIds.map((id) => <input key={id} type="hidden" name="expenseIds" value={id} />)}
         <Select name="approvalStatus" defaultValue="approved" className="sm:w-72">
           <option value="approved">Approved</option>
@@ -121,7 +133,7 @@ function BulkApprovalForm({ selectedIds }: { selectedIds: string[] }) {
           {pending ? "Saving..." : "Update Selected Approval"}
         </Button>
       </form>
-      <ActionMessage state={state} />
+      {message && <p className={message.includes("updated") ? "text-sm text-primary" : "text-sm text-destructive"}>{message}</p>}
     </div>
   );
 }
