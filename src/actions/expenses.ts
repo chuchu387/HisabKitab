@@ -10,6 +10,9 @@ import { expenseApprovalSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
 import { saveReceipt, deleteReceipt } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
+import { appUrl } from "@/services/email";
+import { notifyExpenseApproval } from "@/services/notifications";
+import { User } from "@/models/User";
 import type { ActionState } from "@/types";
 
 function ownableQuery(id: string, organizationId: string, session: Awaited<ReturnType<typeof requireTenant>>["session"]) {
@@ -122,7 +125,7 @@ export async function bulkUpdateExpenseApproval(_: ActionState, formData: FormDa
     const ids = formData.getAll("expenseIds").map(String).filter(Boolean);
     if (!ids.length) throw new Error("Select at least one expense");
     const data = expenseApprovalSchema.parse({ approvalStatus: formData.get("approvalStatus") });
-    const expenses = await Expense.find({ _id: { $in: ids }, organizationId }).select("projectId").lean();
+    const expenses = await Expense.find({ _id: { $in: ids }, organizationId }).select("projectId createdBy description amount").lean();
     if (!expenses.length) throw new Error("No matching expenses found");
     const approvalFields = {
       approvalStatus: data.approvalStatus,
@@ -138,6 +141,7 @@ export async function bulkUpdateExpenseApproval(_: ActionState, formData: FormDa
       entityId: ids[0],
       metadata: { expenseIds: ids, approvalStatus: data.approvalStatus, count: result.modifiedCount }
     });
+    await sendExpenseApprovalEmails(organizationId, expenses, data.approvalStatus).catch(() => undefined);
     revalidateExpenseAccounting(expenses.map((expense: any) => expense.projectId));
     return { ok: true, message: `${result.modifiedCount} expenses updated` };
   } catch (error) {
@@ -159,9 +163,27 @@ export async function updateExpenseApproval(_: ActionState, formData: FormData):
     ).lean()) as any;
     if (!expense) throw new Error("Expense not found");
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Approval Updated", entityType: "Expense", entityId: id, metadata: data });
+    await sendExpenseApprovalEmails(organizationId, [expense], data.approvalStatus).catch(() => undefined);
     revalidateExpenseAccounting([expense.projectId]);
     return { ok: true, message: "Approval saved" };
   } catch (error) {
     return actionError(error);
   }
+}
+
+async function sendExpenseApprovalEmails(organizationId: string, expenses: any[], approvalStatus: string) {
+  const userIds = [...new Set(expenses.map((expense) => expense.createdBy?.toString?.()).filter(Boolean))];
+  if (!userIds.length) return;
+  const users = await User.find({ _id: { $in: userIds }, organizationId }).select("name email").lean();
+  const userById = new Map(users.map((user: any) => [user._id.toString(), user]));
+  await Promise.all(expenses.map((expense) => {
+    const user = userById.get(expense.createdBy?.toString?.());
+    if (!user?.email) return Promise.resolve();
+    return notifyExpenseApproval(user, {
+      description: expense.description,
+      amount: expense.amount,
+      approvalStatus,
+      expenseUrl: appUrl(`/expenses/${expense._id}`)
+    });
+  }));
 }

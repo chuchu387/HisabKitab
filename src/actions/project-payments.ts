@@ -10,6 +10,9 @@ import { actionError, parseForm } from "@/actions/helpers";
 import { projectPaymentSchema } from "@/validations/schemas";
 import { deleteReceipt, saveReceipt } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
+import { appUrl } from "@/services/email";
+import { notifyProjectPayment } from "@/services/notifications";
+import { User } from "@/models/User";
 import type { ActionState } from "@/types";
 
 export async function createProjectPayment(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -18,7 +21,7 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
     await requireRole(["owner", "admin"]);
     await connectToDatabase();
     const data = parseForm(projectPaymentSchema, formData);
-    const project = (await Project.findOne({ _id: data.projectId, organizationId }).select("receivedAmount").lean()) as any;
+    const project = (await Project.findOne({ _id: data.projectId, organizationId }).select("name receivedAmount").lean()) as any;
     if (!project) throw new Error("Project not found");
     const existingPaymentAgg = await ProjectPayment.aggregate([
       { $match: { organizationId: new Types.ObjectId(organizationId), projectId: new Types.ObjectId(data.projectId) } },
@@ -31,6 +34,8 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
     const nextReceived = existingReceived > 0 ? existingReceived + data.amount : (existingPaymentAgg[0]?.total ?? 0) + data.amount;
     await Project.updateOne({ _id: data.projectId, organizationId }, { $set: { receivedAmount: nextReceived } });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Payment Created", entityType: "ProjectPayment", entityId: payment._id.toString(), metadata: { projectId: data.projectId, amount: data.amount } });
+    const recipients = await User.find({ organizationId, active: true, role: { $in: ["owner", "admin"] } }).select("name email").lean();
+    await notifyProjectPayment(recipients as any, { projectName: project.name, amount: data.amount, paymentUrl: appUrl("/project-payments") }).catch(() => undefined);
     revalidatePath("/project-payments");
     revalidatePath("/dashboard");
     revalidatePath("/projects");

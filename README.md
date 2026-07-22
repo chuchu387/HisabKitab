@@ -40,3 +40,24 @@ Default seed credentials:
 ## Organization Onboarding
 
 Super Admin creates an organization with an initial admin name, login email, and password. The login email is stored as the organization email and an `owner` user is created automatically for that organization. The Super Admin can then manually share those credentials with the organization admin.
+
+## Email Notifications
+
+The app uses Brevo transactional email when these environment variables are configured:
+
+```bash
+BREVO_API_KEY=
+BREVO_SMTP_KEY=
+BREVO_SENDER_NAME=HisabKitab
+BREVO_SENDER_EMAIL=support@example.com
+NEXT_PUBLIC_APP_URL=https://your-domain.com
+```
+
+Current email events:
+
+- New user account created
+- Task assigned or reassigned
+- Expense approval status updated
+- Project payment added
+
+Email failures are logged but do not block accounting actions.

@@ -10,6 +10,8 @@ import { actionError, parseForm } from "@/actions/helpers";
 import { projectTaskSchema } from "@/validations/schemas";
 import { deleteReceipt, saveReceipt } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
+import { appUrl } from "@/services/email";
+import { notifyTaskAssigned } from "@/services/notifications";
 import type { ActionState } from "@/types";
 
 async function assertProjectAccess(projectId: string, organizationId: string) {
@@ -50,6 +52,7 @@ export async function createProjectTask(projectId: string, _: ActionState, formD
       createdBy: session.user.userId
     });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Created", entityType: "ProjectTask", entityId: task._id.toString(), metadata: { projectId, status: data.status } });
+    await sendTaskAssignmentEmail(organizationId, projectId, task).catch(() => undefined);
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/tasks");
     return { ok: true, message: "Task created" };
@@ -74,15 +77,34 @@ export async function updateProjectTask(taskId: string, projectId: string, _: Ac
     const update: Record<string, unknown> = { ...data, assigneeId: await normalizeAssignee(data.assigneeId, organizationId) };
     const image = formData.get("image");
     if (image instanceof File && image.size > 0) update.imageId = await saveReceipt(image, { organizationId, projectId, taskId, entityType: "ProjectTask" });
-    const updated = await ProjectTask.findOneAndUpdate(taskManageQuery(taskId, projectId, organizationId, session), update, { runValidators: true });
+    const updated = await ProjectTask.findOneAndUpdate(taskManageQuery(taskId, projectId, organizationId, session), update, { runValidators: true }).lean() as any;
     if (!updated) throw new Error("Task not found or not allowed");
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Updated", entityType: "ProjectTask", entityId: taskId, metadata: { projectId, status: data.status } });
+    const previousAssignee = updated.assigneeId?.toString?.() ?? "";
+    if (data.assigneeId && previousAssignee !== data.assigneeId) {
+      await sendTaskAssignmentEmail(organizationId, projectId, { ...updated, ...data, assigneeId: data.assigneeId }).catch(() => undefined);
+    }
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/tasks");
     return { ok: true, message: "Task updated" };
   } catch (error) {
     return actionError(error);
   }
+}
+
+async function sendTaskAssignmentEmail(organizationId: string, projectId: string, task: any) {
+  if (!task.assigneeId) return;
+  const [assignee, project] = await Promise.all([
+    User.findOne({ _id: task.assigneeId, organizationId }).select("name email").lean() as any,
+    Project.findOne({ _id: projectId, organizationId }).select("name").lean() as any
+  ]);
+  if (!assignee?.email) return;
+  await notifyTaskAssigned(assignee, {
+    title: task.title,
+    status: task.status,
+    projectName: project?.name,
+    taskUrl: appUrl(`/projects/${projectId}`)
+  });
 }
 
 export async function deleteProjectTask(formData: FormData) {
