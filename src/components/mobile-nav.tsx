@@ -9,10 +9,10 @@ import { navItems, type Role } from "@/constants";
 import { cn } from "@/lib/utils";
 
 const navGroups = [
-  { title: "Overview", hrefs: ["/dashboard"] },
-  { title: "Accounting", hrefs: ["/expenses", "/project-payments", "/general-funds", "/expense-contributors"] },
+  { title: "Overview", hrefs: ["/dashboard", "/notifications"] },
+  { title: "Accounting", hrefs: ["/expenses", "/project-payments", "/payment-reminders", "/general-funds", "/expense-contributors"] },
   { title: "Work", hrefs: ["/clients", "/projects", "/tasks", "/categories"] },
-  { title: "Reports", hrefs: ["/reports", "/audit-logs"] },
+  { title: "Reports", hrefs: ["/reports", "/email-logs", "/audit-logs"] },
   { title: "Admin", hrefs: ["/organizations", "/users", "/settings"] }
 ];
 

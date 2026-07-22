@@ -1,4 +1,4 @@
-import { Banknote, Bell, Building2, CheckSquare, FolderKanban, Gauge, Handshake, Landmark, ListChecks, ReceiptText, ScrollText, Settings, Tags, UserRoundCheck, Users } from "lucide-react";
+import { Banknote, Bell, Building2, CheckSquare, FolderKanban, Gauge, Handshake, Landmark, ListChecks, MailCheck, ReceiptText, ScrollText, Send, Settings, Tags, UserRoundCheck, Users } from "lucide-react";
 
 export const roles = ["super_admin", "owner", "admin", "staff"] as const;
 export type Role = (typeof roles)[number];
@@ -36,12 +36,14 @@ export const navItems = [
   { href: "/clients", label: "Clients", icon: Handshake, roles: ["owner", "admin"] },
   { href: "/projects", label: "Projects", icon: FolderKanban, roles: ["owner", "admin", "staff"] },
   { href: "/project-payments", label: "Payments", icon: Banknote, roles: ["owner", "admin"] },
+  { href: "/payment-reminders", label: "Reminders", icon: Send, roles: ["owner", "admin"] },
   { href: "/general-funds", label: "Funds", icon: Landmark, roles: ["owner", "admin"] },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["owner", "admin", "staff"] },
   { href: "/categories", label: "Categories", icon: Tags, roles: ["owner", "admin"] },
   { href: "/expenses", label: "Expenses", icon: ReceiptText, roles: ["owner", "admin", "staff"] },
   { href: "/expense-contributors", label: "Contributors", icon: UserRoundCheck, roles: ["owner", "admin", "staff"] },
   { href: "/reports", label: "Reports", icon: ListChecks, roles: ["owner", "admin", "staff"] },
+  { href: "/email-logs", label: "Email Audit", icon: MailCheck, roles: ["super_admin", "owner", "admin"] },
   { href: "/audit-logs", label: "Audit Logs", icon: ScrollText, roles: ["owner", "admin"] },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["owner", "admin"] }
 ] as const;

@@ -43,6 +43,10 @@ export async function notifyUserCreated(user: UserLike & { organizationId?: stri
   await sendEmail({
     to: [{ email: user.email, name: user.name }],
     subject: "Your HisabKitab account is ready",
+    organizationId: user.organizationId ?? null,
+    template: "user_created",
+    entityType: "User",
+    entityId: user._id?.toString?.(),
     html: emailLayout(
       "Your HisabKitab account is ready",
       `
@@ -74,6 +78,9 @@ export async function notifyTaskAssigned(user: UserLike & { organizationId?: str
   await sendEmail({
     to: [{ email: user.email, name: user.name }],
     subject: `Task assigned: ${task.title}`,
+    organizationId: user.organizationId ?? null,
+    template: "task_assigned",
+    entityType: "ProjectTask",
     html: emailLayout(
       "Task assigned to you",
       `
@@ -104,6 +111,9 @@ export async function notifyExpenseApproval(user: UserLike & { organizationId?: 
   await sendEmail({
     to: [{ email: user.email, name: user.name }],
     subject: `Expense ${expense.approvalStatus}: ${expense.description ?? "Expense"}`,
+    organizationId: user.organizationId ?? null,
+    template: "expense_approval",
+    entityType: "Expense",
     html: emailLayout(
       `Expense ${expense.approvalStatus}`,
       `
@@ -136,6 +146,9 @@ export async function notifyExpenseSubmitted(recipients: Array<UserLike & { orga
   await sendEmail({
     to,
     subject: `Expense needs approval: ${expense.description ?? "Expense"}`,
+    organizationId: recipients.find((recipient) => recipient.organizationId)?.organizationId ?? null,
+    template: "expense_submitted",
+    entityType: "Expense",
     html: emailLayout(
       "Expense needs approval",
       `
@@ -166,6 +179,9 @@ export async function notifyProjectPayment(recipients: Array<UserLike & { organi
   await sendEmail({
     to,
     subject: `Project payment received: ${money(payment.amount)}`,
+    organizationId: recipients.find((recipient) => recipient.organizationId)?.organizationId ?? null,
+    template: "project_payment_received",
+    entityType: "ProjectPayment",
     html: emailLayout(
       "Project payment received",
       `

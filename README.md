@@ -51,16 +51,27 @@ BREVO_SMTP_KEY=
 BREVO_SENDER_NAME=HisabKitab
 BREVO_SENDER_EMAIL=support@example.com
 NEXT_PUBLIC_APP_URL=https://your-domain.com
+CRON_SECRET=change-this-secret-for-vercel-cron
 ```
 
 Current email events:
 
+- Forgot password reset link
 - New user account created
 - Task assigned or reassigned
+- Staff expense submitted for approval
 - Expense approval status updated
 - Project payment added
+- Client project payment due reminder
 
-Email failures are logged but do not block accounting actions.
+Email attempts are recorded in `Email Audit` with sent, failed, and skipped status. Email failures are logged but do not block accounting actions.
+
+## Payment Due Reminders
+
+- Owners/admins can run reminders from `Payment Reminders`.
+- Vercel Cron can call `/api/reminders/payment-due` daily.
+- In production, set `CRON_SECRET` or `REMINDER_CRON_SECRET`; Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`.
+- Manual reminders skip projects already reminded in the last 24 hours unless force resend is selected.
 
 ## Client Management, Approval History, and Performance Logs
 

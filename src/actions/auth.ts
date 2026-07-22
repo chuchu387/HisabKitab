@@ -40,6 +40,10 @@ export async function requestPasswordReset(_: ActionState, formData: FormData): 
     const emailResult = await sendEmail({
       to: [{ email: user.email, name: user.name }],
       subject: "Reset your HisabKitab password",
+      organizationId: user.organizationId?.toString?.() ?? null,
+      template: "password_reset",
+      entityType: "User",
+      entityId: user._id?.toString?.(),
       html: emailLayout("Reset your password", `
         <p>Hello ${escapeHtml(user.name)},</p>
         <p>Use the button below to reset your HisabKitab password. This link expires in 30 minutes.</p>

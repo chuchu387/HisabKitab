@@ -1,3 +1,6 @@
+import { connectToDatabase } from "@/lib/db";
+import { EmailLog } from "@/models/EmailLog";
+
 type EmailRecipient = {
   email: string;
   name?: string | null;
@@ -8,6 +11,11 @@ type SendEmailInput = {
   subject: string;
   html: string;
   text?: string;
+  organizationId?: string | null;
+  template?: string;
+  entityType?: string;
+  entityId?: string;
+  metadata?: Record<string, unknown>;
 };
 
 const brevoEndpoint = "https://api.brevo.com/v3/smtp/email";
@@ -23,9 +31,25 @@ function enabled() {
   return Boolean(process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL);
 }
 
-export async function sendEmail({ to, subject, html, text }: SendEmailInput) {
+export async function sendEmail({ to, subject, html, text, organizationId, template = "general", entityType = "", entityId = "", metadata = {} }: SendEmailInput) {
   const recipients = to.filter((recipient) => recipient.email);
-  if (!enabled() || recipients.length === 0) return { ok: false, skipped: true };
+  if (!enabled() || recipients.length === 0) {
+    await writeEmailLog({
+      organizationId,
+      recipients,
+      subject,
+      template,
+      status: "skipped",
+      entityType,
+      entityId,
+      metadata: {
+        ...metadata,
+        enabled: enabled(),
+        recipientCount: recipients.length
+      }
+    });
+    return { ok: false, skipped: true };
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
@@ -47,12 +71,16 @@ export async function sendEmail({ to, subject, html, text }: SendEmailInput) {
       signal: controller.signal
     });
     if (!response.ok) {
-      console.error("Brevo email failed", response.status, await response.text().catch(() => ""));
+      const responseBody = await response.text().catch(() => "");
+      console.error("Brevo email failed", response.status, responseBody);
+      await writeEmailLog({ organizationId, recipients, subject, template, status: "failed", responseStatus: response.status, responseBody, entityType, entityId, metadata });
       return { ok: false };
     }
+    await writeEmailLog({ organizationId, recipients, subject, template, status: "sent", responseStatus: response.status, entityType, entityId, metadata });
     return { ok: true };
   } catch (error) {
     console.error("Brevo email error", error);
+    await writeEmailLog({ organizationId, recipients, subject, template, status: "failed", error: error instanceof Error ? error.message : String(error), entityType, entityId, metadata });
     return { ok: false };
   } finally {
     clearTimeout(timeout);
@@ -96,4 +124,37 @@ export function escapeHtml(value: unknown) {
 
 function stripHtml(value: string) {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+async function writeEmailLog(input: {
+  organizationId?: string | null;
+  recipients: EmailRecipient[];
+  subject: string;
+  template: string;
+  status: "sent" | "failed" | "skipped";
+  responseStatus?: number;
+  responseBody?: string;
+  error?: string;
+  entityType?: string;
+  entityId?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  try {
+    await connectToDatabase();
+    await EmailLog.create({
+      organizationId: input.organizationId || null,
+      recipients: input.recipients.map((recipient) => ({ email: recipient.email, name: recipient.name ?? "" })),
+      subject: input.subject,
+      template: input.template,
+      status: input.status,
+      responseStatus: input.responseStatus ?? null,
+      responseBody: input.responseBody?.slice(0, 2000) ?? "",
+      error: input.error?.slice(0, 1000) ?? "",
+      entityType: input.entityType ?? "",
+      entityId: input.entityId ?? "",
+      metadata: input.metadata ?? {}
+    });
+  } catch (error) {
+    console.error("Email log write failed", error);
+  }
 }
