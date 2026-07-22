@@ -37,7 +37,7 @@ export async function requestPasswordReset(_: ActionState, formData: FormData): 
     const tokenHash = hashToken(token);
     await PasswordResetToken.create({ userId: user._id, tokenHash, expiresAt: new Date(Date.now() + 1000 * 60 * 30) });
     const resetUrl = appUrl(`/reset-password?token=${token}`);
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: [{ email: user.email, name: user.name }],
       subject: "Reset your HisabKitab password",
       html: emailLayout("Reset your password", `
@@ -46,7 +46,18 @@ export async function requestPasswordReset(_: ActionState, formData: FormData): 
         ${actionButton("Reset Password", resetUrl)}
         <p>If you did not request this, you can ignore this email.</p>
       `)
-    }).catch(() => undefined);
+    }).catch((error) => {
+      console.error("Password reset email threw", error);
+      return { ok: false, error: "exception" };
+    });
+    if (!emailResult?.ok) {
+      console.error("Password reset email not sent", {
+        skipped: "skipped" in emailResult ? emailResult.skipped : false,
+        hasBrevoApiKey: Boolean(process.env.BREVO_API_KEY),
+        hasBrevoSenderEmail: Boolean(process.env.BREVO_SENDER_EMAIL),
+        userId: user._id?.toString?.()
+      });
+    }
   }
   return { ok: true, message: "If the email exists, a reset link has been sent" };
 }
