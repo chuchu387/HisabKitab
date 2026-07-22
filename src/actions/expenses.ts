@@ -11,7 +11,7 @@ import { actionError, parseForm } from "@/actions/helpers";
 import { saveReceipt, deleteReceipt } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
 import { appUrl } from "@/services/email";
-import { notifyExpenseApproval } from "@/services/notifications";
+import { notifyExpenseApproval, notifyExpenseSubmitted } from "@/services/notifications";
 import { User } from "@/models/User";
 import { ExpenseApprovalHistory } from "@/models/ExpenseApprovalHistory";
 import type { ActionState } from "@/types";
@@ -51,6 +51,15 @@ export async function createExpense(_: ActionState, formData: FormData): Promise
       createdBy: session.user.userId
     });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Created", entityType: "Expense", entityId: expense._id.toString(), metadata: { amount: data.amount } });
+    if (session.user.role === "staff") {
+      const recipients = await User.find({ organizationId, active: true, role: { $in: ["owner", "admin"] } }).select("name email").lean();
+      await notifyExpenseSubmitted((recipients as any[]).map((recipient) => ({ ...recipient, organizationId })), {
+        description: data.description,
+        amount: data.amount,
+        submitterName: session.user.name ?? "Staff",
+        expenseUrl: appUrl(`/expenses/${expense._id}`)
+      }).catch(() => undefined);
+    }
     revalidateExpenseAccounting([data.projectId]);
     return { ok: true, message: "Expense created" };
   } catch (error) {
@@ -188,7 +197,7 @@ async function sendExpenseApprovalEmails(organizationId: string, expenses: any[]
   await Promise.all(expenses.map((expense) => {
     const user = userById.get(expense.createdBy?.toString?.());
     if (!user?.email) return Promise.resolve();
-    return notifyExpenseApproval(user, {
+    return notifyExpenseApproval({ ...user, organizationId }, {
       description: expense.description,
       amount: expense.amount,
       approvalStatus,

@@ -6,7 +6,9 @@ import { Expense } from "@/models/Expense";
 import { ExpenseApprovalHistory } from "@/models/ExpenseApprovalHistory";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { GeneralFund } from "@/models/GeneralFund";
+import { Notification } from "@/models/Notification";
 import { Organization } from "@/models/Organization";
+import { PasswordResetToken } from "@/models/PasswordResetToken";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { ProjectTask } from "@/models/ProjectTask";
@@ -31,7 +33,7 @@ function loadLocalEnv() {
 async function main() {
   loadLocalEnv();
   await connectToDatabase();
-  const models = [Organization, User, Client, Project, ExpenseCategory, Expense, ExpenseApprovalHistory, AuditLog, ProjectPayment, GeneralFund, ProjectTask];
+  const models = [Organization, User, Client, Project, ExpenseCategory, Expense, ExpenseApprovalHistory, AuditLog, ProjectPayment, GeneralFund, ProjectTask, Notification, PasswordResetToken];
   for (const model of models) {
     await model.syncIndexes();
     console.log(`Synced indexes for ${model.modelName}`);

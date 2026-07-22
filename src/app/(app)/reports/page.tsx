@@ -41,6 +41,34 @@ export default async function ReportsPage({ searchParams }: any) {
   const spendRate = summary.totalFunding > 0 ? Math.round((summary.totalExpenses / summary.totalFunding) * 100) : 0;
   const topCategories = [...reports.categorySummary].slice(0, 5);
   const topProjects = [...reports.projects].sort((a: any, b: any) => (b.expense ?? 0) - (a.expense ?? 0)).slice(0, 5);
+  const clientSummary = Object.values(reports.projects.reduce((acc: Record<string, any>, project: any) => {
+    const key = project.clientId || project.clientName || "No Client";
+    acc[key] ??= {
+      clientName: project.clientName ?? "No Client",
+      clientCode: project.clientCode ?? "",
+      projectCount: 0,
+      budget: 0,
+      received: 0,
+      expense: 0,
+      due: 0,
+      balance: 0
+    };
+    acc[key].projectCount += 1;
+    acc[key].budget += project.budget ?? 0;
+    acc[key].received += project.received ?? 0;
+    acc[key].expense += project.expense ?? 0;
+    acc[key].due += project.receivableRemaining ?? 0;
+    acc[key].balance += project.cashAfterExpenses ?? 0;
+    return acc;
+  }, {})).map((client: any) => ({
+    ...client,
+    budget: roundMoney(client.budget),
+    received: roundMoney(client.received),
+    expense: roundMoney(client.expense),
+    due: roundMoney(client.due),
+    balance: roundMoney(client.balance)
+  })).sort((a: any, b: any) => b.received - a.received);
+  const topClients = clientSummary.slice(0, 5);
   return (
     <PageShell title="Reports" description="Summary, project, and expense reports with CSV/PDF exports.">
       <form className="filter-bar">
@@ -113,10 +141,27 @@ export default async function ReportsPage({ searchParams }: any) {
         <RankingCard title="Top Expense Categories" rows={topCategories.map((row: any) => ({ label: row.name, value: row.amount, detail: `${row.count} records` }))} />
         <RankingCard title="Highest Spending Projects" rows={topProjects.map((row: any) => ({ label: `${row.name} (${row.code})`, value: row.expense, detail: `${money(row.received ?? 0)} received` }))} />
       </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RankingCard title="Top Clients By Received Payment" rows={topClients.map((row: any) => ({ label: row.clientCode ? `${row.clientName} (${row.clientCode})` : row.clientName, value: row.received, detail: `${row.projectCount} projects · ${money(row.balance)} balance` }))} />
+        <RankingCard title="Top Clients By Expense" rows={[...clientSummary].sort((a: any, b: any) => b.expense - a.expense).slice(0, 5).map((row: any) => ({ label: row.clientCode ? `${row.clientName} (${row.clientCode})` : row.clientName, value: row.expense, detail: `${money(row.received)} received · ${money(row.due)} due` }))} />
+      </div>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Client Report</h2>
+        <DataTable data={clientSummary} pagination={{ basePath: "/reports", searchParams: params, pageParam: "clientPage", pageSizeParam: "clientPageSize" }} columns={[
+          { header: "Client", cell: (client: any) => client.clientCode ? `${client.clientName} (${client.clientCode})` : client.clientName },
+          { header: "Projects", cell: (client: any) => client.projectCount },
+          { header: "Budget", cell: (client: any) => money(client.budget) },
+          { header: "Received", cell: (client: any) => money(client.received) },
+          { header: "Due", cell: (client: any) => money(client.due) },
+          { header: "Expense", cell: (client: any) => money(client.expense) },
+          { header: "Cash Balance", cell: (client: any) => money(client.balance) }
+        ]} />
+      </section>
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Project Report</h2>
         <DataTable data={reports.projects} pagination={{ basePath: "/reports", searchParams: params, pageParam: "projectPage", pageSizeParam: "projectPageSize" }} columns={[
           { header: "Project", cell: (p: any) => `${p.name} (${p.code})` },
+          { header: "Client", cell: (p: any) => p.clientCode ? `${p.clientName} (${p.clientCode})` : p.clientName },
           { header: "Type", cell: (p: any) => p.projectType === "internal" ? "Internal" : "Client" },
           { header: "Budget", cell: (p: any) => money(p.budget) },
           { header: "Received", cell: (p: any) => money(p.received ?? 0) },
@@ -152,6 +197,10 @@ export default async function ReportsPage({ searchParams }: any) {
 
 function dateInput(date: Date) {
   return date.toISOString().slice(0, 10);
+}
+
+function roundMoney(value: number) {
+  return Number(value.toFixed(2));
 }
 
 function ReportSummaryBlock({ title, rows }: { title: string; rows: Array<[string, number]> }) {

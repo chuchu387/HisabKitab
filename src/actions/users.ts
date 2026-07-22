@@ -24,7 +24,7 @@ export async function createUser(_: ActionState, formData: FormData): Promise<Ac
       password: await bcrypt.hash(String(data.password), 12)
     });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "User Created", entityType: "User", entityId: user._id.toString(), metadata: { email: data.email, role: data.role } });
-    await notifyUserCreated({ email: data.email, name: data.name, role: data.role, password: data.password }).catch(() => undefined);
+    await notifyUserCreated({ _id: user._id, organizationId, email: data.email, name: data.name, role: data.role, password: data.password }).catch(() => undefined);
     revalidatePath("/users");
     return { ok: true, message: "User created" };
   } catch (error) {

@@ -99,7 +99,7 @@ async function sendTaskAssignmentEmail(organizationId: string, projectId: string
     Project.findOne({ _id: projectId, organizationId }).select("name").lean() as any
   ]);
   if (!assignee?.email) return;
-  await notifyTaskAssigned(assignee, {
+  await notifyTaskAssigned({ ...assignee, organizationId }, {
     title: task.title,
     status: task.status,
     projectName: project?.name,

@@ -6,6 +6,7 @@ import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { GeneralFund } from "@/models/GeneralFund";
 import { User } from "@/models/User";
+import { Client } from "@/models/Client";
 
 export type ReportFilters = {
   organizationId: string;
@@ -200,7 +201,7 @@ export async function getReports(filters: ReportFilters) {
     expenseTypeSummary
   ] = await Promise.all([
     Organization.findById(filters.organizationId).lean(),
-    Project.find(projectScope).sort({ name: 1 }).lean(),
+    Project.find(projectScope).populate({ path: "clientId", model: Client, select: "name code" }).sort({ name: 1 }).lean(),
     ProjectPayment.aggregate([{ $match: paymentMatch }, { $group: { _id: "$projectId", total: { $sum: "$amount" } } }]),
     GeneralFund.aggregate([{ $match: fundMatch }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     GeneralFund.countDocuments({ organizationId: filters.organizationId }),
@@ -248,6 +249,9 @@ export async function getReports(filters: ReportFilters) {
       name: project.name,
       code: project.code,
       projectType: project.projectType ?? "client",
+      clientId: project.clientId?._id?.toString?.() ?? null,
+      clientName: project.clientId?.name ?? (project.projectType === "internal" ? "Internal" : "No Client"),
+      clientCode: project.clientId?.code ?? "",
       budget,
       received,
       expense,

@@ -8,6 +8,19 @@ export const loginSchema = z.object({
   password: z.string().min(8)
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email()
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20),
+  password: z.string().min(8),
+  confirmPassword: z.string().min(8)
+}).refine((value) => value.password === value.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"]
+});
+
 export const organizationSchema = z.object({
   name: z.string().min(2).max(120),
   code: z.string().min(2).max(20).regex(/^[a-zA-Z0-9_-]+$/),

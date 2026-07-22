@@ -8,7 +8,7 @@ import type { Role } from "@/constants";
 import { cn } from "@/lib/utils";
 
 const navGroups = [
-  { title: "Overview", hrefs: ["/dashboard"] },
+  { title: "Overview", hrefs: ["/dashboard", "/notifications"] },
   { title: "Accounting", hrefs: ["/expenses", "/project-payments", "/general-funds", "/expense-contributors"] },
   { title: "Work", hrefs: ["/clients", "/projects", "/tasks", "/categories"] },
   { title: "Reports", hrefs: ["/reports", "/audit-logs"] },

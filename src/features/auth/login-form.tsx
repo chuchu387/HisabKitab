@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { useActionState } from "react";
 import { useState } from "react";
@@ -37,6 +38,11 @@ export function LoginForm() {
         </div>
       </div>
       <ActionMessage state={state} />
+      <div className="flex justify-end">
+        <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+          Forgot password?
+        </Link>
+      </div>
       <Button className="w-full" disabled={pending}>
         {pending && <Spinner className="h-4 w-4" />}
         {pending ? "Signing in..." : "Login"}
