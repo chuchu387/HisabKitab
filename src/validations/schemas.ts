@@ -21,6 +21,18 @@ export const resetPasswordSchema = z.object({
   path: ["confirmPassword"]
 });
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(8),
+  newPassword: z.string().min(8),
+  confirmPassword: z.string().min(8)
+}).refine((value) => value.newPassword === value.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"]
+}).refine((value) => value.currentPassword !== value.newPassword, {
+  message: "New password must be different from current password",
+  path: ["newPassword"]
+});
+
 export const organizationSchema = z.object({
   name: z.string().min(2).max(120),
   code: z.string().min(2).max(20).regex(/^[a-zA-Z0-9_-]+$/),

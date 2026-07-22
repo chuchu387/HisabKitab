@@ -5,9 +5,10 @@ import crypto from "node:crypto";
 import { AuthError } from "next-auth";
 import { signIn } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
+import { requireSession } from "@/lib/permissions";
 import { User } from "@/models/User";
 import { PasswordResetToken } from "@/models/PasswordResetToken";
-import { forgotPasswordSchema, resetPasswordSchema } from "@/validations/schemas";
+import { changePasswordSchema, forgotPasswordSchema, resetPasswordSchema } from "@/validations/schemas";
 import { actionButton, appUrl, emailLayout, escapeHtml, sendEmail } from "@/services/email";
 import type { ActionState } from "@/types";
 
@@ -81,6 +82,24 @@ export async function resetPassword(_: ActionState, formData: FormData): Promise
   reset.usedAt = new Date();
   await reset.save();
   return { ok: true, message: "Password reset. You can sign in now." };
+}
+
+export async function changePassword(_: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = changePasswordSchema.safeParse({
+    currentPassword: formData.get("currentPassword"),
+    newPassword: formData.get("newPassword"),
+    confirmPassword: formData.get("confirmPassword")
+  });
+  if (!parsed.success) return { ok: false, message: parsed.error.errors[0]?.message ?? "Invalid password request" };
+  const session = await requireSession();
+  await connectToDatabase();
+  const user = await User.findOne({ _id: session.user.userId, active: true }).select("+password");
+  if (!user) return { ok: false, message: "User not found" };
+  const valid = await bcrypt.compare(parsed.data.currentPassword, user.password);
+  if (!valid) return { ok: false, message: "Current password is incorrect" };
+  user.password = await bcrypt.hash(parsed.data.newPassword, 12);
+  await user.save();
+  return { ok: true, message: "Password changed successfully" };
 }
 
 function hashToken(token: string) {
