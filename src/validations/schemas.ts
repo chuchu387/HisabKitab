@@ -41,6 +41,7 @@ export const userSchema = z.object({
 
 export const projectSchema = z
   .object({
+    clientId: z.string().optional().nullable(),
     name: z.string().min(2).max(120),
     code: z.string().min(2).max(30),
     description: z.string().max(1000).optional().default(""),
@@ -71,7 +72,8 @@ export const expenseSchema = z.object({
 });
 
 export const expenseApprovalSchema = z.object({
-  approvalStatus: z.enum(expenseApprovalStatuses)
+  approvalStatus: z.enum(expenseApprovalStatuses),
+  approvalNote: z.string().max(500).optional().default("")
 });
 
 export const projectPaymentSchema = z.object({
@@ -100,4 +102,15 @@ export const reportFilterSchema = z.object({
   to: z.coerce.date().optional(),
   projectId: z.string().optional(),
   categoryId: z.string().optional()
+});
+
+export const clientSchema = z.object({
+  name: z.string().min(2).max(120),
+  code: z.string().min(2).max(30).regex(/^[a-zA-Z0-9_-]+$/),
+  email: z.string().email().optional().or(z.literal("")).default(""),
+  phone: z.string().max(40).optional().default(""),
+  contactPerson: z.string().max(120).optional().default(""),
+  address: z.string().max(300).optional().default(""),
+  notes: z.string().max(1000).optional().default(""),
+  active: z.coerce.boolean().default(true)
 });

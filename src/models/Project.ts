@@ -4,6 +4,7 @@ import { projectStatuses, projectTypes } from "@/constants";
 const projectSchema = new Schema(
   {
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
+    clientId: { type: Schema.Types.ObjectId, ref: "Client", default: null, index: true },
     name: { type: String, required: true, trim: true },
     code: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
@@ -22,5 +23,6 @@ projectSchema.index({ organizationId: 1, code: 1 }, { unique: true });
 projectSchema.index({ organizationId: 1, name: "text", code: "text" });
 projectSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
 projectSchema.index({ organizationId: 1, projectType: 1, name: 1 });
+projectSchema.index({ organizationId: 1, clientId: 1, createdAt: -1 });
 export type ProjectDocument = InferSchemaType<typeof projectSchema> & { _id: string };
 export const Project = (models.Project || model("Project", projectSchema)) as Model<any>;

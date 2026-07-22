@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { auth } from "@/lib/auth";
+import { startTimer } from "@/lib/performance";
 import type { Role } from "@/constants";
 
 const rank: Record<Role, number> = {
@@ -10,7 +11,12 @@ const rank: Record<Role, number> = {
   super_admin: 4
 };
 
-const getSession = cache(async () => auth());
+const getSession = cache(async () => {
+  const timer = startTimer("auth.session");
+  const session = await auth();
+  timer.end();
+  return session;
+});
 
 export async function requireSession() {
   const session = await getSession();

@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { connectToDatabase } from "@/lib/db";
 import { AuditLog } from "@/models/AuditLog";
+import { Client } from "@/models/Client";
 import { Expense } from "@/models/Expense";
+import { ExpenseApprovalHistory } from "@/models/ExpenseApprovalHistory";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { GeneralFund } from "@/models/GeneralFund";
 import { Organization } from "@/models/Organization";
@@ -29,7 +31,7 @@ function loadLocalEnv() {
 async function main() {
   loadLocalEnv();
   await connectToDatabase();
-  const models = [Organization, User, Project, ExpenseCategory, Expense, AuditLog, ProjectPayment, GeneralFund, ProjectTask];
+  const models = [Organization, User, Client, Project, ExpenseCategory, Expense, ExpenseApprovalHistory, AuditLog, ProjectPayment, GeneralFund, ProjectTask];
   for (const model of models) {
     await model.syncIndexes();
     console.log(`Synced indexes for ${model.modelName}`);

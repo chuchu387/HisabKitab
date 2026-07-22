@@ -113,7 +113,7 @@ export async function getAccountingSummary(organizationId: string) {
 
 export async function getProjectFinancials(organizationId: string, projectId: string) {
   const [project, paymentAgg, agg, pendingAgg] = await Promise.all([
-    Project.findOne({ _id: projectId, organizationId }).populate("createdBy").lean(),
+    Project.findOne({ _id: projectId, organizationId }).populate("createdBy clientId").lean(),
     ProjectPayment.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId), projectId: new Types.ObjectId(projectId) } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
     Expense.aggregate([
       { $match: { organizationId: new Types.ObjectId(organizationId), projectId: new Types.ObjectId(projectId), ...approvedExpenseCondition() } },

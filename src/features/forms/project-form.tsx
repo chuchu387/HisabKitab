@@ -13,7 +13,7 @@ import type { ActionState } from "@/types";
 
 const initialState: ActionState = { ok: false, message: "" };
 
-export function ProjectForm({ project }: { project?: any }) {
+export function ProjectForm({ project, clients = [] }: { project?: any; clients?: any[] }) {
   const action = project ? updateProject.bind(null, project._id.toString()) : createProject;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
@@ -27,6 +27,13 @@ export function ProjectForm({ project }: { project?: any }) {
           <option value="internal">Internal Project</option>
         </Select>
         {state.fieldErrors?.projectType?.[0] && <p className="text-xs text-destructive">{state.fieldErrors.projectType[0]}</p>}
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="clientId">Client</Label>
+        <Select id="clientId" name="clientId" defaultValue={project?.clientId ?? ""}>
+          <option value="">No client</option>
+          {clients.map((client) => <option key={client._id} value={client._id}>{client.name} ({client.code})</option>)}
+        </Select>
       </div>
       <Field name="totalBudget" label="Total Budget" type="number" min="0" step="0.01" defaultValue={project?.totalBudget ?? 0} error={state.fieldErrors?.totalBudget?.[0]} />
       <Field name="receivedAmount" label="Total Received Till Now" type="number" min="0" step="0.01" defaultValue={project?.receivedAmount ?? 0} error={state.fieldErrors?.receivedAmount?.[0]} />

@@ -34,7 +34,28 @@ export function DataTable<T>({ data, columns, pagination }: { data: T[]; columns
   const rows = pagination?.total === undefined && pagination ? data.slice(start, start + pageSize) : data;
   return (
     <div className="max-w-full overflow-hidden rounded-lg border bg-card shadow-sm shadow-foreground/5">
-      <div className="overflow-x-auto overscroll-x-contain">
+      <div className="grid divide-y md:hidden">
+        {rows.map((row, index) => (
+          <div key={index} className="space-y-3 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{columns[0]?.header}</p>
+                <div className="mt-1 font-semibold">{columns[0]?.cell(row)}</div>
+              </div>
+              {columns.at(-1) && columns.length > 1 && <div className="shrink-0">{columns.at(-1)?.cell(row)}</div>}
+            </div>
+            <div className="grid gap-2 text-sm">
+              {columns.slice(1, -1).map((column) => (
+                <div key={column.header} className="grid grid-cols-[7rem_1fr] gap-3">
+                  <span className="text-muted-foreground">{column.header}</span>
+                  <span className="min-w-0 break-words">{column.cell(row)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto overscroll-x-contain md:block">
         <table className="w-full min-w-[680px] text-sm">
           <thead className="sticky top-0 z-10 bg-foreground text-left text-primary-foreground">
             <tr>{columns.map((column) => <th key={column.header} className={cn("whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide", column.className)}>{column.header}</th>)}</tr>

@@ -48,6 +48,7 @@ export default async function ProjectDetailPage({ params, searchParams }: any) {
       </div>
       <p className="text-sm text-muted-foreground">
         {financials.project.projectType === "internal" ? "Internal project funded from company cash" : "Client project funded by project receipts"} · Created by {(financials.project.createdBy as any)?.name ?? "Unknown"}
+        {(financials.project.clientId as any)?.name && <> · Client <Link className="text-primary hover:underline" href={`/clients/${(financials.project.clientId as any)._id}`}>{(financials.project.clientId as any).name}</Link></>}
       </p>
       <Card>
         <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_auto] md:items-center">

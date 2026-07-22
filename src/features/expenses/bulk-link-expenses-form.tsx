@@ -189,6 +189,7 @@ function BulkApprovalForm({ selectedIds }: { selectedIds: string[] }) {
           <option value="pending">Pending</option>
           <option value="rejected">Rejected</option>
         </Select>
+        <input name="approvalNote" className="h-10 rounded-lg border bg-card px-3 text-sm shadow-sm sm:w-72" placeholder="Approval note" />
         <Button type="submit" variant="outline" disabled={pending || selectedIds.length === 0} className="w-full sm:w-auto">
           <CheckCircle2 className="h-4 w-4" />
           {pending ? "Saving..." : "Update Selected Approval"}
@@ -210,6 +211,7 @@ function ApprovalForm({ id, status }: { id: string; status: string }) {
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
         </Select>
+        <input name="approvalNote" className="h-8 w-36 rounded-lg border bg-card px-2 text-xs shadow-sm" placeholder="Note" />
         <Button type="submit" size="sm" variant="outline" disabled={pending}>{pending ? "Saving..." : "Save"}</Button>
       </form>
       <ActionMessage state={state} />

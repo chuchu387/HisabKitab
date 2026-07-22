@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { Project } from "@/models/Project";
+import { Client } from "@/models/Client";
 import { ProjectTask } from "@/models/ProjectTask";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { projectSchema } from "@/validations/schemas";
@@ -17,7 +18,8 @@ export async function createProject(_: ActionState, formData: FormData): Promise
     await requireRole(["owner", "admin"]);
     await connectToDatabase();
     const data = parseForm(projectSchema, formData);
-    const project = await Project.create({ ...data, organizationId, createdBy: session.user.userId });
+    await assertClientAccess(data.clientId, organizationId);
+    const project = await Project.create({ ...data, clientId: data.clientId || null, organizationId, createdBy: session.user.userId });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Created", entityType: "Project", entityId: project._id.toString(), metadata: { code: data.code } });
     revalidatePath("/projects");
     revalidatePath("/dashboard");
@@ -34,7 +36,8 @@ export async function updateProject(id: string, _: ActionState, formData: FormDa
     await requireRole(["owner", "admin"]);
     await connectToDatabase();
     const data = parseForm(projectSchema, formData);
-    await Project.findOneAndUpdate({ _id: id, organizationId }, data, { runValidators: true });
+    await assertClientAccess(data.clientId, organizationId);
+    await Project.findOneAndUpdate({ _id: id, organizationId }, { ...data, clientId: data.clientId || null }, { runValidators: true });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Updated", entityType: "Project", entityId: id, metadata: { code: data.code } });
     revalidatePath("/projects");
     revalidatePath("/dashboard");
@@ -44,6 +47,12 @@ export async function updateProject(id: string, _: ActionState, formData: FormDa
   } catch (error) {
     return actionError(error);
   }
+}
+
+async function assertClientAccess(clientId: string | null | undefined, organizationId: string) {
+  if (!clientId) return;
+  const client = await Client.exists({ _id: clientId, organizationId, active: true });
+  if (!client) throw new Error("Client not found");
 }
 
 export async function deleteProject(formData: FormData) {

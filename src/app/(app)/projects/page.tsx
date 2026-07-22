@@ -34,6 +34,7 @@ export default async function ProjectsPage({ searchParams }: any) {
       { $lookup: { from: ProjectPayment.collection.name, localField: "_id", foreignField: "projectId", as: "payments" } },
       { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
       { $lookup: { from: "users", localField: "createdBy", foreignField: "_id", as: "creator" } },
+      { $lookup: { from: "clients", localField: "clientId", foreignField: "_id", as: "client" } },
       {
         $addFields: {
           paidTotal: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] },
@@ -58,6 +59,7 @@ export default async function ProjectsPage({ searchParams }: any) {
       <DataTable data={projects} pagination={{ basePath: "/projects", searchParams: params, page, pageSize, total: totalProjects }} columns={[
         { header: "Name", cell: (p: any) => <Link className="font-medium hover:text-primary" href={`/projects/${p._id}`}>{p.name}</Link> },
         { header: "Code", cell: (p: any) => p.code },
+        { header: "Client", cell: (p: any) => p.client?.[0] ? <Link className="hover:text-primary" href={`/clients/${p.client[0]._id}`}>{p.client[0].name}</Link> : "-" },
         { header: "Type", cell: (p: any) => <Badge>{p.projectType === "internal" ? "Internal" : "Client"}</Badge> },
         { header: "Total Budget", cell: (p: any) => money(p.totalBudget) },
         { header: "Received", cell: (p: any) => money(p.paidTotal ?? 0) },

@@ -61,3 +61,9 @@ Current email events:
 - Project payment added
 
 Email failures are logged but do not block accounting actions.
+
+## Client Management, Approval History, and Performance Logs
+
+- Clients can be managed under `Clients` and linked to projects.
+- Expense approval changes store an approval history with status, approver, note, and timestamp.
+- Set `ENABLE_PERF_LOGS=true` in Vercel to log auth and MongoDB connection timings. Slow calls over 1500ms are logged automatically.

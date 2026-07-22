@@ -13,6 +13,7 @@ import { writeAuditLog } from "@/services/audit";
 import { appUrl } from "@/services/email";
 import { notifyExpenseApproval } from "@/services/notifications";
 import { User } from "@/models/User";
+import { ExpenseApprovalHistory } from "@/models/ExpenseApprovalHistory";
 import type { ActionState } from "@/types";
 
 function ownableQuery(id: string, organizationId: string, session: Awaited<ReturnType<typeof requireTenant>>["session"]) {
@@ -139,8 +140,15 @@ export async function bulkUpdateExpenseApproval(_: ActionState, formData: FormDa
       action: "Expense Approval Bulk Updated",
       entityType: "Expense",
       entityId: ids[0],
-      metadata: { expenseIds: ids, approvalStatus: data.approvalStatus, count: result.modifiedCount }
+      metadata: { expenseIds: ids, approvalStatus: data.approvalStatus, note: data.approvalNote, count: result.modifiedCount }
     });
+    await ExpenseApprovalHistory.insertMany(expenses.map((expense: any) => ({
+      organizationId,
+      expenseId: expense._id,
+      userId: session.user.userId,
+      approvalStatus: data.approvalStatus,
+      note: data.approvalNote
+    })));
     await sendExpenseApprovalEmails(organizationId, expenses, data.approvalStatus).catch(() => undefined);
     revalidateExpenseAccounting(expenses.map((expense: any) => expense.projectId));
     return { ok: true, message: `${result.modifiedCount} expenses updated` };
@@ -162,6 +170,7 @@ export async function updateExpenseApproval(_: ActionState, formData: FormData):
       { new: true, runValidators: true }
     ).lean()) as any;
     if (!expense) throw new Error("Expense not found");
+    await ExpenseApprovalHistory.create({ organizationId, expenseId: id, userId: session.user.userId, approvalStatus: data.approvalStatus, note: data.approvalNote });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Approval Updated", entityType: "Expense", entityId: id, metadata: data });
     await sendExpenseApprovalEmails(organizationId, [expense], data.approvalStatus).catch(() => undefined);
     revalidateExpenseAccounting([expense.projectId]);

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { startTimer } from "@/lib/performance";
 
 mongoose.set("autoIndex", false);
 mongoose.set("autoCreate", false);
@@ -30,6 +31,7 @@ export async function connectToDatabase() {
     throw new Error("MONGODB_URI is required");
   }
   if (global.mongooseCache?.conn) return global.mongooseCache.conn;
+  const timer = startTimer("mongodb.connect");
   global.mongooseCache!.promise ??= mongoose.connect(withDefaultDatabase(MONGODB_URI), {
     bufferCommands: false,
     autoIndex: false,
@@ -40,5 +42,6 @@ export async function connectToDatabase() {
     socketTimeoutMS: 30000
   });
   global.mongooseCache!.conn = await global.mongooseCache!.promise;
+  timer.end();
   return global.mongooseCache!.conn;
 }
