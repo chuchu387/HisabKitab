@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Types } from "mongoose";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
+import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { SearchBar } from "@/components/search-bar";
 import { StatCard } from "@/components/stat-card";
@@ -53,7 +54,7 @@ export default async function VendorsPage({ searchParams }: any) {
   const totalTds = summary.reduce((sum: number, row: any) => sum + (row.tds ?? 0), 0);
   return (
     <PageShell title="Vendor Ledger" description="Supplier-wise approved expenses, VAT, TDS, and drill-down transaction history.">
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <SearchBar placeholder="Search vendor or PAN" defaultValue={q} />
         <select className="native-control" name="fy" defaultValue={selectedFY}>
           <option value="all">All fiscal years</option>
@@ -63,7 +64,7 @@ export default async function VendorsPage({ searchParams }: any) {
         <input className="native-control" type="date" name="from" defaultValue={params?.from ?? ""} />
         <input className="native-control" type="date" name="to" defaultValue={params?.to ?? ""} />
         <Button variant="outline">Filter</Button>
-      </form>
+      </FilterForm>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Vendor Spend" value={totalVendorSpend} currency />
         <StatCard label="Vendors" value={summary.length} />

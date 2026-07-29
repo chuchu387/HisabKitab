@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
+import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { SearchBar } from "@/components/search-bar";
 import { connectToDatabase } from "@/lib/db";
@@ -49,7 +50,7 @@ export default async function EmailLogsPage({ searchParams }: any) {
         <AuditMetric label="Failed" value={failedCount} variant="failed" />
         <AuditMetric label="Skipped" value={skippedCount} variant="skipped" />
       </div>
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <SearchBar placeholder="Search subject, template, recipient" defaultValue={q} />
         <select className="native-control" name="status" defaultValue={status}>
           <option value="">All statuses</option>
@@ -68,7 +69,7 @@ export default async function EmailLogsPage({ searchParams }: any) {
           <option value="payment_due_reminder">Payment due reminder</option>
         </select>
         <Button variant="outline">Filter</Button>
-      </form>
+      </FilterForm>
       <DataTable
         data={logs}
         pagination={{ basePath: "/email-logs", searchParams: params }}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
+import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { SearchBar } from "@/components/search-bar";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ export default async function CategoriesPage({ searchParams }: any) {
   const categories = await ExpenseCategory.find(query).populate("createdBy").sort({ name: 1 }).lean();
   return (
     <PageShell title="Categories" action={<Button asChild><Link href="/categories/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
-      <form className="filter-bar"><SearchBar placeholder="Search categories" defaultValue={q} /><Button variant="outline">Filter</Button></form>
+      <FilterForm className="filter-bar"><SearchBar placeholder="Search categories" defaultValue={q} /><Button variant="outline">Filter</Button></FilterForm>
       <DataTable data={categories} pagination={{ basePath: "/categories", searchParams: params }} columns={[
         { header: "Name", cell: (c: any) => c.name },
         { header: "Description", cell: (c: any) => c.description || "-" },

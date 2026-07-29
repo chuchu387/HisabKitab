@@ -3,6 +3,7 @@ import { unstable_rethrow } from "next/navigation";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AccountingErrorState } from "@/components/accounting-error-state";
+import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
@@ -151,7 +152,7 @@ async function AccountsContent({ searchParams }: any) {
 
   return (
     <PageShell title="Accounts" description="Audit-style financial statements with clickable drilldowns to supporting records.">
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           Fiscal year
           <select className="native-control" name="fy" defaultValue={selectedFY}>
@@ -180,7 +181,7 @@ async function AccountsContent({ searchParams }: any) {
         <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=trial_balance&${qs}`}><Download className="h-4 w-4" />Trial CSV</Link></Button>
         <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=closing&${qs}`}><Download className="h-4 w-4" />Closing CSV</Link></Button>
         <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=pdf&statement=closing&${qs}`}><Download className="h-4 w-4" />Closing PDF</Link></Button>
-      </form>
+      </FilterForm>
 
       <div className="grid gap-4 md:grid-cols-3">
         <ProfitCard label={profitLabel} amount={summary.netProfitAfterTax} detail={statements.period.label} />

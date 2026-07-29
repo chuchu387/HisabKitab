@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { SearchBar } from "@/components/search-bar";
+import { FilterForm } from "@/components/filter-form";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { disableUser } from "@/actions/users";
@@ -27,7 +28,7 @@ export default async function UsersPage({ searchParams }: any) {
   const users = await User.find(query).populate("createdBy").sort({ createdAt: -1 }).lean();
   return (
     <PageShell title="Users" action={<Button asChild><Link href="/users/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <SearchBar placeholder="Search users" defaultValue={q} />
         <select name="role" defaultValue={role} className="native-control">
           <option value="">All roles</option>
@@ -36,7 +37,7 @@ export default async function UsersPage({ searchParams }: any) {
           <option value="staff">Staff</option>
         </select>
         <Button variant="outline">Filter</Button>
-      </form>
+      </FilterForm>
       <DataTable data={users} pagination={{ basePath: "/users", searchParams: params }} columns={[
         { header: "Name", cell: (u: any) => u.name },
         { header: "Email", cell: (u: any) => u.email },

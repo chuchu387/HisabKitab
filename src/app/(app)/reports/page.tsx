@@ -3,6 +3,7 @@ import { Download, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
+import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { ReportVisuals } from "@/features/reports/report-visuals";
@@ -77,7 +78,7 @@ export default async function ReportsPage({ searchParams }: any) {
   const topClients = clientSummary.slice(0, 5);
   return (
     <PageShell title="Reports" description="Summary, project, and expense reports with CSV/PDF exports.">
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <select className="native-control" name="fy" defaultValue={selectedFY}>
           <option value="all">All fiscal years</option>
           {fiscalYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -97,7 +98,7 @@ export default async function ReportsPage({ searchParams }: any) {
         <Button asChild variant="secondary"><Link href={`/api/reports/export?format=csv&${qs}`}><Download className="h-4 w-4" />CSV</Link></Button>
         <Button asChild variant="secondary"><Link href={`/api/reports/export?format=pdf&${qs}`}><Download className="h-4 w-4" />PDF</Link></Button>
         <Button asChild variant="ghost"><Link href="/reports">Reset</Link></Button>
-      </form>
+      </FilterForm>
       <div className="filter-bar">
         <Button asChild size="sm" variant={!filters.from && !filters.to ? "secondary" : "outline"}><Link href="/reports">All Time</Link></Button>
         <Button asChild size="sm" variant="outline"><Link href={`/reports?${thisMonth}`}>This Month</Link></Button>

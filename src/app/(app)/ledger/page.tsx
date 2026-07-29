@@ -1,4 +1,5 @@
 import { DataTable } from "@/components/data-table";
+import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -27,7 +28,7 @@ export default async function LedgerPage({ searchParams }: any) {
   }) as any;
   return (
     <PageShell title="Ledger" description="Generated double-entry debit/credit ledger from payments, funds, and approved expenses.">
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <select className="native-control" name="fy" defaultValue={selectedFY}>
           <option value="all">All fiscal years</option>
           {fiscalYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -37,7 +38,7 @@ export default async function LedgerPage({ searchParams }: any) {
         <input className="native-control" type="date" name="to" defaultValue={to} />
         <input className="native-control" name="accountCode" placeholder="Account code" defaultValue={accountCode} />
         <Button variant="outline">Filter</Button>
-      </form>
+      </FilterForm>
       {ledger.error && <EmptyState title="Ledger unavailable" description={ledger.error} />}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Trial Balance</h2>

@@ -1,5 +1,6 @@
 import { DataTable } from "@/components/data-table";
 import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
+import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { ManualJournalForm } from "@/features/forms/manual-journal-form";
@@ -35,7 +36,7 @@ export default async function JournalEntriesPage({ searchParams }: any) {
     <PageShell title="Manual Journal Entries" description="Owner-only accounting adjustments for depreciation, accruals, corrections, and tax adjustments.">
       <FiscalYearLockWarning organizationId={organizationId} />
       <ManualJournalForm />
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <select className="native-control" name="fy" defaultValue={selectedFY}>
           <option value="all">All fiscal years</option>
           {fiscalYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -44,7 +45,7 @@ export default async function JournalEntriesPage({ searchParams }: any) {
         <input className="native-control" type="date" name="from" defaultValue={params?.from ?? ""} />
         <input className="native-control" type="date" name="to" defaultValue={params?.to ?? ""} />
         <Button variant="outline">Filter</Button>
-      </form>
+      </FilterForm>
       <DataTable data={lines} pagination={{ basePath: "/journal-entries", searchParams: params }} columns={[
         { header: "Date", cell: (line: any) => formatDate(line.entryDate) },
         { header: "Voucher", cell: (line: any) => line.voucherNumber || "-" },

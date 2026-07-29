@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import { unstable_rethrow } from "next/navigation";
 import { DataTable } from "@/components/data-table";
 import { AccountingErrorState } from "@/components/accounting-error-state";
+import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ async function TaxContent({ searchParams }: any) {
   const estimatedIncomeTax = Math.max(profitBeforeTax, 0) * 0.25;
   return (
     <PageShell title="Tax Summary" description="VAT, TDS, taxable expense, and estimated income tax summary for audit preparation.">
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <select className="native-control" name="fy" defaultValue={selectedFY}>
           <option value="all">All fiscal years</option>
           {fiscalYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -67,7 +68,7 @@ async function TaxContent({ searchParams }: any) {
         <input className="native-control" type="date" name="from" defaultValue={from} />
         <input className="native-control" type="date" name="to" defaultValue={to} />
         <Button variant="outline">Filter</Button>
-      </form>
+      </FilterForm>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Revenue" value={revenue} currency />
         <StatCard label="Expense VAT" value={tax.vat} currency />

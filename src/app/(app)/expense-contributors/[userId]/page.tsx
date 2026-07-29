@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
+import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { ContributorCharts } from "@/features/expense-contributors/contributor-charts";
@@ -31,7 +32,7 @@ export default async function ExpenseContributorDetailPage({ params, searchParam
 
   return (
     <PageShell title={`${(detail.contributor as any).name} Expense Profile`} description={`${(detail.contributor as any).email ?? ""} · ${(detail.contributor as any).role ?? ""}`} breadcrumb={[{ label: "Expense Contributors", href: "/expense-contributors" }, { label: (detail.contributor as any).name }]}>
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <input className="native-control" type="date" name="from" defaultValue={queryParams?.from ?? ""} />
         <input className="native-control" type="date" name="to" defaultValue={queryParams?.to ?? ""} />
         <select name="expenseType" defaultValue={queryParams?.expenseType ?? ""} className="native-control">
@@ -40,7 +41,7 @@ export default async function ExpenseContributorDetailPage({ params, searchParam
           <option value="general">General only</option>
         </select>
         <Button variant="outline">Filter</Button>
-      </form>
+      </FilterForm>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total Submitted" value={detail.totals.totalAmount} currency />
         <StatCard label="Expense Count" value={detail.totals.expenseCount} />

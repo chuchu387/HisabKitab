@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/page-shell";
 import { SearchBar } from "@/components/search-bar";
+import { FilterForm } from "@/components/filter-form";
 import { Button } from "@/components/ui/button";
 import { TasksBoard } from "@/features/tasks/tasks-board";
 import { connectToDatabase } from "@/lib/db";
@@ -37,7 +38,7 @@ export default async function TasksPage({ searchParams }: any) {
 
   return (
     <PageShell title="To Do Checklist" description="Manage project tasks across all projects with status, assignee, time estimate, and images.">
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <SearchBar placeholder="Search tasks" defaultValue={q} />
         <select name="status" defaultValue={params?.status ?? ""} className="native-control">
           <option value="">All statuses</option>
@@ -55,7 +56,7 @@ export default async function TasksPage({ searchParams }: any) {
           {assignees.map((user: any) => <option key={user._id.toString()} value={user._id.toString()}>{user.name}</option>)}
         </select>
         <Button variant="outline">Filter</Button>
-      </form>
+      </FilterForm>
       <TasksBoard tasks={JSON.parse(JSON.stringify(tasks))} projects={JSON.parse(JSON.stringify(projects))} assignees={JSON.parse(JSON.stringify(assignees))} />
     </PageShell>
   );

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table";
+import { FilterForm } from "@/components/filter-form";
 import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
 import { PageShell } from "@/components/page-shell";
 import { ReconciliationForm } from "@/features/forms/reconciliation-form";
@@ -25,10 +26,10 @@ export default async function ReconciliationPage({ searchParams }: any) {
     <PageShell title="Bank Reconciliation" description="Match system cash/bank balances against real bank statements and keep an audit trail.">
       <FiscalYearLockWarning organizationId={organizationId} />
       <ReconciliationForm bankAccounts={JSON.parse(JSON.stringify(bankAccounts))} />
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <input type="date" className="native-control" name="date" defaultValue={params?.date ?? ""} />
         <button className="inline-flex h-10 items-center justify-center rounded-md border bg-card px-4 text-sm font-medium shadow-sm hover:bg-secondary">Check Balance</button>
-      </form>
+      </FilterForm>
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">System Balance By Account</h2>
         <DataTable data={systemBalances} pagination={{ basePath: "/reconciliation", searchParams: params, pageParam: "balancePage", pageSizeParam: "balancePageSize" }} columns={[

@@ -5,6 +5,7 @@ import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { GeneralFundForm } from "@/features/forms/general-fund-form";
 import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
+import { FilterForm } from "@/components/filter-form";
 import { deleteGeneralFund } from "@/actions/general-funds";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
@@ -44,7 +45,7 @@ export default async function GeneralFundsPage({ searchParams }: any) {
     <PageShell title="Owner/Other Funds" description="Track extra company cash added outside client project payments.">
       <FiscalYearLockWarning organizationId={organizationId} />
       <GeneralFundForm bankAccounts={JSON.parse(JSON.stringify(bankAccounts))} />
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <select className="native-control" name="fy" defaultValue={selectedFY}>
           <option value="all">All fiscal years</option>
           {fiscalYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -53,7 +54,7 @@ export default async function GeneralFundsPage({ searchParams }: any) {
         <input className="native-control" type="date" name="from" defaultValue={params?.from ?? ""} />
         <input className="native-control" type="date" name="to" defaultValue={params?.to ?? ""} />
         <Button variant="outline">Filter</Button>
-      </form>
+      </FilterForm>
       <DataTable data={funds} pagination={{ basePath: "/general-funds", searchParams: params }} columns={[
         { header: "Voucher", cell: (f: any) => f.voucherNumber || "-" },
         { header: "Date", cell: (f: any) => formatDate(f.fundDate) },

@@ -2,11 +2,14 @@ import { Types } from "mongoose";
 import { ChartAccount } from "@/models/ChartAccount";
 import { BankAccount } from "@/models/BankAccount";
 import { Expense } from "@/models/Expense";
+import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { GeneralFund } from "@/models/GeneralFund";
 import { ManualJournalEntry } from "@/models/ManualJournalEntry";
 import { OpeningBalance } from "@/models/OpeningBalance";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
+
+void ExpenseCategory;
 
 export const defaultChartAccounts = [
   { code: "1000", name: "Cash / Bank", type: "asset", normalBalance: "debit" },

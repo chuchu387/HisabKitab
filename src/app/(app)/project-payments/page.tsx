@@ -6,6 +6,7 @@ import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { ProjectPaymentForm } from "@/features/forms/project-payment-form";
 import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
+import { FilterForm } from "@/components/filter-form";
 import { deleteProjectPayment } from "@/actions/project-payments";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
@@ -72,7 +73,7 @@ export default async function ProjectPaymentsPage({ searchParams }: any) {
         <StatCard label="Internal Projects" value={internalProjectCount} />
       </div>
       <ProjectPaymentForm projects={JSON.parse(JSON.stringify(projects))} invoices={JSON.parse(JSON.stringify(invoices))} bankAccounts={JSON.parse(JSON.stringify(bankAccounts))} />
-      <form className="filter-bar">
+      <FilterForm className="filter-bar">
         <select className="native-control" name="fy" defaultValue={selectedFY}>
           <option value="all">All fiscal years</option>
           {fiscalYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -81,7 +82,7 @@ export default async function ProjectPaymentsPage({ searchParams }: any) {
         <input className="native-control" type="date" name="from" defaultValue={params?.from ?? ""} />
         <input className="native-control" type="date" name="to" defaultValue={params?.to ?? ""} />
         <Button variant="outline">Filter</Button>
-      </form>
+      </FilterForm>
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Project Payment Summary</h2>
         <DataTable data={projectSummaries} pagination={{ basePath: "/project-payments", searchParams: params, pageParam: "summaryPage", pageSizeParam: "summaryPageSize" }} columns={[
