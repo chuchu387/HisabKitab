@@ -60,7 +60,7 @@ export default async function InvoicesPage({ searchParams }: any) {
       </div>
       <InvoiceForm clients={invoiceClients} projects={invoiceProjects} organization={JSON.parse(JSON.stringify(organization))} />
       <DataTable data={invoices} pagination={{ basePath: "/invoices", searchParams: params }} columns={[
-        { header: "Invoice", cell: (invoice: any) => invoice.invoiceNumber },
+        { header: "Invoice", cell: (invoice: any) => <Link className="font-medium hover:text-primary" href={`/invoices/${invoice._id}`}>{invoice.invoiceNumber}</Link> },
         { header: "Client", cell: (invoice: any) => invoice.clientId?.name ?? "-" },
         { header: "Project", cell: (invoice: any) => invoice.projectId?.name ?? "-" },
         { header: "Date", cell: (invoice: any) => formatDate(invoice.invoiceDate) },
@@ -69,7 +69,7 @@ export default async function InvoicesPage({ searchParams }: any) {
         { header: "VAT", cell: (invoice: any) => invoice.vatApplicable ? money(invoice.vatAmount ?? 0) : "No VAT" },
         { header: "Total", cell: (invoice: any) => money(invoice.total ?? 0) },
         { header: "Balance", cell: (invoice: any) => money(Math.max((invoice.total ?? 0) - (invoice.paidAmount ?? 0), 0)) },
-        { header: "Actions", cell: (invoice: any) => <div className="flex gap-2"><Button asChild size="sm" variant="outline"><Link href={`/api/invoices/${invoice._id}/pdf`}><Download className="h-4 w-4" />PDF</Link></Button><form action={deleteInvoice}><input type="hidden" name="id" value={invoice._id.toString()} /><ConfirmButton /></form></div> }
+        { header: "Actions", cell: (invoice: any) => <div className="flex gap-2"><Button asChild size="sm" variant="outline"><Link href={`/invoices/${invoice._id}/edit`}>Edit</Link></Button><Button asChild size="sm" variant="outline"><Link href={`/api/invoices/${invoice._id}/pdf`}><Download className="h-4 w-4" />PDF</Link></Button><form action={deleteInvoice}><input type="hidden" name="id" value={invoice._id.toString()} /><ConfirmButton /></form></div> }
       ]} />
     </PageShell>
   );

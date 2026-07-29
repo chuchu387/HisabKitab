@@ -43,6 +43,7 @@ export const organizationSchema = z.object({
   panNumber: z.string().max(40).optional().default(""),
   vatRegistered: z.coerce.boolean().default(false),
   defaultVatRate: z.preprocess((value) => value === "" ? 13 : value, z.coerce.number().min(0).default(13)),
+  vatEffectiveDate: z.preprocess((value) => value === "" ? null : value, z.coerce.date().nullable().optional()),
   status: z.enum(organizationStatuses).default("active")
 });
 
@@ -59,7 +60,8 @@ export const organizationSettingsSchema = organizationSchema.pick({
   generalBudget: true,
   panNumber: true,
   vatRegistered: true,
-  defaultVatRate: true
+  defaultVatRate: true,
+  vatEffectiveDate: true
 });
 
 export const userSchema = z.object({

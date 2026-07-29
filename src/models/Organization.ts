@@ -12,6 +12,7 @@ const organizationSchema = new Schema(
     panNumber: { type: String, default: "", trim: true },
     vatRegistered: { type: Boolean, default: false, index: true },
     defaultVatRate: { type: Number, default: 13, min: 0 },
+    vatEffectiveDate: { type: Date, default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
     status: { type: String, enum: organizationStatuses, default: "active", index: true }
   },

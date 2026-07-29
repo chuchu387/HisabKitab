@@ -32,6 +32,7 @@ export default async function FiscalYearClosingPage({ params }: any) {
   if (!ledgerResult.ok) console.error("Fiscal year closing ledger failed", ledgerResult.error);
   const statements = (statementsResult.ok ? statementsResult.value : emptyFinancialStatements(from, to)) as any;
   const ledger = (ledgerResult.ok ? ledgerResult.value : emptyLedger()) as any;
+  const snapshot = (year as any).closingSnapshot;
   const debit = ledger.summary.reduce((sum: number, row: any) => sum + (row.debit ?? 0), 0);
   const credit = ledger.summary.reduce((sum: number, row: any) => sum + (row.credit ?? 0), 0);
   const difference = Number((debit - credit).toFixed(2));
@@ -55,8 +56,8 @@ export default async function FiscalYearClosingPage({ params }: any) {
             <p className="mt-1 text-sm text-muted-foreground">{formatDate((year as any).startDate)} to {formatDate((year as any).endDate)}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=closing&from=${from}&to=${to}`}>Closing CSV</Link></Button>
-            <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=pdf&statement=closing&from=${from}&to=${to}`}>Closing PDF</Link></Button>
+            <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=closing&from=${from}&to=${to}&fiscalYearId=${routeParams.id}`}>Closing CSV</Link></Button>
+            <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=pdf&statement=closing&from=${from}&to=${to}&fiscalYearId=${routeParams.id}`}>Closing PDF</Link></Button>
             <form action={toggleFiscalYearStatus}>
               <input type="hidden" name="id" value={(year as any)._id.toString()} />
               <input type="hidden" name="status" value={isClosed ? "open" : "closed"} />
@@ -65,6 +66,12 @@ export default async function FiscalYearClosingPage({ params }: any) {
           </div>
         </div>
       </section>
+      {snapshot && (
+        <section className="rounded-lg border border-primary/25 bg-primary/5 p-4 text-sm shadow-sm">
+          <h2 className="font-semibold">Frozen Closing Snapshot Saved</h2>
+          <p className="mt-1 text-muted-foreground">This fiscal year has a saved audit snapshot generated at {formatDate(snapshot.generatedAt)}. Downloaded closing reports should be compared against this snapshot if later data changes are made after reopening.</p>
+        </section>
+      )}
       <section className="grid gap-4 lg:grid-cols-2">
         <ChecklistItem title="Trial balance is balanced" ok={difference === 0} detail={`Debit ${money(debit)} · Credit ${money(credit)} · Difference ${money(difference)}`} />
         <ChecklistItem title="Profit and loss generated" ok detail={`${statements.summary.netProfitAfterTax >= 0 ? "Net profit" : "Net loss"} ${money(statements.summary.netProfitAfterTax)} · founder/company funds are not revenue`} />

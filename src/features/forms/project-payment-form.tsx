@@ -11,48 +11,51 @@ import { Textarea } from "@/components/ui/textarea";
 
 const initialState = { ok: false, message: "" };
 
-export function ProjectPaymentForm({ projects, invoices = [], bankAccounts = [] }: { projects: any[]; invoices?: any[]; bankAccounts?: any[] }) {
-  const [state, formAction, pending] = useActionState(createProjectPayment, initialState);
+export function ProjectPaymentForm({ projects, invoices = [], bankAccounts = [], payment, action = createProjectPayment }: { projects: any[]; invoices?: any[]; bankAccounts?: any[]; payment?: any; action?: any }) {
+  const [state, formAction, pending] = useActionState(action, initialState);
+  const selectedProjectId = payment?.projectId?._id?.toString?.() ?? payment?.projectId?.toString?.() ?? "";
+  const selectedInvoiceId = payment?.invoiceId?._id?.toString?.() ?? payment?.invoiceId?.toString?.() ?? "";
+  const selectedBankAccountId = payment?.bankAccountId?._id?.toString?.() ?? payment?.bankAccountId?.toString?.() ?? "";
   return (
     <form action={formAction} encType="multipart/form-data" className="grid gap-4 rounded-lg border bg-card/95 p-4 sm:p-5 shadow-sm shadow-foreground/5 md:grid-cols-2">
       <div className="space-y-2">
         <Label>Project</Label>
-        <Select name="projectId" required defaultValue="">
+        <Select name="projectId" required defaultValue={selectedProjectId}>
           <option value="" disabled>Select project</option>
           {projects.map((project) => <option key={project._id} value={project._id}>{project.name} ({project.code})</option>)}
         </Select>
       </div>
-      <Field name="paymentDate" label="Payment Date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+      <Field name="paymentDate" label="Payment Date" type="date" defaultValue={dateValue(payment?.paymentDate) || new Date().toISOString().slice(0, 10)} />
       <div className="space-y-2">
         <Label>Invoice</Label>
-        <Select name="invoiceId" defaultValue="">
+        <Select name="invoiceId" defaultValue={selectedInvoiceId}>
           <option value="">No invoice link</option>
           {invoices.map((invoice) => <option key={invoice._id} value={invoice._id}>{invoice.invoiceNumber} - {invoice.clientId?.name ?? "Client"}</option>)}
         </Select>
-        <label className="flex items-start gap-2 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+        {!payment && <label className="flex items-start gap-2 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
           <input type="checkbox" name="autoCreateInvoice" defaultChecked className="mt-0.5 h-4 w-4 rounded border" />
           <span>Auto-create a paid invoice when no invoice is selected. Best audit flow: invoice and payment stay linked.</span>
-        </label>
+        </label>}
       </div>
       <div className="space-y-2">
         <Label>Bank / Cash Account</Label>
-        <Select name="bankAccountId" defaultValue="">
+        <Select name="bankAccountId" defaultValue={selectedBankAccountId}>
           <option value="">Default Cash / Bank</option>
           {bankAccounts.map((account) => <option key={account._id} value={account._id}>{account.name} ({account.code})</option>)}
         </Select>
       </div>
-      <Field name="amount" label="Amount" type="number" min="0.01" step="0.01" />
+      <Field name="amount" label="Amount" type="number" min="0.01" step="0.01" defaultValue={payment?.amount ?? ""} />
       <div className="space-y-2">
         <Label>Receipt Image</Label>
         <Input name="receipt" type="file" accept="image/*" />
       </div>
       <div className="space-y-2 md:col-span-2">
         <Label>Note</Label>
-        <Textarea name="note" />
+        <Textarea name="note" defaultValue={payment?.note ?? ""} />
       </div>
       <div className="grid gap-3 sm:flex sm:items-center sm:justify-between md:col-span-2">
         <ActionMessage state={state} />
-        <Button disabled={pending}>{pending ? "Saving..." : "Add Payment"}</Button>
+        <Button disabled={pending}>{pending ? "Saving..." : payment ? "Update Payment" : "Add Payment"}</Button>
       </div>
     </form>
   );
@@ -60,4 +63,10 @@ export function ProjectPaymentForm({ projects, invoices = [], bankAccounts = [] 
 
 function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return <div className="space-y-2"><Label>{label}</Label><Input {...props} /></div>;
+}
+
+function dateValue(value: unknown) {
+  if (!value) return "";
+  const date = new Date(value as any);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
 }

@@ -52,8 +52,9 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
       if (existingInvoice) {
         invoiceId = existingInvoice._id.toString();
       } else {
-        const organization = (await Organization.findById(organizationId).select("vatRegistered defaultVatRate").lean()) as any;
-        const vatApplicable = Boolean(organization?.vatRegistered);
+        const organization = (await Organization.findById(organizationId).select("vatRegistered defaultVatRate vatEffectiveDate").lean()) as any;
+        const effectiveDate = organization?.vatEffectiveDate ? new Date(organization.vatEffectiveDate) : null;
+        const vatApplicable = Boolean(organization?.vatRegistered && (!effectiveDate || data.paymentDate >= effectiveDate));
         const vatRate = vatApplicable ? Number(organization?.defaultVatRate ?? 13) : 0;
         const subtotal = data.amount;
         const vatAmount = Number((subtotal * (vatRate / 100)).toFixed(2));
@@ -100,6 +101,39 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
   }
 }
 
+export async function updateProjectPayment(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await requireRole(["owner", "admin"]);
+    await connectToDatabase();
+    const data = parseForm(projectPaymentSchema, formData);
+    await assertFiscalYearOpen(organizationId, data.paymentDate);
+    const payment = await ProjectPayment.findOne({ _id: id, organizationId }).lean() as any;
+    if (!payment) throw new Error("Payment not found");
+    const project = await Project.findOne({ _id: data.projectId, organizationId }).select("name clientId").lean() as any;
+    if (!project) throw new Error("Project not found");
+    if (data.invoiceId) {
+      const invoice = await Invoice.exists({ _id: data.invoiceId, organizationId, projectId: data.projectId });
+      if (!invoice) throw new Error("Invoice not found for this project");
+    }
+    await ProjectPayment.updateOne({ _id: id, organizationId }, { ...data, invoiceId: data.invoiceId || null, bankAccountId: data.bankAccountId || null }, { runValidators: true });
+    await refreshProjectReceived(payment.projectId?.toString(), organizationId);
+    await refreshProjectReceived(data.projectId, organizationId);
+    if (payment.invoiceId) await refreshInvoicePaymentStatus(payment.invoiceId.toString(), organizationId);
+    if (data.invoiceId) await refreshInvoicePaymentStatus(data.invoiceId, organizationId);
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Payment Updated", entityType: "ProjectPayment", entityId: id, metadata: { before: { projectId: payment.projectId?.toString(), invoiceId: payment.invoiceId?.toString(), amount: payment.amount, paymentDate: payment.paymentDate }, after: { projectId: data.projectId, invoiceId: data.invoiceId, amount: data.amount, paymentDate: data.paymentDate } } });
+    revalidatePath("/project-payments");
+    revalidatePath(`/project-payments/${id}/edit`);
+    revalidatePath("/dashboard");
+    revalidatePath("/projects");
+    revalidatePath("/reports");
+    revalidatePath("/invoices");
+    return { ok: true, message: "Payment updated" };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function deleteProjectPayment(formData: FormData) {
   const { session, organizationId } = await requireTenant();
   await requireRole(["owner", "admin"]);
@@ -110,8 +144,7 @@ export async function deleteProjectPayment(formData: FormData) {
   await assertFiscalYearOpen(organizationId, payment.paymentDate);
   await ProjectPayment.deleteOne({ _id: id, organizationId });
   if (payment.projectId) {
-    const accounting = paymentBreakdown(payment);
-    await Project.updateOne({ _id: payment.projectId, organizationId }, [{ $set: { receivedAmount: { $max: [0, { $subtract: [{ $ifNull: ["$receivedAmount", 0] }, accounting.serviceAmount] }] } } }]);
+    await refreshProjectReceived(payment.projectId.toString(), organizationId);
   }
   const linkedInvoiceId = payment.invoiceId?._id?.toString?.() ?? payment.invoiceId?.toString?.();
   if (linkedInvoiceId) await refreshInvoicePaymentStatus(linkedInvoiceId, organizationId);
@@ -123,6 +156,16 @@ export async function deleteProjectPayment(formData: FormData) {
   revalidatePath("/reports");
   revalidatePath("/invoices");
   if (payment.projectId) revalidatePath(`/projects/${payment.projectId}`);
+}
+
+async function refreshProjectReceived(projectId: string | undefined, organizationId: string) {
+  if (!projectId) return;
+  const agg = await ProjectPayment.aggregate([
+    { $match: { organizationId: new Types.ObjectId(organizationId), projectId: new Types.ObjectId(projectId) } },
+    ...paymentAccountingStages(),
+    { $group: { _id: null, total: { $sum: "$serviceAmountForAccounting" } } }
+  ]);
+  await Project.updateOne({ _id: projectId, organizationId }, { $set: { receivedAmount: agg[0]?.total ?? 0 } });
 }
 
 async function refreshInvoicePaymentStatus(invoiceId: string, organizationId: string) {

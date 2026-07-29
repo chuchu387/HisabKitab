@@ -8,7 +8,9 @@ const fiscalYearSchema = new Schema(
     endDate: { type: Date, required: true },
     status: { type: String, enum: ["open", "closed"], default: "open", index: true },
     closedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
-    closedAt: { type: Date, default: null }
+    closedAt: { type: Date, default: null },
+    closingSnapshot: { type: Schema.Types.Mixed, default: null },
+    closingNote: { type: String, default: "" }
   },
   { timestamps: true }
 );

@@ -1,4 +1,6 @@
 import { Types } from "mongoose";
+import Link from "next/link";
+import { Download } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
@@ -88,6 +90,7 @@ async function TaxContent({ searchParams }: any) {
   const estimatedIncomeTax = Math.max(profitBeforeTax, 0) * 0.25;
   const netVatPayable = (invoiceTax.outputVat ?? 0) - (tax.vat ?? 0);
   const periodLabel = selectedFY === "all" ? "All fiscal years" : (statements?.period.label ?? "Selected period");
+  const exportQs = new URLSearchParams(Object.fromEntries(Object.entries({ from, to }).filter(([, value]) => value)) as Record<string, string>);
   const records = [
     ...invoices.map((invoice: any) => ({
       date: invoice.invoiceDate,
@@ -153,6 +156,8 @@ async function TaxContent({ searchParams }: any) {
         <input className="native-control" type="date" name="from" defaultValue={from} />
         <input className="native-control" type="date" name="to" defaultValue={to} />
         <Button variant="outline">Filter</Button>
+        <Button asChild variant="secondary"><Link href={`/api/tax/export?format=csv&${exportQs}`}><Download className="h-4 w-4" />VAT CSV</Link></Button>
+        <Button asChild variant="secondary"><Link href={`/api/tax/export?format=pdf&${exportQs}`}><Download className="h-4 w-4" />VAT PDF</Link></Button>
       </FilterForm>
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="space-y-1 p-4 text-sm">

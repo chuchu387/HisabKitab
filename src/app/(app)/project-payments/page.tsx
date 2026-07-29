@@ -110,7 +110,7 @@ export default async function ProjectPaymentsPage({ searchParams }: any) {
         { header: "Note", cell: (p: any) => p.note || "-" },
         { header: "Added By", cell: (p: any) => p.createdBy?.name ?? "Unknown" },
         { header: "Receipt", cell: (p: any) => p.receiptImageId ? <Link className="text-primary hover:underline" href={`/api/receipts/${p.receiptImageId}`} target="_blank">View</Link> : "-" },
-        { header: "Actions", cell: (p: any) => <form action={deleteProjectPayment}><input type="hidden" name="id" value={p._id.toString()} /><ConfirmButton /></form> }
+        { header: "Actions", cell: (p: any) => <div className="flex gap-2"><Button asChild size="sm" variant="outline"><Link href={`/project-payments/${p._id}/edit`}>Edit</Link></Button><form action={deleteProjectPayment}><input type="hidden" name="id" value={p._id.toString()} /><ConfirmButton /></form></div> }
       ]} />
       </section>
     </PageShell>

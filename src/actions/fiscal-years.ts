@@ -6,6 +6,9 @@ import { requireRole, requireTenant } from "@/lib/permissions";
 import { FiscalYear } from "@/models/FiscalYear";
 import { fiscalYearSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
+import { writeAuditLog } from "@/services/audit";
+import { getFinancialStatements } from "@/services/financial-statements";
+import { getDerivedLedger } from "@/services/accounts";
 import { nepalFiscalYearForDate, previousNepalFiscalYear } from "@/services/nepal-fiscal-year";
 import type { ActionState } from "@/types";
 
@@ -29,8 +32,15 @@ export async function toggleFiscalYearStatus(formData: FormData) {
   await connectToDatabase();
   const id = String(formData.get("id"));
   const status = String(formData.get("status")) === "closed" ? "closed" : "open";
-  await FiscalYear.findOneAndUpdate({ _id: id, organizationId }, { status, closedBy: status === "closed" ? session.user.userId : null, closedAt: status === "closed" ? new Date() : null });
+  const year = await FiscalYear.findOne({ _id: id, organizationId }).lean() as any;
+  if (!year) throw new Error("Fiscal year not found");
+  const from = year.startDate.toISOString().slice(0, 10);
+  const to = year.endDate.toISOString().slice(0, 10);
+  const closingSnapshot = status === "closed" ? await buildClosingSnapshot(organizationId, from, to) : null;
+  await FiscalYear.findOneAndUpdate({ _id: id, organizationId }, { status, closedBy: status === "closed" ? session.user.userId : null, closedAt: status === "closed" ? new Date() : null, closingSnapshot });
+  await writeAuditLog({ organizationId, userId: session.user.userId, action: status === "closed" ? "Fiscal Year Closed" : "Fiscal Year Reopened", entityType: "FiscalYear", entityId: id, metadata: { name: year.name, from, to, snapshotSaved: Boolean(closingSnapshot) } });
   revalidatePath("/fiscal-years");
+  revalidatePath(`/fiscal-years/${id}/closing`);
 }
 
 export async function setupCurrentNepalFiscalYear() {
@@ -61,4 +71,24 @@ export async function setupCurrentNepalFiscalYear() {
   );
   revalidatePath("/fiscal-years");
   revalidatePath("/accounts");
+}
+
+async function buildClosingSnapshot(organizationId: string, from: string, to: string) {
+  const [statements, ledger] = await Promise.all([
+    getFinancialStatements({ organizationId, from, to }),
+    getDerivedLedger(organizationId, from, to)
+  ]);
+  const debit = ledger.summary.reduce((sum: number, row: any) => sum + (row.debit ?? 0), 0);
+  const credit = ledger.summary.reduce((sum: number, row: any) => sum + (row.credit ?? 0), 0);
+  return {
+    generatedAt: new Date(),
+    period: statements.period,
+    summary: statements.summary,
+    balanceSheet: statements.balanceSheet,
+    profitAndLoss: statements.profitAndLoss,
+    cashFlow: statements.cashFlow,
+    trialBalance: statements.trialBalance,
+    receivables: statements.receivables,
+    trialSummary: { debit, credit, difference: Number((debit - credit).toFixed(2)) }
+  };
 }

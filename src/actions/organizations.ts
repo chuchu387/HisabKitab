@@ -11,6 +11,7 @@ import { Organization } from "@/models/Organization";
 import { User } from "@/models/User";
 import { createOrganizationSchema, organizationSchema, organizationSettingsSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
+import { writeAuditLog } from "@/services/audit";
 import type { ActionState } from "@/types";
 
 export async function createOrganization(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -69,10 +70,19 @@ export async function deactivateOrganization(formData: FormData) {
 
 export async function updateOrganizationSettings(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { organizationId } = await requireTenant();
+    const { organizationId, session } = await requireTenant();
     await connectToDatabase();
     const data = parseForm(organizationSettingsSchema, formData);
+    const before = await Organization.findById(organizationId).select("vatRegistered defaultVatRate vatEffectiveDate panNumber").lean() as any;
     await Organization.findOneAndUpdate({ _id: organizationId }, data, { runValidators: true });
+    if (
+      before?.vatRegistered !== data.vatRegistered ||
+      Number(before?.defaultVatRate ?? 13) !== Number(data.defaultVatRate ?? 13) ||
+      String(before?.vatEffectiveDate ? new Date(before.vatEffectiveDate).toISOString().slice(0, 10) : "") !== String(data.vatEffectiveDate ? new Date(data.vatEffectiveDate as Date).toISOString().slice(0, 10) : "") ||
+      String(before?.panNumber ?? "") !== String(data.panNumber ?? "")
+    ) {
+      await writeAuditLog({ organizationId, userId: session.user.userId, action: "VAT Settings Updated", entityType: "Organization", entityId: organizationId, metadata: { before, after: { vatRegistered: data.vatRegistered, defaultVatRate: data.defaultVatRate, vatEffectiveDate: data.vatEffectiveDate, panNumber: data.panNumber } } });
+    }
     revalidatePath("/settings");
     return { ok: true, message: "Settings updated" };
   } catch (error) {

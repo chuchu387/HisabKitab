@@ -20,6 +20,7 @@ export function SettingsForm({ organization }: { organization: any }) {
       <Field name="generalBudget" label="Owner/Other Funds" type="number" min="0" step="0.01" defaultValue={organization.generalBudget ?? 0} />
       <Field name="panNumber" label="PAN / VAT No." defaultValue={organization.panNumber ?? ""} />
       <Field name="defaultVatRate" label="Default VAT %" type="number" min="0" step="0.01" defaultValue={organization.defaultVatRate ?? 13} />
+      <Field name="vatEffectiveDate" label="VAT Effective Date" type="date" defaultValue={organization.vatEffectiveDate ? new Date(organization.vatEffectiveDate).toISOString().slice(0, 10) : ""} />
       <label className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3 text-sm md:col-span-2">
         <input type="checkbox" name="vatRegistered" defaultChecked={Boolean(organization.vatRegistered)} className="mt-1 h-4 w-4 rounded border" />
         <span>

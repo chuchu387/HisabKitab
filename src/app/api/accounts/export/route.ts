@@ -5,6 +5,7 @@ import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Organization } from "@/models/Organization";
+import { FiscalYear } from "@/models/FiscalYear";
 import { getFinancialStatements } from "@/services/financial-statements";
 
 export async function GET(request: NextRequest) {
@@ -12,11 +13,17 @@ export async function GET(request: NextRequest) {
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
   const { searchParams } = new URL(request.url);
-  const [statements, organization] = await Promise.all([getFinancialStatements({
-    organizationId,
-    from: searchParams.get("from") ?? undefined,
-    to: searchParams.get("to") ?? undefined
-  }), Organization.findById(organizationId).select("name").lean() as any]);
+  const fiscalYearId = searchParams.get("fiscalYearId");
+  const [liveStatements, organization, fiscalYear] = await Promise.all([
+    getFinancialStatements({
+      organizationId,
+      from: searchParams.get("from") ?? undefined,
+      to: searchParams.get("to") ?? undefined
+    }),
+    Organization.findById(organizationId).select("name").lean() as any,
+    fiscalYearId ? FiscalYear.findOne({ _id: fiscalYearId, organizationId }).lean() as any : Promise.resolve(null)
+  ]);
+  const statements = fiscalYear?.closingSnapshot ?? liveStatements;
   const statement = searchParams.get("statement") ?? "all";
   const rows = statementRows(statement, statements);
 
@@ -28,13 +35,13 @@ export async function GET(request: NextRequest) {
     drawHeader(page, bold, font, organization?.name ?? "No company name", exportTitle(statement), statements.period.label);
     let y = 735;
     if (statement === "profit_loss") {
-      drawSection(page, bold, font, "Profit and Loss", statements.profitAndLoss.map((row) => [row.account, formatAmount(row.amount)]), y);
+      drawSection(page, bold, font, "Profit and Loss", statements.profitAndLoss.map((row: any) => [row.account, formatAmount(row.amount)]), y);
     } else if (statement === "trial_balance") {
       drawSection(page, bold, font, "Closing Trial Balance", (statements.trialBalance ?? []).map((row: any) => [`${row.accountCode} ${row.accountName}`, `Dr ${formatAmount(row.debit)} / Cr ${formatAmount(row.credit)}`]), y);
     } else {
       y = drawSection(page, bold, font, "Closing Summary", closingSummaryRows(statements), y);
       y = drawSection(page, bold, font, "Balance Sheet", balanceSheetRows(statements), y - 18);
-      drawSection(page, bold, font, "Profit and Loss", statements.profitAndLoss.map((row) => [row.account, formatAmount(row.amount)]), y - 18);
+      drawSection(page, bold, font, "Profit and Loss", statements.profitAndLoss.map((row: any) => [row.account, formatAmount(row.amount)]), y - 18);
     }
     const bytes = await pdf.save();
     return new NextResponse(Buffer.from(bytes), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename=${fileName(statement, "pdf")}` } });
