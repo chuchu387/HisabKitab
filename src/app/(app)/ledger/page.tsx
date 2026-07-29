@@ -1,6 +1,7 @@
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
@@ -14,7 +15,10 @@ export default async function LedgerPage({ searchParams }: any) {
   const from = typeof params?.from === "string" ? params.from : undefined;
   const to = typeof params?.to === "string" ? params.to : undefined;
   const accountCode = typeof params?.accountCode === "string" ? params.accountCode : undefined;
-  const ledger = await getDerivedLedger(organizationId, from, to, accountCode);
+  const ledger = await getDerivedLedger(organizationId, from, to, accountCode).catch((error) => {
+    console.error("Ledger load failed", error);
+    return { entries: [], summary: [], error: "Ledger could not be loaded for the selected filters." };
+  }) as any;
   return (
     <PageShell title="Ledger" description="Generated double-entry debit/credit ledger from payments, funds, and approved expenses.">
       <form className="filter-bar">
@@ -23,6 +27,7 @@ export default async function LedgerPage({ searchParams }: any) {
         <input className="native-control" name="accountCode" placeholder="Account code" defaultValue={accountCode} />
         <Button variant="outline">Filter</Button>
       </form>
+      {ledger.error && <EmptyState title="Ledger unavailable" description={ledger.error} />}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Trial Balance</h2>
         <DataTable data={ledger.summary} pagination={{ basePath: "/ledger", searchParams: params, pageParam: "summaryPage", pageSizeParam: "summaryPageSize" }} columns={[

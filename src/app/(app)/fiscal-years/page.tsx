@@ -6,9 +6,11 @@ import { FiscalYearForm } from "@/features/forms/fiscal-year-form";
 import { setupCurrentNepalFiscalYear, toggleFiscalYearStatus } from "@/actions/fiscal-years";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
-import { formatDate } from "@/lib/utils";
+import { dateInput, formatDate } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
 import { NepalFiscalYearSetupButton } from "@/features/forms/fiscal-year-form";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default async function FiscalYearsPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
@@ -31,6 +33,7 @@ export default async function FiscalYearsPage({ searchParams }: any) {
         { header: "Start", cell: (year: any) => formatDate(year.startDate) },
         { header: "End", cell: (year: any) => formatDate(year.endDate) },
         { header: "Status", cell: (year: any) => <Badge variant={year.status === "closed" ? "danger" : "success"}>{year.status}</Badge> },
+        { header: "Closing Report", cell: (year: any) => <div className="flex gap-2"><Button asChild size="sm" variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=closing&from=${dateInput(year.startDate)}&to=${dateInput(year.endDate)}`}>CSV</Link></Button><Button asChild size="sm" variant="secondary"><Link href={`/api/accounts/export?format=pdf&statement=closing&from=${dateInput(year.startDate)}&to=${dateInput(year.endDate)}`}>PDF</Link></Button></div> },
         { header: "Actions", cell: (year: any) => <form action={toggleFiscalYearStatus}><input type="hidden" name="id" value={year._id.toString()} /><input type="hidden" name="status" value={year.status === "closed" ? "open" : "closed"} /><ConfirmButton label={year.status === "closed" ? "Reopen" : "Close"} title={`${year.status === "closed" ? "Reopen" : "Close"} fiscal year?`} description="This changes whether transactions in this date range can be edited." /></form> }
       ]} />
     </PageShell>

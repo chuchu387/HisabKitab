@@ -42,7 +42,7 @@ export default async function AccountsPage({ searchParams }: any) {
   const fyOptions = buildFiscalYearOptions(savedFiscalYears as any[]);
   const selectedFY = typeof params?.fy === "string" ? params.fy : fyOptions[0]?.value;
   const fy = resolveFiscalYearOption(fyOptions, selectedFY) ?? fyOptions[0];
-  const selectedCompareFY = typeof params?.compareFy === "string" ? params.compareFy : fyOptions.find((option) => option.value !== fy.value)?.value ?? "none";
+  const selectedCompareFY = typeof params?.compareFy === "string" ? params.compareFy : "none";
   const compareFY = selectedCompareFY === "none" ? undefined : resolveFiscalYearOption(fyOptions, selectedCompareFY);
   const customRange = selectedFY === "custom";
   const filters = {
@@ -139,19 +139,34 @@ export default async function AccountsPage({ searchParams }: any) {
   return (
     <PageShell title="Accounts" description="Audit-style financial statements with clickable drilldowns to supporting records.">
       <form className="filter-bar">
-        <select className="native-control" name="fy" defaultValue={selectedFY}>
-          {fyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          <option value="custom">Custom date range</option>
-        </select>
-        <select className="native-control" name="compareFy" defaultValue={selectedCompareFY}>
-          <option value="none">No comparison</option>
-          {fyOptions.map((option) => <option key={option.value} value={option.value}>Compare: {option.label}</option>)}
-        </select>
-        <input className="native-control" type="date" name="from" defaultValue={filters.from} />
-        <input className="native-control" type="date" name="to" defaultValue={filters.to} />
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          Fiscal year
+          <select className="native-control" name="fy" defaultValue={selectedFY}>
+            {fyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            <option value="custom">Custom date range</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          Compare with
+          <select className="native-control" name="compareFy" defaultValue={selectedCompareFY}>
+            <option value="none">No comparison</option>
+            {fyOptions.map((option) => <option key={option.value} value={option.value}>Compare: {option.label}</option>)}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          From
+          <input className="native-control" type="date" name="from" defaultValue={filters.from} />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          To
+          <input className="native-control" type="date" name="to" defaultValue={filters.to} />
+        </label>
         <Button variant="outline">Filter</Button>
-        <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&${qs}`}><Download className="h-4 w-4" />CSV</Link></Button>
-        <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=pdf&${qs}`}><Download className="h-4 w-4" />PDF</Link></Button>
+        <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=balance_sheet&${qs}`}><Download className="h-4 w-4" />Balance CSV</Link></Button>
+        <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=profit_loss&${qs}`}><Download className="h-4 w-4" />P&L CSV</Link></Button>
+        <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=trial_balance&${qs}`}><Download className="h-4 w-4" />Trial CSV</Link></Button>
+        <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=closing&${qs}`}><Download className="h-4 w-4" />Closing CSV</Link></Button>
+        <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=pdf&statement=closing&${qs}`}><Download className="h-4 w-4" />Closing PDF</Link></Button>
       </form>
 
       <div className="grid gap-4 md:grid-cols-3">

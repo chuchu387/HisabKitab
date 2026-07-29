@@ -16,6 +16,7 @@ import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { Project } from "@/models/Project";
 import { User } from "@/models/User";
+import { nepalFiscalYearForDate } from "@/services/nepal-fiscal-year";
 
 void User;
 
@@ -81,6 +82,10 @@ export default async function ExpensesPage({ searchParams }: any) {
   const filteredTotal = totals[0]?.filteredTotal ?? 0;
   const approvedTotal = totals[0]?.approvedTotal ?? 0;
   const pendingTotal = totals[0]?.pendingTotal ?? 0;
+  const expensesWithFiscalYear = expenses.map((expense: any) => ({
+    ...expense,
+    fiscalYearLabel: nepalFiscalYearForDate(new Date(expense.expenseDate)).label
+  }));
   return (
     <PageShell title="Expenses" action={<Button asChild><Link href="/expenses/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
       <form className="filter-bar">
@@ -145,7 +150,7 @@ export default async function ExpensesPage({ searchParams }: any) {
         </Card>
       )}
       {expenses.length ? (
-        <BulkLinkExpensesForm expenses={JSON.parse(JSON.stringify(expenses))} projects={JSON.parse(JSON.stringify(projects))} canApprove={["owner", "admin"].includes(session.user.role)} pagination={{ total: totalCount, page, pageSize, searchParams: params }} />
+        <BulkLinkExpensesForm expenses={JSON.parse(JSON.stringify(expensesWithFiscalYear))} projects={JSON.parse(JSON.stringify(projects))} canApprove={["owner", "admin"].includes(session.user.role)} pagination={{ total: totalCount, page, pageSize, searchParams: params }} />
       ) : (
         <EmptyState title="No expenses" description="Create an expense or adjust filters." />
       )}

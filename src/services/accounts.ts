@@ -59,7 +59,7 @@ export async function getDerivedLedger(organizationId: string, from?: string, to
     entries.push(line(account.createdAt, "BankAccount", account._id, "1000", `Cash / Bank - ${account.name}`, "Bank account opening balance", debit, credit));
   }
   for (const opening of openingBalances as any[]) {
-    entries.push(line(opening.createdAt, "OpeningBalance", opening._id, opening.accountCode, opening.accountName, opening.note || "Opening balance", opening.debit ?? 0, opening.credit ?? 0));
+    entries.push(line(opening.createdAt, "OpeningBalance", opening._id, opening.accountCode || "0000", opening.accountName || "Opening Balance", opening.note || "Opening balance", opening.debit ?? 0, opening.credit ?? 0));
   }
   for (const payment of payments as any[]) {
     const memo = `Client payment: ${payment.projectId?.name ?? "Project"}`;
@@ -98,7 +98,16 @@ export async function getDerivedLedger(organizationId: string, from?: string, to
 }
 
 function line(date: Date, sourceType: string, sourceId: unknown, accountCode: string, accountName: string, memo: string, debit: number, credit: number) {
-  return { date, sourceType, sourceId: sourceId?.toString?.() ?? String(sourceId), accountCode, accountName, memo, debit, credit };
+  return {
+    date: date || new Date(0),
+    sourceType,
+    sourceId: sourceId?.toString?.() ?? String(sourceId),
+    accountCode: accountCode || "0000",
+    accountName: accountName || "Unmapped Account",
+    memo: memo || "-",
+    debit: Number.isFinite(Number(debit)) ? Number(debit) : 0,
+    credit: Number.isFinite(Number(credit)) ? Number(credit) : 0
+  };
 }
 
 function cashAccountName(bankAccount: any) {
