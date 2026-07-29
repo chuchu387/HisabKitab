@@ -5,6 +5,7 @@ import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { money } from "@/lib/utils";
+import { FiscalYear } from "@/models/FiscalYear";
 import { Organization } from "@/models/Organization";
 import { fiscalYearOptions, getFinancialStatements } from "@/services/financial-statements";
 import { getDerivedLedger } from "@/services/accounts";
@@ -23,20 +24,31 @@ type ReportRow = {
   href?: string;
 };
 
+type FiscalYearOption = {
+  value: string;
+  label: string;
+  from: string;
+  to: string;
+  status?: string;
+  source: "saved" | "generated";
+};
+
 export default async function AccountsPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
   const params = await searchParams;
-  const fyOptions = fiscalYearOptions();
-  const selectedFY = typeof params?.fy === "string" ? params.fy : fyOptions[0]?.label;
-  const fy = fyOptions.find((option) => option.label === selectedFY) ?? fyOptions[0];
-  const selectedCompareFY = typeof params?.compareFy === "string" ? params.compareFy : fyOptions[1]?.label ?? "none";
-  const compareFY = selectedCompareFY === "none" ? undefined : fyOptions.find((option) => option.label === selectedCompareFY);
+  const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();
+  const fyOptions = buildFiscalYearOptions(savedFiscalYears as any[]);
+  const selectedFY = typeof params?.fy === "string" ? params.fy : fyOptions[0]?.value;
+  const fy = resolveFiscalYearOption(fyOptions, selectedFY) ?? fyOptions[0];
+  const selectedCompareFY = typeof params?.compareFy === "string" ? params.compareFy : fyOptions.find((option) => option.value !== fy.value)?.value ?? "none";
+  const compareFY = selectedCompareFY === "none" ? undefined : resolveFiscalYearOption(fyOptions, selectedCompareFY);
+  const customRange = selectedFY === "custom";
   const filters = {
     organizationId,
-    from: typeof params?.from === "string" ? params.from : fy.from,
-    to: typeof params?.to === "string" ? params.to : fy.to
+    from: customRange && typeof params?.from === "string" ? params.from : fy.from,
+    to: customRange && typeof params?.to === "string" ? params.to : fy.to
   };
   const compareFilters = compareFY ? { organizationId, from: compareFY.from, to: compareFY.to } : undefined;
   const [statements, organization, ledger, compareStatements, compareLedger] = await Promise.all([
@@ -128,11 +140,12 @@ export default async function AccountsPage({ searchParams }: any) {
     <PageShell title="Accounts" description="Audit-style financial statements with clickable drilldowns to supporting records.">
       <form className="filter-bar">
         <select className="native-control" name="fy" defaultValue={selectedFY}>
-          {fyOptions.map((option) => <option key={option.label} value={option.label}>{option.label}</option>)}
+          {fyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          <option value="custom">Custom date range</option>
         </select>
         <select className="native-control" name="compareFy" defaultValue={selectedCompareFY}>
           <option value="none">No comparison</option>
-          {fyOptions.map((option) => <option key={option.label} value={option.label}>Compare: {option.label}</option>)}
+          {fyOptions.map((option) => <option key={option.value} value={option.value}>Compare: {option.label}</option>)}
         </select>
         <input className="native-control" type="date" name="from" defaultValue={filters.from} />
         <input className="native-control" type="date" name="to" defaultValue={filters.to} />
@@ -163,6 +176,37 @@ export default async function AccountsPage({ searchParams }: any) {
       />
     </PageShell>
   );
+}
+
+function buildFiscalYearOptions(savedYears: any[]): FiscalYearOption[] {
+  const savedOptions = savedYears.map((year) => ({
+    value: `saved:${year._id.toString()}`,
+    label: `${year.name}${year.status ? ` (${year.status})` : ""}`,
+    from: dateInput(year.startDate),
+    to: dateInput(year.endDate),
+    status: year.status,
+    source: "saved" as const
+  }));
+  const seenRanges = new Set(savedOptions.map((option) => `${option.from}:${option.to}`));
+  const generatedOptions = fiscalYearOptions()
+    .filter((option) => !seenRanges.has(`${option.from}:${option.to}`))
+    .map((option) => ({
+      value: `generated:${option.label}`,
+      label: option.label,
+      from: option.from,
+      to: option.to,
+      source: "generated" as const
+    }));
+  return [...savedOptions, ...generatedOptions];
+}
+
+function resolveFiscalYearOption(options: FiscalYearOption[], value: string | undefined) {
+  if (!value || value === "custom") return undefined;
+  return options.find((option) => option.value === value || option.label === value);
+}
+
+function dateInput(date: Date | string) {
+  return new Date(date).toISOString().slice(0, 10);
 }
 
 function StatementReport({ title, company, period, comparisonPeriod, columns, rows }: { title: string; company: string; period: string; comparisonPeriod?: string; columns: string[]; rows: ReportRow[] }) {
