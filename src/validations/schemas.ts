@@ -89,6 +89,7 @@ export const categorySchema = z.object({
 });
 
 export const expenseSchema = z.object({
+  bankAccountId: z.string().optional().nullable(),
   projectId: z.string().optional().nullable(),
   categoryId: objectIdSchema,
   amount: z.coerce.number().positive(),
@@ -129,6 +130,37 @@ export const fiscalYearSchema = z.object({
   path: ["endDate"]
 });
 
+export const bankAccountSchema = z.object({
+  name: z.string().min(2).max(120),
+  code: z.string().min(2).max(30),
+  accountNumber: z.string().max(80).optional().default(""),
+  type: z.enum(["cash", "bank", "wallet"]).default("bank"),
+  openingBalance: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().default(0)),
+  active: z.coerce.boolean().default(true)
+});
+
+export const openingBalanceSchema = z.object({
+  fiscalYearId: z.string().optional().nullable(),
+  accountCode: z.string().min(2).max(30),
+  accountName: z.string().min(2).max(120),
+  debit: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0).default(0)),
+  credit: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0).default(0)),
+  note: z.string().max(500).optional().default("")
+}).refine((value) => Number(value.debit) !== Number(value.credit), {
+  message: "Debit and credit cannot be the same",
+  path: ["debit"]
+});
+
+export const manualJournalSchema = z.object({
+  entryDate: z.coerce.date(),
+  memo: z.string().min(2).max(500),
+  debitAccountCode: z.string().min(2).max(30),
+  debitAccountName: z.string().min(2).max(120),
+  creditAccountCode: z.string().min(2).max(30),
+  creditAccountName: z.string().min(2).max(120),
+  amount: z.coerce.number().positive()
+});
+
 export const expenseApprovalSchema = z.object({
   approvalStatus: z.enum(expenseApprovalStatuses),
   approvalNote: z.string().max(500).optional().default("")
@@ -136,12 +168,15 @@ export const expenseApprovalSchema = z.object({
 
 export const projectPaymentSchema = z.object({
   projectId: objectIdSchema,
+  invoiceId: z.string().optional().nullable(),
+  bankAccountId: z.string().optional().nullable(),
   paymentDate: z.coerce.date(),
   amount: z.coerce.number().positive(),
   note: z.string().max(1000).optional().default("")
 });
 
 export const generalFundSchema = z.object({
+  bankAccountId: z.string().optional().nullable(),
   fundDate: z.coerce.date(),
   amount: z.coerce.number().positive(),
   note: z.string().max(1000).optional().default("")

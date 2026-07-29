@@ -6,6 +6,7 @@ import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
+import { Invoice } from "@/models/Invoice";
 import { actionError, parseForm } from "@/actions/helpers";
 import { projectPaymentSchema } from "@/validations/schemas";
 import { deleteReceipt, saveReceipt } from "@/services/gridfs";
@@ -31,10 +32,15 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
     ]);
     const receipt = formData.get("receipt");
     const receiptImageId = receipt instanceof File && receipt.size > 0 ? await saveReceipt(receipt, { organizationId, projectId: data.projectId, entityType: "ProjectPayment" }) : null;
-    const payment = await ProjectPayment.create({ ...data, organizationId, receiptImageId, createdBy: session.user.userId });
+    if (data.invoiceId) {
+      const invoice = await Invoice.exists({ _id: data.invoiceId, organizationId, projectId: data.projectId });
+      if (!invoice) throw new Error("Invoice not found for this project");
+    }
+    const payment = await ProjectPayment.create({ ...data, invoiceId: data.invoiceId || null, bankAccountId: data.bankAccountId || null, organizationId, receiptImageId, createdBy: session.user.userId });
     const existingReceived = project.receivedAmount ?? 0;
     const nextReceived = existingReceived > 0 ? existingReceived + data.amount : (existingPaymentAgg[0]?.total ?? 0) + data.amount;
     await Project.updateOne({ _id: data.projectId, organizationId }, { $set: { receivedAmount: nextReceived } });
+    if (data.invoiceId) await refreshInvoicePaymentStatus(data.invoiceId, organizationId);
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Payment Created", entityType: "ProjectPayment", entityId: payment._id.toString(), metadata: { projectId: data.projectId, amount: data.amount } });
     const recipients = await User.find({ organizationId, active: true, role: { $in: ["owner", "admin"] } }).select("name email").lean();
     await notifyProjectPayment((recipients as any[]).map((recipient) => ({ ...recipient, organizationId })), { projectName: project.name, amount: data.amount, paymentUrl: appUrl("/project-payments") }).catch(() => undefined);
@@ -42,6 +48,7 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
     revalidatePath("/dashboard");
     revalidatePath("/projects");
     revalidatePath("/reports");
+    revalidatePath("/invoices");
     revalidatePath(`/projects/${data.projectId}`);
     return { ok: true, message: "Payment added" };
   } catch (error) {
@@ -54,17 +61,32 @@ export async function deleteProjectPayment(formData: FormData) {
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
   const id = String(formData.get("id"));
-  const payment = (await ProjectPayment.findOneAndDelete({ _id: id, organizationId }).lean()) as any;
+  const payment = (await ProjectPayment.findOne({ _id: id, organizationId }).lean()) as any;
   if (!payment) throw new Error("Payment not found");
   await assertFiscalYearOpen(organizationId, payment.paymentDate);
+  await ProjectPayment.deleteOne({ _id: id, organizationId });
   if (payment.projectId) {
     await Project.updateOne({ _id: payment.projectId, organizationId }, [{ $set: { receivedAmount: { $max: [0, { $subtract: [{ $ifNull: ["$receivedAmount", 0] }, payment.amount] }] } } }]);
   }
+  if (payment.invoiceId) await refreshInvoicePaymentStatus(payment.invoiceId.toString(), organizationId);
   if (payment.receiptImageId) await deleteReceipt(payment.receiptImageId.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Payment Deleted", entityType: "ProjectPayment", entityId: id, metadata: { projectId: payment.projectId?.toString(), amount: payment.amount } });
   revalidatePath("/project-payments");
   revalidatePath("/dashboard");
   revalidatePath("/projects");
   revalidatePath("/reports");
+  revalidatePath("/invoices");
   if (payment.projectId) revalidatePath(`/projects/${payment.projectId}`);
+}
+
+async function refreshInvoicePaymentStatus(invoiceId: string, organizationId: string) {
+  const agg = await ProjectPayment.aggregate([
+    { $match: { organizationId: new Types.ObjectId(organizationId), invoiceId: new Types.ObjectId(invoiceId) } },
+    { $group: { _id: null, paid: { $sum: "$amount" } } }
+  ]);
+  const invoice = await Invoice.findOne({ _id: invoiceId, organizationId }).select("total");
+  if (!invoice) return;
+  const paidAmount = Math.min(agg[0]?.paid ?? 0, invoice.total ?? 0);
+  const status = paidAmount <= 0 ? "sent" : paidAmount >= (invoice.total ?? 0) ? "paid" : "partial";
+  await Invoice.updateOne({ _id: invoiceId, organizationId }, { paidAmount, status });
 }

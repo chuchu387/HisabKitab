@@ -6,15 +6,17 @@ import { requireTenant } from "@/lib/permissions";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { Expense } from "@/models/Expense";
 import { Project } from "@/models/Project";
+import { BankAccount } from "@/models/BankAccount";
 
 export default async function EditExpensePage({ params }: any) {
   const { organizationId } = await requireTenant();
   await connectToDatabase();
-  const [expense, categories, projects] = await Promise.all([
+  const [expense, categories, projects, bankAccounts] = await Promise.all([
     Expense.findOne({ _id: params.id, organizationId }).lean(),
     ExpenseCategory.find({ organizationId, active: true }).sort({ name: 1 }).lean(),
-    Project.find({ organizationId }).sort({ name: 1 }).lean()
+    Project.find({ organizationId }).sort({ name: 1 }).lean(),
+    BankAccount.find({ organizationId, active: true }).sort({ name: 1 }).lean()
   ]);
   if (!expense) notFound();
-  return <PageShell title="Edit Expense" breadcrumb={[{ label: "Expenses", href: "/expenses" }, { label: "Edit" }]}><ExpenseForm expense={JSON.parse(JSON.stringify(expense))} categories={JSON.parse(JSON.stringify(categories))} projects={JSON.parse(JSON.stringify(projects))} /></PageShell>;
+  return <PageShell title="Edit Expense" breadcrumb={[{ label: "Expenses", href: "/expenses" }, { label: "Edit" }]}><ExpenseForm expense={JSON.parse(JSON.stringify(expense))} categories={JSON.parse(JSON.stringify(categories))} projects={JSON.parse(JSON.stringify(projects))} bankAccounts={JSON.parse(JSON.stringify(bankAccounts))} /></PageShell>;
 }

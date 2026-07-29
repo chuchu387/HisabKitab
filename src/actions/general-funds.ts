@@ -20,7 +20,7 @@ export async function createGeneralFund(_: ActionState, formData: FormData): Pro
     await assertFiscalYearOpen(organizationId, data.fundDate);
     const receipt = formData.get("receipt");
     const receiptImageId = receipt instanceof File && receipt.size > 0 ? await saveReceipt(receipt, { organizationId, entityType: "GeneralFund" }) : null;
-    const fund = await GeneralFund.create({ ...data, organizationId, receiptImageId, createdBy: session.user.userId });
+    const fund = await GeneralFund.create({ ...data, bankAccountId: data.bankAccountId || null, organizationId, receiptImageId, createdBy: session.user.userId });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "General Fund Created", entityType: "GeneralFund", entityId: fund._id.toString(), metadata: { amount: data.amount } });
     revalidatePath("/general-funds");
     revalidatePath("/dashboard");
@@ -35,9 +35,10 @@ export async function deleteGeneralFund(formData: FormData) {
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
   const id = String(formData.get("id"));
-  const fund = (await GeneralFund.findOneAndDelete({ _id: id, organizationId }).lean()) as any;
+  const fund = (await GeneralFund.findOne({ _id: id, organizationId }).lean()) as any;
   if (!fund) throw new Error("Fund not found");
   await assertFiscalYearOpen(organizationId, fund.fundDate);
+  await GeneralFund.deleteOne({ _id: id, organizationId });
   if (fund.receiptImageId) await deleteReceipt(fund.receiptImageId.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "General Fund Deleted", entityType: "GeneralFund", entityId: id, metadata: { amount: fund.amount } });
   revalidatePath("/general-funds");

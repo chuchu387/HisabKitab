@@ -12,6 +12,8 @@ import { formatDate, money } from "@/lib/utils";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { User } from "@/models/User";
+import { Invoice } from "@/models/Invoice";
+import { BankAccount } from "@/models/BankAccount";
 
 void Project;
 void User;
@@ -21,9 +23,11 @@ export default async function ProjectPaymentsPage({ searchParams }: any) {
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
   const params = await searchParams;
-  const [projects, payments] = await Promise.all([
+  const [projects, payments, invoices, bankAccounts] = await Promise.all([
     Project.find({ organizationId }).sort({ name: 1 }).lean(),
-    ProjectPayment.find({ organizationId }).populate("projectId createdBy").sort({ paymentDate: -1 }).lean()
+    ProjectPayment.find({ organizationId }).populate("projectId createdBy invoiceId bankAccountId").sort({ paymentDate: -1 }).lean(),
+    Invoice.find({ organizationId, status: { $ne: "void" } }).populate("clientId").sort({ invoiceDate: -1 }).lean(),
+    BankAccount.find({ organizationId, active: true }).sort({ name: 1 }).lean()
   ]);
   const totalReceived = payments.reduce((sum: number, payment: any) => sum + (payment.amount ?? 0), 0);
   const clientProjectCount = projects.filter((project: any) => (project.projectType ?? "client") === "client").length;
@@ -49,7 +53,7 @@ export default async function ProjectPaymentsPage({ searchParams }: any) {
         <StatCard label="Client Projects" value={clientProjectCount} />
         <StatCard label="Internal Projects" value={internalProjectCount} />
       </div>
-      <ProjectPaymentForm projects={JSON.parse(JSON.stringify(projects))} />
+      <ProjectPaymentForm projects={JSON.parse(JSON.stringify(projects))} invoices={JSON.parse(JSON.stringify(invoices))} bankAccounts={JSON.parse(JSON.stringify(bankAccounts))} />
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Project Payment Summary</h2>
         <DataTable data={projectSummaries} pagination={{ basePath: "/project-payments", searchParams: params, pageParam: "summaryPage", pageSizeParam: "summaryPageSize" }} columns={[
@@ -66,6 +70,8 @@ export default async function ProjectPaymentsPage({ searchParams }: any) {
         { header: "Date", cell: (p: any) => formatDate(p.paymentDate) },
         { header: "Project", cell: (p: any) => p.projectId?.name ?? "-" },
         { header: "Amount", cell: (p: any) => money(p.amount) },
+        { header: "Invoice", cell: (p: any) => p.invoiceId?.invoiceNumber ?? "-" },
+        { header: "Account", cell: (p: any) => p.bankAccountId?.name ?? "Default" },
         { header: "Note", cell: (p: any) => p.note || "-" },
         { header: "Added By", cell: (p: any) => p.createdBy?.name ?? "Unknown" },
         { header: "Receipt", cell: (p: any) => p.receiptImageId ? <Link className="text-primary hover:underline" href={`/api/receipts/${p.receiptImageId}`} target="_blank">View</Link> : "-" },

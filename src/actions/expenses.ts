@@ -46,6 +46,7 @@ export async function createExpense(_: ActionState, formData: FormData): Promise
       ...data,
       organizationId,
       projectId: data.projectId || null,
+      bankAccountId: data.bankAccountId || null,
       approvalStatus: session.user.role === "staff" ? "pending" : "approved",
       approvedBy: session.user.role === "staff" ? null : session.user.userId,
       approvedAt: session.user.role === "staff" ? null : new Date(),
@@ -76,7 +77,7 @@ export async function updateExpense(id: string, _: ActionState, formData: FormDa
     await connectToDatabase();
     const data = parseForm(expenseSchema, formData);
     await assertFiscalYearOpen(organizationId, data.expenseDate);
-    const update: Record<string, unknown> = { ...data, projectId: data.projectId || null };
+    const update: Record<string, unknown> = { ...data, projectId: data.projectId || null, bankAccountId: data.bankAccountId || null };
     const receipt = formData.get("receipt");
     if (receipt instanceof File && receipt.size > 0) update.receiptImageId = await saveReceipt(receipt, { organizationId, userId: session.user.userId });
     const updated = (await Expense.findOneAndUpdate(ownableQuery(id, organizationId, session), update, { new: false, runValidators: true }).lean()) as any;
@@ -94,9 +95,11 @@ export async function deleteExpense(formData: FormData) {
   await requireRole(["owner", "admin", "staff"]);
   await connectToDatabase();
   const id = String(formData.get("id"));
-  const expense = (await Expense.findOneAndDelete(ownableQuery(id, organizationId, session)).lean()) as any;
+  const query = ownableQuery(id, organizationId, session);
+  const expense = (await Expense.findOne(query).lean()) as any;
   if (!expense) throw new Error("Expense not found or not allowed");
   await assertFiscalYearOpen(organizationId, expense.expenseDate);
+  await Expense.deleteOne(query);
   if (expense?.receiptImageId) await deleteReceipt(expense.receiptImageId.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Deleted", entityType: "Expense", entityId: id });
   revalidateExpenseAccounting([expense.projectId]);

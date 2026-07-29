@@ -4,6 +4,7 @@ import { expenseApprovalStatuses } from "@/constants";
 const expenseSchema = new Schema(
   {
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
+    bankAccountId: { type: Schema.Types.ObjectId, ref: "BankAccount", default: null, index: true },
     projectId: { type: Schema.Types.ObjectId, ref: "Project", default: null, index: true },
     categoryId: { type: Schema.Types.ObjectId, ref: "ExpenseCategory", required: true, index: true },
     amount: { type: Number, required: true, min: 0.01 },

@@ -11,7 +11,7 @@ import type { ActionState } from "@/types";
 export async function createFiscalYear(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const { organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    await requireRole(["owner"]);
     await connectToDatabase();
     const data = parseForm(fiscalYearSchema, formData);
     await FiscalYear.create({ ...data, organizationId });
@@ -24,7 +24,7 @@ export async function createFiscalYear(_: ActionState, formData: FormData): Prom
 
 export async function toggleFiscalYearStatus(formData: FormData) {
   const { organizationId, session } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  await requireRole(["owner"]);
   await connectToDatabase();
   const id = String(formData.get("id"));
   const status = String(formData.get("status")) === "closed" ? "closed" : "open";

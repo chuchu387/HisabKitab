@@ -12,7 +12,7 @@ import { formatDate } from "@/lib/utils";
 
 const initialState = { ok: false, message: "" };
 
-export function ExpenseForm({ expense, categories, projects }: { expense?: any; categories: any[]; projects: any[] }) {
+export function ExpenseForm({ expense, categories, projects, bankAccounts = [] }: { expense?: any; categories: any[]; projects: any[]; bankAccounts?: any[] }) {
   const action = expense ? updateExpense.bind(null, expense._id.toString()) : createExpense;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
@@ -39,6 +39,13 @@ export function ExpenseForm({ expense, categories, projects }: { expense?: any; 
         <Select id="projectId" name="projectId" defaultValue={expense?.projectId?.toString() ?? ""}>
           <option value="">General Expense</option>
           {projects.map((project) => <option key={project._id.toString()} value={project._id.toString()}>{project.name}</option>)}
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="bankAccountId">Bank / Cash Account</Label>
+        <Select id="bankAccountId" name="bankAccountId" defaultValue={expense?.bankAccountId?.toString() ?? ""}>
+          <option value="">Default Cash / Bank</option>
+          {bankAccounts.map((account) => <option key={account._id.toString()} value={account._id.toString()}>{account.name} ({account.code})</option>)}
         </Select>
       </div>
       <div className="space-y-2 md:col-span-2"><Label htmlFor="description">Description</Label><Textarea id="description" name="description" defaultValue={expense?.description} /></div>

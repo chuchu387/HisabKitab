@@ -1,4 +1,4 @@
-import { Banknote, Bell, BookOpenCheck, Building2, CalendarRange, CheckSquare, FileText, FolderKanban, Gauge, Handshake, Landmark, ListChecks, MailCheck, ReceiptText, ScrollText, Send, Settings, Tags, UserCircle, UserRoundCheck, Users } from "lucide-react";
+import { Banknote, Bell, BookOpenCheck, Building2, CalendarRange, CheckSquare, FileText, FolderKanban, Gauge, HandCoins, Handshake, Landmark, ListChecks, MailCheck, ReceiptText, ScrollText, Send, Settings, Tags, UserCircle, UserRoundCheck, Users } from "lucide-react";
 
 export const roles = ["super_admin", "owner", "admin", "staff"] as const;
 export type Role = (typeof roles)[number];
@@ -46,9 +46,12 @@ export const navItems = [
   { href: "/accounts", label: "Accounts", icon: BookOpenCheck, roles: ["owner", "admin"] },
   { href: "/chart-of-accounts", label: "Chart", icon: ListChecks, roles: ["owner", "admin"] },
   { href: "/ledger", label: "Ledger", icon: ScrollText, roles: ["owner", "admin"] },
+  { href: "/bank-accounts", label: "Bank Accounts", icon: Banknote, roles: ["owner", "admin"] },
+  { href: "/opening-balances", label: "Opening", icon: HandCoins, roles: ["owner"] },
+  { href: "/journal-entries", label: "Journals", icon: BookOpenCheck, roles: ["owner"] },
   { href: "/invoices", label: "Invoices", icon: FileText, roles: ["owner", "admin"] },
   { href: "/tax", label: "Tax", icon: Landmark, roles: ["owner", "admin"] },
-  { href: "/fiscal-years", label: "Fiscal Years", icon: CalendarRange, roles: ["owner", "admin"] },
+  { href: "/fiscal-years", label: "Fiscal Years", icon: CalendarRange, roles: ["owner"] },
   { href: "/reports", label: "Reports", icon: ListChecks, roles: ["owner", "admin", "staff"] },
   { href: "/email-logs", label: "Email Audit", icon: MailCheck, roles: ["super_admin", "owner", "admin"] },
   { href: "/audit-logs", label: "Audit Logs", icon: ScrollText, roles: ["owner", "admin"] },

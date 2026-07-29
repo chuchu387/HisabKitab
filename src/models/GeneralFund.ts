@@ -3,6 +3,7 @@ import { model, models, Schema, type InferSchemaType, type Model } from "mongoos
 const generalFundSchema = new Schema(
   {
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
+    bankAccountId: { type: Schema.Types.ObjectId, ref: "BankAccount", default: null, index: true },
     fundDate: { type: Date, required: true, index: true },
     amount: { type: Number, required: true, min: 0.01 },
     note: { type: String, default: "" },
