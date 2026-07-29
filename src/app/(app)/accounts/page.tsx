@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AccountingErrorState } from "@/components/accounting-error-state";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
@@ -33,15 +35,26 @@ type FiscalYearOption = {
   source: "saved" | "generated";
 };
 
-export default async function AccountsPage({ searchParams }: any) {
+export default async function AccountsPage(props: any) {
+  try {
+    return await AccountsContent(props);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("Accounts page failed", error);
+    return <AccountingErrorState title="Accounts" description="Audit-style financial statements with clickable drilldowns to supporting records." />;
+  }
+}
+
+async function AccountsContent({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
   const params = await searchParams;
   const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();
   const fyOptions = buildFiscalYearOptions(savedFiscalYears as any[]);
+  const fallbackFY = fyOptions[0] ?? fallbackFiscalYearOption();
   const selectedFY = typeof params?.fy === "string" ? params.fy : fyOptions[0]?.value;
-  const fy = resolveFiscalYearOption(fyOptions, selectedFY) ?? fyOptions[0];
+  const fy = resolveFiscalYearOption(fyOptions, selectedFY) ?? fallbackFY;
   const selectedCompareFY = typeof params?.compareFy === "string" ? params.compareFy : "none";
   const compareFY = selectedCompareFY === "none" ? undefined : resolveFiscalYearOption(fyOptions, selectedCompareFY);
   const customRange = selectedFY === "custom";
@@ -219,6 +232,11 @@ function buildFiscalYearOptions(savedYears: any[]): FiscalYearOption[] {
       source: "generated" as const
     }));
   return [...savedOptions, ...generatedOptions];
+}
+
+function fallbackFiscalYearOption(): FiscalYearOption {
+  const today = dateInput(new Date());
+  return { value: "custom", label: "Current Date", from: today, to: today, source: "generated" };
 }
 
 function resolveFiscalYearOption(options: FiscalYearOption[], value: string | undefined) {

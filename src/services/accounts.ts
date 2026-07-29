@@ -98,8 +98,9 @@ export async function getDerivedLedger(organizationId: string, from?: string, to
 }
 
 function line(date: Date, sourceType: string, sourceId: unknown, accountCode: string, accountName: string, memo: string, debit: number, credit: number) {
+  const safeDate = date ? new Date(date) : new Date(0);
   return {
-    date: date || new Date(0),
+    date: Number.isNaN(safeDate.getTime()) ? new Date(0) : safeDate,
     sourceType,
     sourceId: sourceId?.toString?.() ?? String(sourceId),
     accountCode: accountCode || "0000",

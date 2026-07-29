@@ -193,6 +193,7 @@ function effectiveReceived(projectReceived: number, paymentTotal: number) {
 }
 
 function endOfDay(date: Date) {
+  if (Number.isNaN(date.getTime())) return new Date();
   date.setHours(23, 59, 59, 999);
   return date;
 }
@@ -204,5 +205,6 @@ function parseDateOr(value: string | undefined, fallback: Date) {
 }
 
 function round(value: number) {
-  return Number(value.toFixed(2));
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Number(numeric.toFixed(2)) : 0;
 }

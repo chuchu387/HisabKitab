@@ -1,5 +1,7 @@
 import { Types } from "mongoose";
+import { unstable_rethrow } from "next/navigation";
 import { DataTable } from "@/components/data-table";
+import { AccountingErrorState } from "@/components/accounting-error-state";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +13,17 @@ import { FiscalYear } from "@/models/FiscalYear";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
 
-export default async function TaxPage({ searchParams }: any) {
+export default async function TaxPage(props: any) {
+  try {
+    return await TaxContent(props);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("Tax page failed", error);
+    return <AccountingErrorState title="Tax Summary" description="VAT, TDS, taxable expense, and estimated income tax summary for audit preparation." />;
+  }
+}
+
+async function TaxContent({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
