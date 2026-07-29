@@ -41,30 +41,40 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
       if (!invoice) throw new Error("Invoice not found for this project");
     } else if (data.autoCreateInvoice) {
       if (!project.clientId) throw new Error("This project has no client. Select an invoice manually or attach a client to the project first.");
-      const organization = (await Organization.findById(organizationId).select("vatRegistered defaultVatRate").lean()) as any;
-      const vatApplicable = Boolean(organization?.vatRegistered);
-      const vatRate = vatApplicable ? Number(organization?.defaultVatRate ?? 13) : 0;
-      const subtotal = data.amount;
-      const vatAmount = Number((subtotal * (vatRate / 100)).toFixed(2));
-      const invoice = await Invoice.create({
+      const existingInvoice = (await Invoice.findOne({
         organizationId,
-        clientId: project.clientId,
         projectId: data.projectId,
-        invoiceNumber: `INV-${voucherNumber}`,
-        invoiceDate: data.paymentDate,
-        dueDate: data.paymentDate,
-        status: "paid",
-        vatApplicable,
-        lines: [{ description: data.note || `Payment received for ${project.name}`, quantity: 1, rate: subtotal, amount: subtotal }],
-        subtotal,
-        vatRate,
-        vatAmount,
-        total: Number((subtotal + vatAmount).toFixed(2)),
-        paidAmount: data.amount,
-        notes: `Auto-created from payment ${voucherNumber}`,
-        createdBy: session.user.userId
-      });
-      invoiceId = invoice._id.toString();
+        status: { $in: ["sent", "partial"] },
+        $expr: { $lt: [{ $ifNull: ["$paidAmount", 0] }, { $ifNull: ["$total", 0] }] }
+      }).sort({ invoiceDate: 1 }).select("_id").lean()) as any;
+      if (existingInvoice) {
+        invoiceId = existingInvoice._id.toString();
+      } else {
+        const organization = (await Organization.findById(organizationId).select("vatRegistered defaultVatRate").lean()) as any;
+        const vatApplicable = Boolean(organization?.vatRegistered);
+        const vatRate = vatApplicable ? Number(organization?.defaultVatRate ?? 13) : 0;
+        const subtotal = data.amount;
+        const vatAmount = Number((subtotal * (vatRate / 100)).toFixed(2));
+        const invoice = await Invoice.create({
+          organizationId,
+          clientId: project.clientId,
+          projectId: data.projectId,
+          invoiceNumber: `INV-${voucherNumber}`,
+          invoiceDate: data.paymentDate,
+          dueDate: data.paymentDate,
+          status: "paid",
+          vatApplicable,
+          lines: [{ description: data.note || `Payment received for ${project.name}`, quantity: 1, rate: subtotal, amount: subtotal }],
+          subtotal,
+          vatRate,
+          vatAmount,
+          total: Number((subtotal + vatAmount).toFixed(2)),
+          paidAmount: data.amount,
+          notes: `Auto-created from payment ${voucherNumber}`,
+          createdBy: session.user.userId
+        });
+        invoiceId = invoice._id.toString();
+      }
     }
     const payment = await ProjectPayment.create({ ...data, voucherNumber, invoiceId, bankAccountId: data.bankAccountId || null, organizationId, receiptImageId, createdBy: session.user.userId });
     const existingReceived = project.receivedAmount ?? 0;
