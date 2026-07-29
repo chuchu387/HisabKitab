@@ -73,6 +73,13 @@ Email attempts are recorded in `Email Audit` with sent, failed, and skipped stat
 - In production, set `CRON_SECRET` or `REMINDER_CRON_SECRET`; Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`.
 - Manual reminders skip projects already reminded in the last 24 hours unless force resend is selected.
 
+## Accounts and Financial Statements
+
+- Owners/admins can open `Accounts` to view fiscal-year Balance Sheet, Profit & Loss, Cash Flow, Trial Balance Summary, receivables, and expense breakdowns.
+- Statements are generated from existing project payments, owner/other funds, approved expenses, and client project budgets.
+- PDF and CSV exports are available for audit/tax preparation.
+- Tax provision is an estimate only; final tax treatment should be confirmed by the auditor.
+
 ## Client Management, Approval History, and Performance Logs
 
 - Clients can be managed under `Clients` and linked to projects.

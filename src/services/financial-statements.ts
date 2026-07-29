@@ -1,0 +1,212 @@
+import { Types } from "mongoose";
+import { Expense } from "@/models/Expense";
+import { GeneralFund } from "@/models/GeneralFund";
+import { Project } from "@/models/Project";
+import { ProjectPayment } from "@/models/ProjectPayment";
+
+const taxRate = 0.25;
+
+export type FinancialStatementFilters = {
+  organizationId: string;
+  from?: string;
+  to?: string;
+};
+
+export function fiscalYearOptions(now = new Date()) {
+  const current = fiscalYearForDate(now);
+  return Array.from({ length: 6 }, (_, index) => fiscalYearRange(current.startYear - index));
+}
+
+export function fiscalYearForDate(date: Date) {
+  const year = date.getFullYear();
+  const start = new Date(year, 6, 17);
+  return date >= start ? fiscalYearRange(year) : fiscalYearRange(year - 1);
+}
+
+export function fiscalYearRange(startYear: number) {
+  const startDate = new Date(startYear, 6, 17);
+  const endDate = new Date(startYear + 1, 6, 16, 23, 59, 59, 999);
+  return {
+    label: `FY ${startYear}/${String(startYear + 1).slice(-2)}`,
+    startYear,
+    from: startDate.toISOString().slice(0, 10),
+    to: endDate.toISOString().slice(0, 10),
+    startDate,
+    endDate
+  };
+}
+
+export async function getFinancialStatements(filters: FinancialStatementFilters) {
+  const oid = new Types.ObjectId(filters.organizationId);
+  const currentFY = fiscalYearForDate(new Date());
+  const from = filters.from ? new Date(filters.from) : currentFY.startDate;
+  const to = filters.to ? endOfDay(new Date(filters.to)) : currentFY.endDate;
+  const period = { $gte: from, $lte: to };
+  const throughEnd = { $lte: to };
+
+  const [
+    periodProjectPayments,
+    periodGeneralFunds,
+    periodExpenseByType,
+    periodExpenseByCategory,
+    periodExpenseByProject,
+    allProjectPaymentsToDate,
+    allGeneralFundsToDate,
+    allExpensesToDate,
+    clientProjects
+  ] = await Promise.all([
+    ProjectPayment.aggregate([{ $match: { organizationId: oid, paymentDate: period } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
+    GeneralFund.aggregate([{ $match: { organizationId: oid, fundDate: period } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
+    Expense.aggregate([
+      { $match: { organizationId: oid, expenseDate: period, approvalStatus: "approved" } },
+      { $lookup: { from: Project.collection.name, localField: "projectId", foreignField: "_id", as: "project" } },
+      {
+        $project: {
+          amount: 1,
+          typeName: {
+            $cond: [
+              { $eq: ["$projectId", null] },
+              "general",
+              { $cond: [{ $eq: [{ $ifNull: [{ $first: "$project.projectType" }, "client"] }, "internal"] }, "internal_project", "client_project"] }
+            ]
+          }
+        }
+      },
+      { $group: { _id: "$typeName", total: { $sum: "$amount" }, count: { $sum: 1 } } }
+    ]),
+    Expense.aggregate([
+      { $match: { organizationId: oid, expenseDate: period, approvalStatus: "approved" } },
+      { $lookup: { from: "expensecategories", localField: "categoryId", foreignField: "_id", as: "category" } },
+      { $group: { _id: { $ifNull: [{ $first: "$category.name" }, "Uncategorized"] }, total: { $sum: "$amount" }, count: { $sum: 1 } } },
+      { $project: { name: "$_id", total: 1, count: 1, _id: 0 } },
+      { $sort: { total: -1 } }
+    ]),
+    Expense.aggregate([
+      { $match: { organizationId: oid, expenseDate: period, approvalStatus: "approved", projectId: { $ne: null } } },
+      { $lookup: { from: Project.collection.name, localField: "projectId", foreignField: "_id", as: "project" } },
+      { $group: { _id: "$projectId", total: { $sum: "$amount" }, projectName: { $first: { $first: "$project.name" } }, projectCode: { $first: { $first: "$project.code" } } } },
+      { $project: { projectName: 1, projectCode: 1, total: 1, _id: 0 } },
+      { $sort: { total: -1 } }
+    ]),
+    ProjectPayment.aggregate([{ $match: { organizationId: oid, paymentDate: throughEnd } }, { $group: { _id: "$projectId", total: { $sum: "$amount" } } }]),
+    GeneralFund.aggregate([{ $match: { organizationId: oid, fundDate: throughEnd } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
+    Expense.aggregate([{ $match: { organizationId: oid, expenseDate: throughEnd, approvalStatus: "approved" } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
+    Project.find({ organizationId: oid, projectType: "client", totalBudget: { $gt: 0 } }).select("name code totalBudget receivedAmount").lean()
+  ]);
+
+  const paymentToDateByProject = new Map(allProjectPaymentsToDate.map((row: any) => [row._id?.toString?.(), row.total]));
+  const receivableRows = (clientProjects as any[]).map((project) => {
+    const paidToDate = effectiveReceived(project.receivedAmount ?? 0, paymentToDateByProject.get(project._id.toString()) ?? 0);
+    return {
+      projectName: project.name,
+      projectCode: project.code,
+      budget: round(project.totalBudget ?? 0),
+      received: round(paidToDate),
+      due: round(Math.max((project.totalBudget ?? 0) - paidToDate, 0))
+    };
+  }).filter((project) => project.due > 0);
+
+  const revenue = round(periodProjectPayments[0]?.total ?? 0);
+  const ownerFunds = round(periodGeneralFunds[0]?.total ?? 0);
+  const clientProjectExpenses = round(typeTotal(periodExpenseByType, "client_project"));
+  const internalProjectExpenses = round(typeTotal(periodExpenseByType, "internal_project"));
+  const generalExpenses = round(typeTotal(periodExpenseByType, "general"));
+  const totalExpenses = round(clientProjectExpenses + internalProjectExpenses + generalExpenses);
+  const grossProfit = round(revenue - clientProjectExpenses);
+  const netProfitBeforeTax = round(revenue - totalExpenses);
+  const estimatedTaxPayable = round(Math.max(netProfitBeforeTax, 0) * taxRate);
+  const netProfitAfterTax = round(netProfitBeforeTax - estimatedTaxPayable);
+
+  const allPaymentsTotal = round([...paymentToDateByProject.values()].reduce((sum, value) => sum + value, 0));
+  const allGeneralFundsTotal = round(allGeneralFundsToDate[0]?.total ?? 0);
+  const allExpensesTotal = round(allExpensesToDate[0]?.total ?? 0);
+  const cashAtBank = round(allPaymentsTotal + allGeneralFundsTotal - allExpensesTotal);
+  const accountsReceivable = round(receivableRows.reduce((sum, project) => sum + project.due, 0));
+  const totalAssets = round(cashAtBank + accountsReceivable);
+  const totalLiabilities = estimatedTaxPayable;
+  const ownerEquity = round(totalAssets - totalLiabilities);
+
+  return {
+    period: {
+      from: from.toISOString().slice(0, 10),
+      to: to.toISOString().slice(0, 10),
+      label: `${from.toISOString().slice(0, 10)} to ${to.toISOString().slice(0, 10)}`
+    },
+    summary: {
+      revenue,
+      ownerFunds,
+      clientProjectExpenses,
+      internalProjectExpenses,
+      generalExpenses,
+      totalExpenses,
+      grossProfit,
+      netProfitBeforeTax,
+      estimatedTaxPayable,
+      netProfitAfterTax,
+      cashAtBank,
+      accountsReceivable,
+      totalAssets,
+      totalLiabilities,
+      ownerEquity
+    },
+    balanceSheet: {
+      assets: [
+        { account: "Cash / Bank Balance", amount: cashAtBank },
+        { account: "Accounts Receivable", amount: accountsReceivable }
+      ],
+      liabilities: [
+        { account: "Estimated Tax Provision", amount: estimatedTaxPayable },
+        { account: "Accounts Payable", amount: 0 }
+      ],
+      equity: [
+        { account: "Owner/Other Funds To Date", amount: allGeneralFundsTotal },
+        { account: "Retained Earnings / Balancing Equity", amount: round(ownerEquity - allGeneralFundsTotal) }
+      ]
+    },
+    profitAndLoss: [
+      { account: "Client Project Revenue", amount: revenue },
+      { account: "Direct Client Project Expenses", amount: -clientProjectExpenses },
+      { account: "Gross Profit", amount: grossProfit },
+      { account: "Internal Project Expenses", amount: -internalProjectExpenses },
+      { account: "General/Admin Expenses", amount: -generalExpenses },
+      { account: "Net Profit Before Tax", amount: netProfitBeforeTax },
+      { account: "Estimated Tax Provision", amount: -estimatedTaxPayable },
+      { account: "Net Profit After Tax", amount: netProfitAfterTax }
+    ],
+    cashFlow: [
+      { account: "Client Payments Received", amount: revenue },
+      { account: "Owner/Other Funds Received", amount: ownerFunds },
+      { account: "Approved Expenses Paid", amount: -totalExpenses },
+      { account: "Net Cash Movement In Period", amount: round(revenue + ownerFunds - totalExpenses) },
+      { account: "Cash / Bank Balance At Period End", amount: cashAtBank }
+    ],
+    trialBalance: [
+      { account: "Cash / Bank", debit: cashAtBank >= 0 ? cashAtBank : 0, credit: cashAtBank < 0 ? Math.abs(cashAtBank) : 0 },
+      { account: "Accounts Receivable", debit: accountsReceivable, credit: 0 },
+      { account: "Estimated Tax Provision", debit: 0, credit: estimatedTaxPayable },
+      { account: "Owner Equity", debit: ownerEquity < 0 ? Math.abs(ownerEquity) : 0, credit: ownerEquity >= 0 ? ownerEquity : 0 },
+      { account: "Revenue", debit: 0, credit: revenue },
+      { account: "Expenses", debit: totalExpenses, credit: 0 }
+    ],
+    expenseByCategory: periodExpenseByCategory,
+    expenseByProject: periodExpenseByProject,
+    receivables: receivableRows
+  };
+}
+
+function typeTotal(rows: any[], key: string) {
+  return rows.find((row) => row._id === key)?.total ?? 0;
+}
+
+function effectiveReceived(projectReceived: number, paymentTotal: number) {
+  return projectReceived > 0 ? projectReceived : paymentTotal;
+}
+
+function endOfDay(date: Date) {
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+function round(value: number) {
+  return Number(value.toFixed(2));
+}
