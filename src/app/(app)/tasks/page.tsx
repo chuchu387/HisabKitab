@@ -28,11 +28,11 @@ export default async function TasksPage({ searchParams }: any) {
   }
   if (params?.assigneeId) {
     const assigneeId = safeObjectId(params.assigneeId);
-    if (assigneeId) query.assigneeId = assigneeId;
+    if (assigneeId) query.$and = [{ $or: [{ assigneeId }, { assigneeIds: assigneeId }] }];
   }
 
   const [tasks, projects, assignees] = await Promise.all([
-    ProjectTask.find(query).populate("projectId assigneeId createdBy").sort({ createdAt: -1 }).lean(),
+    ProjectTask.find(query).populate("projectId assigneeId assigneeIds createdBy").sort({ createdAt: -1 }).lean(),
     Project.find({ organizationId }).sort({ name: 1 }).lean(),
     User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean(),
     sendDueTaskNotifications({ organizationId }).catch(() => undefined)

@@ -28,7 +28,7 @@ export default async function ProjectDetailPage({ params, searchParams }: any) {
   const [financials, projectExpenses, tasks, assignees] = await Promise.all([
     getProjectFinancials(organizationId, projectId),
     Expense.find({ organizationId, projectId }).populate("categoryId createdBy").sort({ expenseDate: -1 }).lean(),
-    ProjectTask.find({ organizationId, projectId }).populate("assigneeId createdBy").sort({ createdAt: -1 }).lean(),
+    ProjectTask.find({ organizationId, projectId }).populate("assigneeId assigneeIds createdBy").sort({ createdAt: -1 }).lean(),
     User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean()
   ]);
   if (!financials.project) notFound();

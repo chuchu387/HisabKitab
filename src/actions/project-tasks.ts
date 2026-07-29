@@ -27,10 +27,21 @@ async function normalizeAssignee(assigneeId: string | null | undefined, organiza
   return assigneeId;
 }
 
+async function normalizeAssignees(formData: FormData, organizationId: string) {
+  const ids = Array.from(new Set(formData.getAll("assigneeIds").map((value) => String(value)).filter(Boolean)));
+  const legacyAssigneeId = String(formData.get("assigneeId") ?? "");
+  if (!ids.length && legacyAssigneeId) ids.push(legacyAssigneeId);
+  if (!ids.length) return { assigneeId: null, assigneeIds: [] };
+  const users = await User.find({ _id: { $in: ids }, organizationId, active: true, role: { $in: ["admin", "staff"] } }).select("_id").lean();
+  const validIds = new Set(users.map((user: any) => user._id.toString()));
+  if (validIds.size !== ids.length) throw new Error("One or more assignees were not found");
+  return { assigneeId: ids[0], assigneeIds: ids };
+}
+
 function taskManageQuery(taskId: string, projectId: string, organizationId: string, session: Awaited<ReturnType<typeof requireTenant>>["session"]) {
   const query: Record<string, unknown> = { _id: taskId, projectId, organizationId };
   if (session.user.role === "staff") {
-    query.$or = [{ createdBy: session.user.userId }, { assigneeId: session.user.userId }];
+    query.$or = [{ createdBy: session.user.userId }, { assigneeId: session.user.userId }, { assigneeIds: session.user.userId }];
   }
   return query;
 }
@@ -57,11 +68,12 @@ export async function createProjectTask(projectId: string, _: ActionState, formD
     await connectToDatabase();
     await assertProjectAccess(projectId, organizationId);
     const data = parseForm(projectTaskSchema, formData);
+    const assignees = await normalizeAssignees(formData, organizationId);
     const image = formData.get("image");
     const imageId = image instanceof File && image.size > 0 ? await saveReceipt(image, { organizationId, projectId, entityType: "ProjectTask" }) : null;
     const task = await ProjectTask.create({
       ...data,
-      assigneeId: await normalizeAssignee(data.assigneeId, organizationId),
+      ...assignees,
       color: data.color || fallbackTaskColor(`${data.title}-${Date.now()}`),
       organizationId,
       projectId,
@@ -92,16 +104,18 @@ export async function updateProjectTask(taskId: string, projectId: string, _: Ac
     await connectToDatabase();
     await assertProjectAccess(projectId, organizationId);
     const data = parseForm(projectTaskSchema, formData);
-    const update: Record<string, unknown> = { ...data, assigneeId: await normalizeAssignee(data.assigneeId, organizationId) };
+    const assignees = await normalizeAssignees(formData, organizationId);
+    const update: Record<string, unknown> = { ...data, ...assignees };
     if (!data.color) update.color = fallbackTaskColor(`${data.title}-${taskId}`);
     const image = formData.get("image");
     if (image instanceof File && image.size > 0) update.imageId = await saveReceipt(image, { organizationId, projectId, taskId, entityType: "ProjectTask" });
     const updated = await ProjectTask.findOneAndUpdate(taskManageQuery(taskId, projectId, organizationId, session), update, { runValidators: true }).lean() as any;
     if (!updated) throw new Error("Task not found or not allowed");
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Updated", entityType: "ProjectTask", entityId: taskId, metadata: { projectId, status: data.status } });
-    const previousAssignee = updated.assigneeId?.toString?.() ?? "";
-    if (data.assigneeId && previousAssignee !== data.assigneeId) {
-      await sendTaskAssignmentEmail(organizationId, projectId, { ...updated, ...data, assigneeId: data.assigneeId }).catch(() => undefined);
+    const previousAssignees = new Set([updated.assigneeId?.toString?.(), ...(updated.assigneeIds ?? []).map((id: any) => id.toString())].filter(Boolean));
+    const addedAssignees = assignees.assigneeIds.filter((assigneeId) => !previousAssignees.has(assigneeId));
+    if (addedAssignees.length) {
+      await sendTaskAssignmentEmail(organizationId, projectId, { ...updated, ...data, assigneeId: assignees.assigneeId, assigneeIds: addedAssignees }).catch(() => undefined);
     }
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/tasks");
@@ -185,18 +199,21 @@ export async function updateProjectTaskTimer(taskId: string, projectId: string, 
 }
 
 async function sendTaskAssignmentEmail(organizationId: string, projectId: string, task: any) {
-  if (!task.assigneeId) return;
+  const assigneeIds = Array.from(new Set([task.assigneeId?.toString?.(), ...(task.assigneeIds ?? []).map((id: any) => id.toString())].filter(Boolean)));
+  if (!assigneeIds.length) return;
   const [assignee, project] = await Promise.all([
-    User.findOne({ _id: task.assigneeId, organizationId }).select("name email").lean() as any,
+    User.find({ _id: { $in: assigneeIds }, organizationId }).select("name email").lean(),
     Project.findOne({ _id: projectId, organizationId }).select("name").lean() as any
   ]);
-  if (!assignee?.email) return;
-  await notifyTaskAssigned({ ...assignee, organizationId }, {
-    title: task.title,
-    status: task.status,
-    projectName: project?.name,
-    taskUrl: appUrl(`/projects/${projectId}`)
-  });
+  await Promise.all((assignee as any[]).map((user) => {
+    if (!user.email) return Promise.resolve();
+    return notifyTaskAssigned({ ...user, organizationId }, {
+      title: task.title,
+      status: task.status,
+      projectName: project?.name,
+      taskUrl: appUrl(`/projects/${projectId}`)
+    });
+  }));
 }
 
 export async function deleteProjectTask(formData: FormData) {

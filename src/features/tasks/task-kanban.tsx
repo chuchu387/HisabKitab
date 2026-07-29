@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
-import { CheckCircle2, Clock, ImageIcon, Pause, Play, Plus, X } from "lucide-react";
+import { CheckCircle2, Clock, ImageIcon, Pause, Play, Plus, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { createGlobalProjectTask, createProjectTask, deleteProjectTask, moveProjectTask, updateProjectTask, updateProjectTaskTimer } from "@/actions/project-tasks";
 import { ActionMessage } from "@/components/action-message";
@@ -140,7 +140,7 @@ function TaskCreateForm({ fixedProjectId, projects, assignees }: { fixedProjectI
       </div>
       <div className="space-y-2">
         <Label>Assign To</Label>
-        <AssigneeSelect assignees={assignees} />
+        <AssigneeChecklist assignees={assignees} />
       </div>
       <Field name="estimatedHours" label="Estimated Hours" type="number" min="0" step="0.25" defaultValue="0" />
       <div className="space-y-2">
@@ -189,7 +189,7 @@ function CompactTaskCard({ task, onOpen, onDragStart }: { task: ProjectTaskLike;
       </div>
       <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDuration(elapsed)} / {formatHours(task.estimatedHours)}</span>
-        <span>{task.timerStatus === "running" ? "Running" : task.assigneeId?.name ?? "Unassigned"}</span>
+        <span className="truncate">{task.timerStatus === "running" ? "Running" : assigneeNames(task)}</span>
       </div>
     </button>
   );
@@ -261,7 +261,7 @@ function TaskDetailDialog({ task, assignees, onClose, onLocalUpdate }: { task: P
               </div>
               <div className="space-y-2">
                 <Label>Assign To</Label>
-                <AssigneeSelect assignees={assignees} defaultValue={task.assigneeId?._id ?? task.assigneeId ?? ""} />
+                <AssigneeChecklist assignees={assignees} selectedIds={taskAssigneeIds(task)} compact />
               </div>
               <Field name="estimatedHours" label="Estimated Hours" type="number" min="0" step="0.25" defaultValue={task.estimatedHours ?? 0} />
               <div className="space-y-2">
@@ -295,7 +295,14 @@ function TaskDetailDialog({ task, assignees, onClose, onLocalUpdate }: { task: P
             </div>
             <div>
               <p className="text-xs uppercase text-muted-foreground">Assigned</p>
-              <p className="text-sm font-medium">{task.assigneeId?.name ?? "Unassigned"}</p>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {taskAssignees(task).length ? taskAssignees(task).map((user: any) => (
+                  <span key={user._id ?? user} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium">
+                    <UsersRound className="h-3 w-3" />
+                    {user.name ?? "User"}
+                  </span>
+                )) : <p className="text-sm font-medium">Unassigned</p>}
+              </div>
             </div>
             <div>
               <p className="text-xs uppercase text-muted-foreground">Added By</p>
@@ -350,14 +357,20 @@ function StatusSelect({ defaultValue = "to_do" }: { defaultValue?: string }) {
   );
 }
 
-function AssigneeSelect({ assignees, defaultValue = "" }: { assignees: any[]; defaultValue?: string }) {
+function AssigneeChecklist({ assignees, selectedIds = [], compact = false }: { assignees: any[]; selectedIds?: string[]; compact?: boolean }) {
+  const selected = new Set(selectedIds);
   return (
-    <Select name="assigneeId" defaultValue={defaultValue}>
-      <option value="">Unassigned</option>
-      {assignees.map((user) => (
-        <option key={user._id} value={user._id}>{user.name} ({user.role})</option>
-      ))}
-    </Select>
+    <div className={`grid gap-2 rounded-md border bg-background p-2 ${compact ? "max-h-36 overflow-y-auto" : "sm:grid-cols-2"}`}>
+      {assignees.length ? assignees.map((user) => {
+        const id = user._id?.toString?.() ?? String(user._id);
+        return (
+          <label key={id} className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+            <input name="assigneeIds" type="checkbox" value={id} defaultChecked={selected.has(id)} className="h-4 w-4 rounded border-input accent-primary" />
+            <span className="truncate">{user.name} <span className="text-xs text-muted-foreground">({user.role})</span></span>
+          </label>
+        );
+      }) : <p className="px-2 py-1.5 text-sm text-muted-foreground">No staff/admin users</p>}
+    </div>
   );
 }
 
@@ -407,6 +420,23 @@ function statusLabel(value: string) {
 
 function getProjectId(task: ProjectTaskLike) {
   return task.projectId?._id ?? task.projectId;
+}
+
+function taskAssignees(task: ProjectTaskLike) {
+  const multi = Array.isArray(task.assigneeIds) ? task.assigneeIds : [];
+  if (multi.length) return multi;
+  return task.assigneeId ? [task.assigneeId] : [];
+}
+
+function taskAssigneeIds(task: ProjectTaskLike) {
+  return taskAssignees(task).map((user: any) => user?._id?.toString?.() ?? user?.toString?.() ?? String(user)).filter(Boolean);
+}
+
+function assigneeNames(task: ProjectTaskLike) {
+  const names = taskAssignees(task).map((user: any) => user?.name).filter(Boolean);
+  if (!names.length) return "Unassigned";
+  if (names.length === 1) return names[0];
+  return `${names[0]} +${names.length - 1}`;
 }
 
 function fallbackColor(seed: string) {

@@ -34,6 +34,7 @@ export async function sendDueTaskNotifications(options: Options = {}) {
     const elapsed = elapsedSeconds(task, now);
     if (!estimateSeconds || elapsed < estimateSeconds) continue;
 
+    const taskAssigneeIds = Array.from(new Set([task.assigneeId?.toString?.(), ...(task.assigneeIds ?? []).map((id: any) => id.toString())].filter(Boolean)));
     const [project, recipients] = await Promise.all([
       Project.findOne({ _id: task.projectId, organizationId: task.organizationId }).select("name").lean() as any,
       User.find({
@@ -41,7 +42,7 @@ export async function sendDueTaskNotifications(options: Options = {}) {
         active: true,
         $or: [
           { role: { $in: ["owner", "admin"] } },
-          ...(task.assigneeId ? [{ _id: task.assigneeId }] : [])
+          ...(taskAssigneeIds.length ? [{ _id: { $in: taskAssigneeIds } }] : [])
         ]
       }).select("name email role").lean()
     ]);

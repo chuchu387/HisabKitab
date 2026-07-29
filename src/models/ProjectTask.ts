@@ -9,6 +9,7 @@ const projectTaskSchema = new Schema(
     description: { type: String, default: "" },
     status: { type: String, enum: projectTaskStatuses, default: "to_do", index: true },
     assigneeId: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    assigneeIds: [{ type: Schema.Types.ObjectId, ref: "User", index: true }],
     estimatedHours: { type: Number, default: 0, min: 0 },
     color: { type: String, default: "" },
     timerStatus: { type: String, enum: ["not_started", "running", "paused", "stopped"], default: "not_started", index: true },
@@ -26,6 +27,7 @@ const projectTaskSchema = new Schema(
 projectTaskSchema.index({ organizationId: 1, projectId: 1, status: 1 });
 projectTaskSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
 projectTaskSchema.index({ organizationId: 1, assigneeId: 1, status: 1 });
+projectTaskSchema.index({ organizationId: 1, assigneeIds: 1, status: 1 });
 projectTaskSchema.index({ organizationId: 1, timerStatus: 1, dueNotifiedAt: 1 });
 projectTaskSchema.index({ organizationId: 1, title: "text", description: "text" });
 
