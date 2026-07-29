@@ -1,15 +1,25 @@
 import Link from "next/link";
 import { Download } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
-import { StatCard } from "@/components/stat-card";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { money } from "@/lib/utils";
+import { Organization } from "@/models/Organization";
 import { fiscalYearOptions, getFinancialStatements } from "@/services/financial-statements";
+import { getDerivedLedger } from "@/services/accounts";
+
+type ReportRow = {
+  label: string;
+  amount?: number;
+  debit?: number;
+  credit?: number;
+  net?: number;
+  level?: number;
+  section?: boolean;
+  total?: boolean;
+  href?: string;
+};
 
 export default async function AccountsPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
@@ -24,12 +34,61 @@ export default async function AccountsPage({ searchParams }: any) {
     from: typeof params?.from === "string" ? params.from : fy.from,
     to: typeof params?.to === "string" ? params.to : fy.to
   };
-  const statements = await getFinancialStatements(filters);
+  const [statements, organization, ledger] = await Promise.all([
+    getFinancialStatements(filters),
+    Organization.findById(organizationId).select("name").lean() as any,
+    getDerivedLedger(organizationId, filters.from, filters.to)
+  ]);
   const qs = new URLSearchParams({ from: filters.from, to: filters.to });
+  const baseLedger = `/ledger?${qs}`;
+  const expenseBase = `/expenses?from=${filters.from}&to=${filters.to}&approvalStatus=approved`;
   const summary = statements.summary;
+  const liabilitiesAndEquity = summary.totalLiabilities + summary.ownerEquity;
+  const balanceDifference = summary.totalAssets - liabilitiesAndEquity;
+  const balanceRows: ReportRow[] = [
+    { label: "Assets", section: true },
+    { label: "Current Assets", level: 1 },
+    { label: "Cash / Bank Balance", amount: summary.cashAtBank, level: 2, href: `${baseLedger}&accountCode=1000` },
+    { label: "Accounts Receivable", amount: summary.accountsReceivable, level: 2, href: "#accounts-receivable" },
+    ...statements.receivables.map((row: any) => ({ label: `${row.projectName} (${row.projectCode})`, amount: row.due, level: 3, href: `/projects/${row.projectId}` })),
+    { label: "Total Assets", amount: summary.totalAssets, total: true },
+    { label: "Liabilities & Equity", section: true },
+    { label: "Current Liabilities", level: 1 },
+    { label: "Estimated Tax Provision", amount: summary.estimatedTaxPayable, level: 2, href: "/tax" },
+    { label: "Accounts Payable", amount: 0, level: 2 },
+    { label: "Total Liabilities", amount: summary.totalLiabilities, total: true },
+    { label: "Equity", level: 1 },
+    { label: "Owner/Other Funds To Date", amount: statements.balanceSheet.equity[0]?.amount ?? 0, level: 2, href: "/general-funds" },
+    { label: "Retained Earnings / Balancing Equity", amount: statements.balanceSheet.equity[1]?.amount ?? 0, level: 2, href: `${baseLedger}&accountCode=3000` },
+    { label: "Total Equity", amount: summary.ownerEquity, total: true },
+    { label: "Difference", amount: balanceDifference, total: true }
+  ];
+  const profitRows: ReportRow[] = [
+    { label: "Revenue", section: true },
+    { label: "Client Project Revenue", amount: summary.revenue, level: 1, href: "/project-payments" },
+    { label: "Total Revenue", amount: summary.revenue, total: true },
+    { label: "Operating Expenses", section: true },
+    { label: "Direct Client Project Expenses", amount: summary.clientProjectExpenses, level: 1, href: `${expenseBase}&expenseType=project` },
+    { label: "Internal Project Expenses", amount: summary.internalProjectExpenses, level: 1, href: `${expenseBase}&expenseType=project` },
+    { label: "General/Admin Expenses", amount: summary.generalExpenses, level: 1, href: `${expenseBase}&expenseType=general` },
+    { label: "Total Operating Expenses", amount: summary.totalExpenses, total: true },
+    { label: "Gross Profit", amount: summary.grossProfit, total: true },
+    { label: "Operating Profit", amount: summary.netProfitBeforeTax, total: true },
+    { label: "Estimated Tax Provision", amount: -summary.estimatedTaxPayable, level: 1, href: "/tax" },
+    { label: "Net Profit After Tax", amount: summary.netProfitAfterTax, total: true }
+  ];
+  const trialRows: ReportRow[] = ledger.summary.map((row: any) => ({
+    label: `${row.accountCode} - ${row.accountName}`,
+    debit: row.debit,
+    credit: row.credit,
+    net: row.balance,
+    href: `${baseLedger}&accountCode=${row.accountCode}`
+  }));
+  const trialDebit = trialRows.reduce((sum, row) => sum + (row.debit ?? 0), 0);
+  const trialCredit = trialRows.reduce((sum, row) => sum + (row.credit ?? 0), 0);
 
   return (
-    <PageShell title="Accounts" description="Fiscal-year financial statements for audit, tax planning, and tax clearance preparation.">
+    <PageShell title="Accounts" description="Audit-style financial statements with clickable drilldowns to supporting records.">
       <form className="filter-bar">
         <select className="native-control" name="fy" defaultValue={selectedFY}>
           {fyOptions.map((option) => <option key={option.label} value={option.label}>{option.label}</option>)}
@@ -41,110 +100,63 @@ export default async function AccountsPage({ searchParams }: any) {
         <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=pdf&${qs}`}><Download className="h-4 w-4" />PDF</Link></Button>
       </form>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Revenue" value={summary.revenue} currency />
-        <StatCard label="Total Expenses" value={summary.totalExpenses} currency />
-        <StatCard label="Net Profit Before Tax" value={summary.netProfitBeforeTax} currency />
-        <StatCard label="Cash / Bank Balance" value={summary.cashAtBank} currency />
-        <StatCard label="Accounts Receivable" value={summary.accountsReceivable} currency />
-        <StatCard label="Estimated Tax Provision" value={summary.estimatedTaxPayable} currency />
-        <StatCard label="Total Assets" value={summary.totalAssets} currency />
-        <StatCard label="Owner Equity" value={summary.ownerEquity} currency />
-      </div>
-
-      <Card className="border-primary/20">
-        <CardContent className="grid gap-4 p-5 lg:grid-cols-3">
-          <StatementNote title="Basis" value="Cash-basis operational statement" />
-          <StatementNote title="Period" value={statements.period.label} />
-          <StatementNote title="Tax" value="Estimated at 25%; confirm final tax with auditor" />
-        </CardContent>
-      </Card>
-
-      <section className="grid gap-4 xl:grid-cols-3">
-        <StatementCard title="Assets" rows={statements.balanceSheet.assets} totalLabel="Total Assets" total={summary.totalAssets} />
-        <StatementCard title="Liabilities" rows={statements.balanceSheet.liabilities} totalLabel="Total Liabilities" total={summary.totalLiabilities} />
-        <StatementCard title="Equity" rows={statements.balanceSheet.equity} totalLabel="Total Equity" total={summary.ownerEquity} />
-      </section>
-
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">Profit & Loss</h2>
-          <Badge variant={summary.netProfitAfterTax >= 0 ? "success" : "danger"}>{summary.netProfitAfterTax >= 0 ? "Profit" : "Loss"}</Badge>
-        </div>
-        <DataTable data={statements.profitAndLoss} pagination={{ basePath: "/accounts", searchParams: params, pageParam: "plPage", pageSizeParam: "plPageSize" }} columns={[
-          { header: "Account", cell: (row: any) => row.account },
-          { header: "Amount", cell: (row: any) => money(row.amount) }
-        ]} />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Cash Flow</h2>
-          <DataTable data={statements.cashFlow} pagination={{ basePath: "/accounts", searchParams: params, pageParam: "cashPage", pageSizeParam: "cashPageSize" }} columns={[
-            { header: "Movement", cell: (row: any) => row.account },
-            { header: "Amount", cell: (row: any) => money(row.amount) }
-          ]} />
-        </div>
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Trial Balance Summary</h2>
-          <DataTable data={statements.trialBalance} pagination={{ basePath: "/accounts", searchParams: params, pageParam: "trialPage", pageSizeParam: "trialPageSize" }} columns={[
-            { header: "Account", cell: (row: any) => row.account },
-            { header: "Debit", cell: (row: any) => money(row.debit) },
-            { header: "Credit", cell: (row: any) => money(row.credit) }
-          ]} />
-        </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Accounts Receivable</h2>
-          <DataTable data={statements.receivables} pagination={{ basePath: "/accounts", searchParams: params, pageParam: "recvPage", pageSizeParam: "recvPageSize" }} columns={[
-            { header: "Project", cell: (row: any) => `${row.projectName} (${row.projectCode})` },
-            { header: "Budget", cell: (row: any) => money(row.budget) },
-            { header: "Received", cell: (row: any) => money(row.received) },
-            { header: "Due", cell: (row: any) => money(row.due) }
-          ]} />
-        </div>
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Expense By Category</h2>
-          <DataTable data={statements.expenseByCategory} pagination={{ basePath: "/accounts", searchParams: params, pageParam: "catPage", pageSizeParam: "catPageSize" }} columns={[
-            { header: "Category", cell: (row: any) => row.name },
-            { header: "Records", cell: (row: any) => row.count },
-            { header: "Amount", cell: (row: any) => money(row.total) }
-          ]} />
-        </div>
-      </section>
+      <StatementReport title="Balance Sheet" company={organization?.name ?? "No company name"} period={statements.period.label} columns={["Balance"]} rows={balanceRows} />
+      <StatementReport title="Profit and Loss" company={organization?.name ?? "No company name"} period={statements.period.label} columns={["Amount"]} rows={profitRows} />
+      <StatementReport
+        title="Trial Balance"
+        company={organization?.name ?? "No company name"}
+        period={statements.period.label}
+        columns={["Debit", "Credit", "Net"]}
+        rows={[...trialRows, { label: "Grand Total", debit: trialDebit, credit: trialCredit, net: trialDebit - trialCredit, total: true }]}
+      />
     </PageShell>
   );
 }
 
-function StatementCard({ title, rows, totalLabel, total }: { title: string; rows: Array<{ account: string; amount: number }>; totalLabel: string; total: number }) {
+function StatementReport({ title, company, period, columns, rows }: { title: string; company: string; period: string; columns: string[]; rows: ReportRow[] }) {
   return (
-    <Card>
-      <CardContent className="p-5">
-        <h2 className="font-semibold">{title}</h2>
-        <div className="mt-4 space-y-2">
-          {rows.map((row) => (
-            <div key={row.account} className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">{row.account}</span>
-              <span className="font-medium">{money(row.amount)}</span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 flex items-center justify-between gap-3 border-t pt-3 font-semibold">
-          <span>{totalLabel}</span>
-          <span>{money(total)}</span>
-        </div>
-      </CardContent>
-    </Card>
+    <section className="overflow-hidden rounded-lg border bg-card shadow-sm" id={title === "Balance Sheet" ? "accounts-receivable" : undefined}>
+      <div className="border-b bg-background px-4 py-4 text-center">
+        <h2 className="text-base font-semibold leading-tight">{company}</h2>
+        <p className="text-xs text-muted-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground">{period}</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-xs">
+          <thead>
+            <tr className="border-b bg-muted/30 text-right">
+              <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Account</th>
+              {columns.map((column) => <th key={column} className="px-3 py-2 font-semibold text-muted-foreground">{column}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={`${row.label}-${index}`} className={row.section ? "bg-muted/45 font-semibold" : row.total ? "border-t bg-background font-semibold" : "hover:bg-secondary/35"}>
+                <td className="px-3 py-2">
+                  <span className="inline-flex items-center gap-2" style={{ paddingLeft: `${(row.level ?? 0) * 16}px` }}>
+                    {row.section && <span className="text-muted-foreground">⌄</span>}
+                    {row.href && !row.section ? <Link href={row.href} className="hover:text-primary hover:underline">{row.label}</Link> : row.label}
+                  </span>
+                </td>
+                {columns.length === 1 ? (
+                  <td className="px-3 py-2 text-right tabular-nums">{formatAmount(row.amount ?? 0)}</td>
+                ) : (
+                  <>
+                    <td className="px-3 py-2 text-right tabular-nums">{formatAmount(row.debit ?? 0)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{formatAmount(row.credit ?? 0)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{formatAmount(row.net ?? 0)}</td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
-function StatementNote({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="rounded-md border bg-muted/35 p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-      <p className="mt-2 font-medium">{value}</p>
-    </div>
-  );
+function formatAmount(value: number) {
+  if (value < 0) return `(${money(Math.abs(value)).replace("Rs. ", "")})`;
+  return money(value).replace("Rs. ", "");
 }

@@ -13,12 +13,14 @@ export default async function LedgerPage({ searchParams }: any) {
   const params = await searchParams;
   const from = typeof params?.from === "string" ? params.from : undefined;
   const to = typeof params?.to === "string" ? params.to : undefined;
-  const ledger = await getDerivedLedger(organizationId, from, to);
+  const accountCode = typeof params?.accountCode === "string" ? params.accountCode : undefined;
+  const ledger = await getDerivedLedger(organizationId, from, to, accountCode);
   return (
     <PageShell title="Ledger" description="Generated double-entry debit/credit ledger from payments, funds, and approved expenses.">
       <form className="filter-bar">
         <input className="native-control" type="date" name="from" defaultValue={from} />
         <input className="native-control" type="date" name="to" defaultValue={to} />
+        <input className="native-control" name="accountCode" placeholder="Account code" defaultValue={accountCode} />
         <Button variant="outline">Filter</Button>
       </form>
       <section className="space-y-3">

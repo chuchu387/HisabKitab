@@ -26,7 +26,7 @@ export async function ensureDefaultChartAccounts(organizationId: string) {
   })));
 }
 
-export async function getDerivedLedger(organizationId: string, from?: string, to?: string) {
+export async function getDerivedLedger(organizationId: string, from?: string, to?: string, accountCode?: string) {
   const oid = new Types.ObjectId(organizationId);
   const dateMatch = (field: string) => {
     const range: Record<string, Date> = {};
@@ -63,7 +63,8 @@ export async function getDerivedLedger(organizationId: string, from?: string, to
     entries.push(line(expense.expenseDate, "Expense", expense._id, "1000", "Cash / Bank", memo, 0, expense.amount));
     if ((expense.tdsAmount ?? 0) > 0) entries.push(line(expense.expenseDate, "Expense", expense._id, "2000", "Tax Payable", `TDS: ${expense.description}`, 0, expense.tdsAmount));
   }
-  const summary = Array.from(entries.reduce((acc, entry) => {
+  const filteredEntries = accountCode ? entries.filter((entry) => entry.accountCode === accountCode) : entries;
+  const summary = Array.from(filteredEntries.reduce((acc, entry) => {
     const current = acc.get(entry.accountCode) ?? { accountCode: entry.accountCode, accountName: entry.accountName, debit: 0, credit: 0, balance: 0 };
     current.debit += entry.debit;
     current.credit += entry.credit;
@@ -71,7 +72,7 @@ export async function getDerivedLedger(organizationId: string, from?: string, to
     acc.set(entry.accountCode, current);
     return acc;
   }, new Map()).values());
-  return { entries, summary };
+  return { entries: filteredEntries, summary };
 }
 
 function line(date: Date, sourceType: string, sourceId: unknown, accountCode: string, accountName: string, memo: string, debit: number, credit: number) {

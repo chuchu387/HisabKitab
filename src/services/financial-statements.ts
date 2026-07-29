@@ -98,6 +98,7 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
   const receivableRows = (clientProjects as any[]).map((project) => {
     const paidToDate = effectiveReceived(project.receivedAmount ?? 0, paymentToDateByProject.get(project._id.toString()) ?? 0);
     return {
+      projectId: project._id.toString(),
       projectName: project.name,
       projectCode: project.code,
       budget: round(project.totalBudget ?? 0),
