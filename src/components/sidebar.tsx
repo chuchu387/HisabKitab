@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { BrandLogo } from "@/components/brand";
 import { navItems } from "@/constants";
 import type { Role } from "@/constants";
@@ -19,6 +21,8 @@ const navGroups = [
 export function Sidebar({ role }: { role: Role }) {
   const pathname = usePathname();
   const visibleItems = navItems.filter((item) => (item.roles as readonly Role[]).includes(role));
+  const accountsActive = navGroups.find((group) => group.title === "Accounts")?.hrefs.some((href) => pathname === href || pathname.startsWith(`${href}/`)) ?? false;
+  const [accountsOpen, setAccountsOpen] = useState(accountsActive);
   return (
     <aside className="hidden h-screen w-64 shrink-0 overflow-hidden border-r bg-card/95 shadow-sm backdrop-blur lg:flex lg:flex-col">
       <div className="flex h-14 shrink-0 items-center border-b px-4">
@@ -28,10 +32,27 @@ export function Sidebar({ role }: { role: Role }) {
         {navGroups.map((group) => {
           const items = visibleItems.filter((item) => group.hrefs.includes(item.href));
           if (!items.length) return null;
+          const isAccounts = group.title === "Accounts";
+          const isOpen = !isAccounts || accountsOpen;
           return (
             <div key={group.title} className="space-y-0.5">
-              <p className="px-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{group.title}</p>
-              {items.map((item) => {
+              {isAccounts ? (
+                <button
+                  type="button"
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-md px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground transition hover:bg-secondary/60 hover:text-foreground",
+                    accountsActive && "text-foreground"
+                  )}
+                  onClick={() => setAccountsOpen((value) => !value)}
+                  aria-expanded={accountsOpen}
+                >
+                  <span>{group.title}</span>
+                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", accountsOpen && "rotate-180")} />
+                </button>
+              ) : (
+                <p className="px-2 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{group.title}</p>
+              )}
+              {isOpen && items.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <Link
