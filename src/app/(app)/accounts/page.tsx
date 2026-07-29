@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
-import { money } from "@/lib/utils";
+import { dateInput, money } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
 import { Organization } from "@/models/Organization";
 import { fiscalYearOptions, getFinancialStatements } from "@/services/financial-statements";
@@ -203,10 +203,6 @@ function buildFiscalYearOptions(savedYears: any[]): FiscalYearOption[] {
 function resolveFiscalYearOption(options: FiscalYearOption[], value: string | undefined) {
   if (!value || value === "custom") return undefined;
   return options.find((option) => option.value === value || option.label === value);
-}
-
-function dateInput(date: Date | string) {
-  return new Date(date).toISOString().slice(0, 10);
 }
 
 function StatementReport({ title, company, period, comparisonPeriod, columns, rows }: { title: string; company: string; period: string; comparisonPeriod?: string; columns: string[]; rows: ReportRow[] }) {

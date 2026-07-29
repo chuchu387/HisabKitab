@@ -6,7 +6,7 @@ import { StatCard } from "@/components/stat-card";
 import { ContributorCharts } from "@/features/expense-contributors/contributor-charts";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
-import { formatDate, money } from "@/lib/utils";
+import { formatDate, isObjectId, money } from "@/lib/utils";
 import { getExpenseContributorDetail } from "@/services/accounting";
 
 export default async function ExpenseContributorDetailPage({ params, searchParams }: any) {
@@ -15,6 +15,7 @@ export default async function ExpenseContributorDetailPage({ params, searchParam
   const routeParams = await params;
   const queryParams = await searchParams;
   const userId = routeParams.userId;
+  if (!isObjectId(userId)) notFound();
   if (session.user.role === "staff" && session.user.userId !== userId) redirect(`/expense-contributors/${session.user.userId}`);
 
   const detail = await getExpenseContributorDetail({

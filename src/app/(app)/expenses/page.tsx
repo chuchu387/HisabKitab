@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { BulkLinkExpensesForm } from "@/features/expenses/bulk-link-expenses-form";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
-import { money } from "@/lib/utils";
+import { money, safeDate, safeObjectId } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { Project } from "@/models/Project";
@@ -25,29 +25,37 @@ export default async function ExpensesPage({ searchParams }: any) {
   const params = await searchParams;
   const organizationObjectId = new Types.ObjectId(organizationId);
   const query: any = { organizationId: organizationObjectId };
-  const q = params?.q ?? "";
+  const q = typeof params?.q === "string" ? params.q : "";
   if (q) query.description = new RegExp(q, "i");
   if (session.user.role === "staff") {
     query.createdBy = new Types.ObjectId(session.user.userId);
   } else if (params?.submittedBy) {
-    query.createdBy = new Types.ObjectId(params.submittedBy);
+    const submittedBy = safeObjectId(params.submittedBy);
+    if (submittedBy) query.createdBy = submittedBy;
   }
   if (params?.from || params?.to) {
     query.expenseDate = {};
-    if (params.from) query.expenseDate.$gte = new Date(params.from);
-    if (params.to) query.expenseDate.$lte = new Date(params.to);
+    const from = safeDate(params.from);
+    const to = safeDate(params.to);
+    if (from) query.expenseDate.$gte = from;
+    if (to) query.expenseDate.$lte = to;
+    if (!Object.keys(query.expenseDate).length) delete query.expenseDate;
   }
   if (params?.projectId === "general") {
     query.projectId = null;
   } else if (params?.projectId) {
-    query.projectId = new Types.ObjectId(params.projectId);
+    const projectId = safeObjectId(params.projectId);
+    if (projectId) query.projectId = projectId;
   }
   if (params?.expenseType === "project") query.projectId = { $ne: null };
   if (params?.expenseType === "general") query.projectId = null;
   if (params?.approvalStatus === "approved") query.approvalStatus = "approved";
   if (params?.approvalStatus === "pending") query.$or = [{ approvalStatus: "pending" }, { approvalStatus: { $exists: false } }];
   if (params?.approvalStatus === "rejected") query.approvalStatus = "rejected";
-  if (params?.categoryId) query.categoryId = new Types.ObjectId(params.categoryId);
+  if (params?.categoryId) {
+    const categoryId = safeObjectId(params.categoryId);
+    if (categoryId) query.categoryId = categoryId;
+  }
   const pageSize = parsePageSize(params?.pageSize);
   const page = parsePage(params?.page);
   const skip = (page - 1) * pageSize;

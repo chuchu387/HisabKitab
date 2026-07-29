@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
-import { money } from "@/lib/utils";
+import { dateInput, isObjectId, money } from "@/lib/utils";
 import { Client } from "@/models/Client";
 import { Invoice } from "@/models/Invoice";
 import { Organization } from "@/models/Organization";
@@ -16,6 +16,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
   const { id } = await params;
+  if (!isObjectId(id)) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   const [invoice, organization] = await Promise.all([
     Invoice.findOne({ _id: id, organizationId }).populate("clientId projectId").lean() as any,
     Organization.findById(organizationId).lean() as any
@@ -28,8 +29,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   page.drawText("INVOICE", { x: 40, y: 790, font: bold, size: 22, color: rgb(0.06, 0.46, 0.43) });
   page.drawText(organization?.name ?? "HisabKitab", { x: 40, y: 760, font: bold, size: 12 });
   page.drawText(`Invoice: ${invoice.invoiceNumber}`, { x: 380, y: 760, font, size: 10 });
-  page.drawText(`Date: ${new Date(invoice.invoiceDate).toISOString().slice(0, 10)}`, { x: 380, y: 744, font, size: 10 });
-  page.drawText(`Due: ${new Date(invoice.dueDate).toISOString().slice(0, 10)}`, { x: 380, y: 728, font, size: 10 });
+  page.drawText(`Date: ${dateInput(invoice.invoiceDate) || "-"}`, { x: 380, y: 744, font, size: 10 });
+  page.drawText(`Due: ${dateInput(invoice.dueDate) || "-"}`, { x: 380, y: 728, font, size: 10 });
   page.drawText(`Bill To: ${invoice.clientId?.name ?? "-"}`, { x: 40, y: 705, font: bold, size: 11 });
   page.drawText(`Project: ${invoice.projectId?.name ?? "-"}`, { x: 40, y: 688, font, size: 10 });
   page.drawText("Description", { x: 40, y: 640, font: bold, size: 10 });

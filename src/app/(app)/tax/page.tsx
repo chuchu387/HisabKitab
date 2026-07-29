@@ -5,7 +5,7 @@ import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
-import { formatDate, money } from "@/lib/utils";
+import { formatDate, money, safeDate } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { ProjectPayment } from "@/models/ProjectPayment";
 
@@ -17,9 +17,11 @@ export default async function TaxPage({ searchParams }: any) {
   const from = typeof params?.from === "string" ? params.from : undefined;
   const to = typeof params?.to === "string" ? params.to : undefined;
   const range: any = {};
-  if (from) range.$gte = new Date(from);
-  if (to) {
-    const end = new Date(to);
+  const start = safeDate(from);
+  const endDate = safeDate(to);
+  if (start) range.$gte = start;
+  if (endDate) {
+    const end = endDate;
     end.setHours(23, 59, 59, 999);
     range.$lte = end;
   }

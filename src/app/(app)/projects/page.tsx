@@ -19,7 +19,7 @@ export default async function ProjectsPage({ searchParams }: any) {
   const { organizationId, session } = await requireTenant();
   await connectToDatabase();
   const params = await searchParams;
-  const q = params?.q ?? "";
+  const q = typeof params?.q === "string" ? params.q : "";
   const pageSize = parsePageSize(params?.pageSize);
   const page = parsePage(params?.page);
   const skip = (page - 1) * pageSize;

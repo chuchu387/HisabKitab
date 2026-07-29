@@ -8,7 +8,7 @@ import { StatCard } from "@/components/stat-card";
 import { ProjectTasksPanel } from "@/features/projects/project-tasks-panel";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
-import { formatDate, money } from "@/lib/utils";
+import { formatDate, isObjectId, money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { ProjectTask } from "@/models/ProjectTask";
@@ -24,6 +24,7 @@ export default async function ProjectDetailPage({ params, searchParams }: any) {
   const routeParams = await params;
   const queryParams = await searchParams;
   const projectId = routeParams.id;
+  if (!isObjectId(projectId)) notFound();
   const [financials, projectExpenses, tasks, assignees] = await Promise.all([
     getProjectFinancials(organizationId, projectId),
     Expense.find({ organizationId, projectId }).populate("categoryId createdBy").sort({ expenseDate: -1 }).lean(),

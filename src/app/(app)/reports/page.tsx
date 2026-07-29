@@ -8,7 +8,7 @@ import { StatCard } from "@/components/stat-card";
 import { ReportVisuals } from "@/features/reports/report-visuals";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
-import { formatDate, money } from "@/lib/utils";
+import { dateInput, formatDate, money } from "@/lib/utils";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { Project } from "@/models/Project";
 import { getReports } from "@/services/accounting";
@@ -193,10 +193,6 @@ export default async function ReportsPage({ searchParams }: any) {
       </Card>
     </PageShell>
   );
-}
-
-function dateInput(date: Date) {
-  return date.toISOString().slice(0, 10);
 }
 
 function roundMoney(value: number) {

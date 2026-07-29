@@ -7,7 +7,7 @@ import { ProjectPayment } from "@/models/ProjectPayment";
 import { User } from "@/models/User";
 import { appUrl, emailLayout, actionButton, escapeHtml, sendEmail } from "@/services/email";
 import { createNotification } from "@/services/notifications";
-import { money } from "@/lib/utils";
+import { dateInput, money } from "@/lib/utils";
 
 export type PaymentReminderResult = {
   projectId: string;
@@ -88,7 +88,7 @@ export async function sendPaymentDueReminders({
           <p><strong>Total Budget:</strong> ${money(project.totalBudget ?? 0)}</p>
           <p><strong>Received:</strong> ${money(project.receivedAmount ?? 0)}</p>
           <p><strong>Due:</strong> ${money(due)}</p>
-          <p><strong>Project End Date:</strong> ${new Date(project.endDate).toISOString().slice(0, 10)}</p>
+          <p><strong>Project End Date:</strong> ${dateInput(project.endDate) || "-"}</p>
           ${actionButton("View Project", projectUrl)}
         `
       )

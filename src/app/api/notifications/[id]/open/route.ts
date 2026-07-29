@@ -1,11 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
+import { isObjectId } from "@/lib/utils";
 import { Notification } from "@/models/Notification";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { organizationId, session } = await requireTenant();
   const { id } = await params;
+  if (!isObjectId(id)) return NextResponse.redirect(new URL("/dashboard", request.url));
   await connectToDatabase();
   const notification = await Notification.findOneAndUpdate(
     { _id: id, organizationId, userId: session.user.userId },

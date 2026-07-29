@@ -8,7 +8,7 @@ import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
-import { money } from "@/lib/utils";
+import { money, safeObjectId } from "@/lib/utils";
 import { Client } from "@/models/Client";
 import { Expense } from "@/models/Expense";
 import { Project } from "@/models/Project";
@@ -20,12 +20,13 @@ export default async function ClientDetailPage({ params, searchParams }: any) {
   await connectToDatabase();
   const routeParams = await params;
   const queryParams = await searchParams;
+  const clientObjectId = safeObjectId(routeParams.id);
+  if (!clientObjectId) notFound();
   const client = await Client.findOne({ _id: routeParams.id, organizationId }).lean();
   if (!client) notFound();
   const oid = new Types.ObjectId(organizationId);
-  const clientId = new Types.ObjectId(routeParams.id);
   const projects = await Project.aggregate([
-    { $match: { organizationId: oid, clientId } },
+    { $match: { organizationId: oid, clientId: clientObjectId } },
     { $lookup: { from: ProjectPayment.collection.name, localField: "_id", foreignField: "projectId", as: "payments" } },
     { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
     {

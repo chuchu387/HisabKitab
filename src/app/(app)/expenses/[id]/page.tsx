@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
-import { formatDate, money } from "@/lib/utils";
+import { formatDate, isObjectId, money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { ExpenseApprovalHistory } from "@/models/ExpenseApprovalHistory";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
@@ -20,6 +20,7 @@ export default async function ExpenseDetailPage({ params }: any) {
   const { organizationId } = await requireTenant();
   await connectToDatabase();
   const routeParams = await params;
+  if (!isObjectId(routeParams.id)) notFound();
   const [expense, history] = await Promise.all([
     Expense.findOne({ _id: routeParams.id, organizationId }).populate("categoryId projectId createdBy").lean() as any,
     ExpenseApprovalHistory.find({ expenseId: routeParams.id, organizationId }).populate("userId").sort({ createdAt: -1 }).lean()

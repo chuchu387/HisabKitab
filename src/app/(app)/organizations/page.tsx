@@ -18,7 +18,7 @@ export default async function OrganizationsPage({ searchParams }: any) {
   await requireRole(["super_admin"]);
   await connectToDatabase();
   const params = await searchParams;
-  const q = params?.q ?? "";
+  const q = typeof params?.q === "string" ? params.q : "";
   const query = q ? { $or: [{ name: new RegExp(q, "i") }, { code: new RegExp(q, "i") }] } : {};
   const organizations = await Organization.find(query).populate("createdBy").sort({ createdAt: -1 }).lean();
   return (

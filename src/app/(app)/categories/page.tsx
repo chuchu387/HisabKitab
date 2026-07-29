@@ -19,7 +19,7 @@ export default async function CategoriesPage({ searchParams }: any) {
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
   const params = await searchParams;
-  const q = params?.q ?? "";
+  const q = typeof params?.q === "string" ? params.q : "";
   const query: any = { organizationId };
   if (q) query.name = new RegExp(q, "i");
   const categories = await ExpenseCategory.find(query).populate("createdBy").sort({ name: 1 }).lean();

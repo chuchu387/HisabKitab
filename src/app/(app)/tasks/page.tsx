@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { TasksBoard } from "@/features/tasks/tasks-board";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
+import { safeObjectId } from "@/lib/utils";
 import { Project } from "@/models/Project";
 import { ProjectTask } from "@/models/ProjectTask";
 import { User } from "@/models/User";
@@ -15,12 +16,18 @@ export default async function TasksPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await connectToDatabase();
   const params = await searchParams;
-  const q = params?.q ?? "";
+  const q = typeof params?.q === "string" ? params.q : "";
   const query: any = { organizationId };
   if (q) query.$or = [{ title: new RegExp(q, "i") }, { description: new RegExp(q, "i") }];
   if (params?.status) query.status = params.status;
-  if (params?.projectId) query.projectId = params.projectId;
-  if (params?.assigneeId) query.assigneeId = params.assigneeId;
+  if (params?.projectId) {
+    const projectId = safeObjectId(params.projectId);
+    if (projectId) query.projectId = projectId;
+  }
+  if (params?.assigneeId) {
+    const assigneeId = safeObjectId(params.assigneeId);
+    if (assigneeId) query.assigneeId = assigneeId;
+  }
 
   const [tasks, projects, assignees] = await Promise.all([
     ProjectTask.find(query).populate("projectId assigneeId createdBy").sort({ createdAt: -1 }).lean(),

@@ -7,6 +7,7 @@ import { ProjectPayment } from "@/models/ProjectPayment";
 import { GeneralFund } from "@/models/GeneralFund";
 import { User } from "@/models/User";
 import { Client } from "@/models/Client";
+import { safeDate } from "@/lib/utils";
 
 export type ReportFilters = {
   organizationId: string;
@@ -22,8 +23,13 @@ function toObjectId(value?: string) {
 
 function dateRange(from?: string, to?: string) {
   const range: Record<string, Date> = {};
-  if (from) range.$gte = new Date(from);
-  if (to) range.$lte = new Date(to);
+  const start = safeDate(from);
+  const end = safeDate(to);
+  if (start) range.$gte = start;
+  if (end) {
+    end.setHours(23, 59, 59, 999);
+    range.$lte = end;
+  }
   return Object.keys(range).length ? range : null;
 }
 
@@ -113,15 +119,28 @@ export async function getAccountingSummary(organizationId: string) {
 }
 
 export async function getProjectFinancials(organizationId: string, projectId: string) {
+  const pid = toObjectId(projectId);
+  if (!pid) {
+    return {
+      project: null,
+      expense: 0,
+      received: 0,
+      remaining: 0,
+      receivableRemaining: 0,
+      cashAfterExpenses: 0,
+      pendingExpenseAmount: 0,
+      pendingExpenseCount: 0
+    };
+  }
   const [project, paymentAgg, agg, pendingAgg] = await Promise.all([
     Project.findOne({ _id: projectId, organizationId }).populate("createdBy clientId").lean(),
-    ProjectPayment.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId), projectId: new Types.ObjectId(projectId) } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
+    ProjectPayment.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId), projectId: pid } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
     Expense.aggregate([
-      { $match: { organizationId: new Types.ObjectId(organizationId), projectId: new Types.ObjectId(projectId), ...approvedExpenseCondition() } },
+      { $match: { organizationId: new Types.ObjectId(organizationId), projectId: pid, ...approvedExpenseCondition() } },
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]),
     Expense.aggregate([
-      { $match: { organizationId: new Types.ObjectId(organizationId), projectId: new Types.ObjectId(projectId), ...pendingExpenseCondition() } },
+      { $match: { organizationId: new Types.ObjectId(organizationId), projectId: pid, ...pendingExpenseCondition() } },
       { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }
     ])
   ]);
@@ -299,7 +318,8 @@ export type ContributorFilters = ReportFilters & {
 
 function contributorExpenseMatch(filters: ContributorFilters) {
   const match = expenseMatch(filters);
-  if (filters.contributorId) match.createdBy = new Types.ObjectId(filters.contributorId);
+  const contributorId = toObjectId(filters.contributorId);
+  if (filters.contributorId) match.createdBy = contributorId ?? { $exists: false };
   if (filters.expenseType === "project") match.projectId = { $ne: null };
   if (filters.expenseType === "general") match.projectId = null;
   return match;
@@ -307,7 +327,8 @@ function contributorExpenseMatch(filters: ContributorFilters) {
 
 export async function getExpenseContributorSummaries(organizationId: string, currentUserId?: string) {
   const match: Record<string, unknown> = { organizationId: new Types.ObjectId(organizationId) };
-  if (currentUserId) match.createdBy = new Types.ObjectId(currentUserId);
+  const userId = toObjectId(currentUserId);
+  if (currentUserId) match.createdBy = userId ?? { $exists: false };
   return Expense.aggregate([
     { $match: match },
     {
@@ -341,7 +362,8 @@ export async function getExpenseContributorSummaries(organizationId: string, cur
 
 export async function getExpenseContributorDetail(filters: ContributorFilters) {
   const match = contributorExpenseMatch(filters);
-  const contributor = await User.findOne({ _id: filters.contributorId, organizationId: filters.organizationId }).lean();
+  const contributorId = toObjectId(filters.contributorId);
+  const contributor = contributorId ? await User.findOne({ _id: contributorId, organizationId: filters.organizationId }).lean() : null;
   const [totals, categorySummary, projectSummary, monthlySummary, expenses] = await Promise.all([
     Expense.aggregate([
       { $match: match },

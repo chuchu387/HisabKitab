@@ -16,7 +16,7 @@ export default async function ClientsPage({ searchParams }: any) {
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
   const params = await searchParams;
-  const q = params?.q ?? "";
+  const q = typeof params?.q === "string" ? params.q : "";
   const query: any = { organizationId };
   if (q) query.$or = [{ name: new RegExp(q, "i") }, { code: new RegExp(q, "i") }, { contactPerson: new RegExp(q, "i") }];
   const clients = await Client.find(query).sort({ name: 1 }).lean();

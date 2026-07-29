@@ -19,8 +19,8 @@ export default async function UsersPage({ searchParams }: any) {
   await requireRole(["owner"]);
   await connectToDatabase();
   const params = await searchParams;
-  const q = params?.q ?? "";
-  const role = params?.role ?? "";
+  const q = typeof params?.q === "string" ? params.q : "";
+  const role = typeof params?.role === "string" ? params.role : "";
   const query: any = { organizationId };
   if (q) query.$or = [{ name: new RegExp(q, "i") }, { email: new RegExp(q, "i") }];
   if (role) query.role = role;
