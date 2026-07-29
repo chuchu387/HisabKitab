@@ -45,9 +45,14 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     page.drawText(money(line.rate), { x: 400, y, font, size: 9 });
     page.drawText(money(line.amount), { x: 480, y, font, size: 9 });
   });
+  const paidAmount = Math.min(Number(invoice.paidAmount ?? 0), Number(invoice.total ?? 0));
+  const balanceDue = Math.max(Number(invoice.total ?? 0) - paidAmount, 0);
   page.drawText(`Subtotal: ${money(invoice.subtotal)}`, { x: 390, y: 500, font, size: 10 });
   page.drawText(`VAT${invoice.vatApplicable ? ` (${invoice.vatRate ?? 0}%)` : " (not applicable)"}: ${money(invoice.vatAmount)}`, { x: 390, y: 482, font, size: 10 });
   page.drawText(`Total: ${money(invoice.total)}`, { x: 390, y: 462, font: bold, size: 12 });
+  page.drawText(`Paid: ${money(paidAmount)}`, { x: 390, y: 442, font, size: 10 });
+  page.drawText(`Balance Due: ${money(balanceDue)}`, { x: 390, y: 422, font: bold, size: 12, color: balanceDue > 0 ? rgb(0.75, 0.16, 0.13) : rgb(0.06, 0.46, 0.43) });
+  if (invoice.notes) page.drawText(`Notes: ${String(invoice.notes).slice(0, 90)}`, { x: 40, y: 395, font, size: 9 });
   const bytes = await pdf.save();
   return new NextResponse(Buffer.from(bytes), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename=${invoice.invoiceNumber}.pdf` } });
 }
