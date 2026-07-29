@@ -28,7 +28,7 @@ export function Sidebar({ role }: { role: Role }) {
       <div className="flex h-14 shrink-0 items-center border-b px-4">
         <BrandLogo compact />
       </div>
-      <nav className="min-h-0 flex-1 space-y-2 overflow-hidden p-2.5">
+      <nav className="no-scrollbar min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2.5">
         {navGroups.map((group) => {
           const items = visibleItems.filter((item) => group.hrefs.includes(item.href));
           if (!items.length) return null;

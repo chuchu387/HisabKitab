@@ -72,9 +72,22 @@ export async function sendEmail({ to, subject, html, text, organizationId, templ
     });
     if (!response.ok) {
       const responseBody = await response.text().catch(() => "");
-      console.error("Brevo email failed", response.status, responseBody);
-      await writeEmailLog({ organizationId, recipients, subject, template, status: "failed", responseStatus: response.status, responseBody, entityType, entityId, metadata });
-      return { ok: false };
+      const providerError = brevoErrorMessage(response.status, responseBody);
+      console.error("Brevo email failed", response.status, providerError);
+      await writeEmailLog({
+        organizationId,
+        recipients,
+        subject,
+        template,
+        status: "failed",
+        responseStatus: response.status,
+        responseBody,
+        error: providerError,
+        entityType,
+        entityId,
+        metadata: { ...metadata, providerError }
+      });
+      return { ok: false, error: providerError };
     }
     await writeEmailLog({ organizationId, recipients, subject, template, status: "sent", responseStatus: response.status, entityType, entityId, metadata });
     return { ok: true };
@@ -84,6 +97,21 @@ export async function sendEmail({ to, subject, html, text, organizationId, templ
     return { ok: false };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function brevoErrorMessage(status: number, responseBody: string) {
+  const ip = responseBody.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/)?.[0];
+  if (status === 401 && responseBody.toLowerCase().includes("unrecognised ip")) {
+    return ip
+      ? `Brevo blocked Vercel outbound IP ${ip}. Authorize this IP in Brevo Security or disable Brevo authorized-IP blocking for API calls.`
+      : "Brevo blocked this email because the Vercel outbound IP is not authorized in Brevo Security.";
+  }
+  try {
+    const parsed = JSON.parse(responseBody);
+    return parsed.message || responseBody || `Brevo returned HTTP ${status}`;
+  } catch {
+    return responseBody || `Brevo returned HTTP ${status}`;
   }
 }
 

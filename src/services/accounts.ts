@@ -33,9 +33,11 @@ export async function getDerivedLedger(organizationId: string, from?: string, to
   const oid = new Types.ObjectId(organizationId);
   const dateMatch = (field: string) => {
     const range: Record<string, Date> = {};
-    if (from) range.$gte = new Date(from);
+    const start = parseDate(from);
+    if (start) range.$gte = start;
     if (to) {
-      const end = new Date(to);
+      const end = parseDate(to);
+      if (!end) return Object.keys(range).length ? { [field]: range } : {};
       end.setHours(23, 59, 59, 999);
       range.$lte = end;
     }
@@ -101,4 +103,10 @@ function line(date: Date, sourceType: string, sourceId: unknown, accountCode: st
 
 function cashAccountName(bankAccount: any) {
   return bankAccount?.name ? `Cash / Bank - ${bankAccount.name}` : "Cash / Bank";
+}
+
+function parseDate(value: string | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }

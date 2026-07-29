@@ -39,8 +39,8 @@ export function fiscalYearRange(startYear: number) {
 export async function getFinancialStatements(filters: FinancialStatementFilters) {
   const oid = new Types.ObjectId(filters.organizationId);
   const currentFY = fiscalYearForDate(new Date());
-  const from = filters.from ? new Date(filters.from) : currentFY.startDate;
-  const to = filters.to ? endOfDay(new Date(filters.to)) : currentFY.endDate;
+  const from = parseDateOr(filters.from, currentFY.startDate);
+  const to = endOfDay(parseDateOr(filters.to, currentFY.endDate));
   const period = { $gte: from, $lte: to };
   const throughEnd = { $lte: to };
 
@@ -206,6 +206,12 @@ function effectiveReceived(projectReceived: number, paymentTotal: number) {
 function endOfDay(date: Date) {
   date.setHours(23, 59, 59, 999);
   return date;
+}
+
+function parseDateOr(value: string | undefined, fallback: Date) {
+  if (!value) return new Date(fallback);
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date(fallback) : date;
 }
 
 function round(value: number) {

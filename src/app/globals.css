@@ -10,6 +10,14 @@
   .native-control {
     @apply h-10 w-full rounded-lg border bg-card px-3 text-sm shadow-sm outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring sm:w-auto;
   }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 :root {
