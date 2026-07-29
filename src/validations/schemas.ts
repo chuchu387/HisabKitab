@@ -197,7 +197,8 @@ export const projectTaskSchema = z.object({
   description: z.string().max(1000).optional().default(""),
   status: z.enum(projectTaskStatuses).default("to_do"),
   assigneeId: z.string().optional().nullable(),
-  estimatedHours: z.coerce.number().min(0).default(0)
+  estimatedHours: z.coerce.number().min(0).default(0),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().or(z.literal("")).default("")
 });
 
 export const reportFilterSchema = z.object({

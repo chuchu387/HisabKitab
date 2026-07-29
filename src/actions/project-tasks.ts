@@ -12,6 +12,7 @@ import { deleteReceipt, saveReceipt } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
 import { appUrl } from "@/services/email";
 import { notifyTaskAssigned } from "@/services/notifications";
+import { sendDueTaskNotifications } from "@/services/task-due-notifications";
 import type { ActionState } from "@/types";
 
 async function assertProjectAccess(projectId: string, organizationId: string) {
@@ -34,6 +35,21 @@ function taskManageQuery(taskId: string, projectId: string, organizationId: stri
   return query;
 }
 
+const taskColors = ["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#ea580c", "#0891b2", "#be123c", "#4f46e5", "#0f766e", "#a16207"];
+
+function fallbackTaskColor(seed: string) {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) % 2147483647;
+  return taskColors[Math.abs(hash) % taskColors.length];
+}
+
+function secondsBetween(from: Date | string | null | undefined, to = new Date()) {
+  if (!from) return 0;
+  const started = new Date(from).getTime();
+  if (Number.isNaN(started)) return 0;
+  return Math.max(0, Math.floor((to.getTime() - started) / 1000));
+}
+
 export async function createProjectTask(projectId: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const { session, organizationId } = await requireTenant();
@@ -46,6 +62,7 @@ export async function createProjectTask(projectId: string, _: ActionState, formD
     const task = await ProjectTask.create({
       ...data,
       assigneeId: await normalizeAssignee(data.assigneeId, organizationId),
+      color: data.color || fallbackTaskColor(`${data.title}-${Date.now()}`),
       organizationId,
       projectId,
       imageId,
@@ -55,6 +72,7 @@ export async function createProjectTask(projectId: string, _: ActionState, formD
     await sendTaskAssignmentEmail(organizationId, projectId, task).catch(() => undefined);
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/tasks");
+    await sendDueTaskNotifications({ organizationId }).catch(() => undefined);
     return { ok: true, message: "Task created" };
   } catch (error) {
     return actionError(error);
@@ -75,6 +93,7 @@ export async function updateProjectTask(taskId: string, projectId: string, _: Ac
     await assertProjectAccess(projectId, organizationId);
     const data = parseForm(projectTaskSchema, formData);
     const update: Record<string, unknown> = { ...data, assigneeId: await normalizeAssignee(data.assigneeId, organizationId) };
+    if (!data.color) update.color = fallbackTaskColor(`${data.title}-${taskId}`);
     const image = formData.get("image");
     if (image instanceof File && image.size > 0) update.imageId = await saveReceipt(image, { organizationId, projectId, taskId, entityType: "ProjectTask" });
     const updated = await ProjectTask.findOneAndUpdate(taskManageQuery(taskId, projectId, organizationId, session), update, { runValidators: true }).lean() as any;
@@ -86,7 +105,80 @@ export async function updateProjectTask(taskId: string, projectId: string, _: Ac
     }
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/tasks");
+    await sendDueTaskNotifications({ organizationId }).catch(() => undefined);
     return { ok: true, message: "Task updated" };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function moveProjectTask(taskId: string, projectId: string, status: string): Promise<ActionState> {
+  try {
+    if (!projectTaskSchema.shape.status.safeParse(status).success) throw new Error("Invalid status");
+    const { session, organizationId } = await requireTenant();
+    await requireRole(["owner", "admin", "staff"]);
+    await connectToDatabase();
+    await assertProjectAccess(projectId, organizationId);
+    const now = new Date();
+    const task = await ProjectTask.findOne(taskManageQuery(taskId, projectId, organizationId, session));
+    if (!task) throw new Error("Task not found or not allowed");
+    const update: Record<string, unknown> = { status };
+    if (status === "complete") {
+      update.timerStatus = "stopped";
+      update.completedAt = task.completedAt ?? now;
+      update.lastTimerStartedAt = null;
+      update.accumulatedSeconds = Number(task.accumulatedSeconds ?? 0) + (task.timerStatus === "running" ? secondsBetween(task.lastTimerStartedAt, now) : 0);
+    }
+    await ProjectTask.updateOne({ _id: task._id }, update, { runValidators: true });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Status Updated", entityType: "ProjectTask", entityId: taskId, metadata: { projectId, status } });
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/tasks");
+    await sendDueTaskNotifications({ organizationId }).catch(() => undefined);
+    return { ok: true, message: "Task moved" };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateProjectTaskTimer(taskId: string, projectId: string, command: "start" | "pause" | "stop"): Promise<ActionState> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await requireRole(["owner", "admin", "staff"]);
+    await connectToDatabase();
+    await assertProjectAccess(projectId, organizationId);
+    const now = new Date();
+    const task = await ProjectTask.findOne(taskManageQuery(taskId, projectId, organizationId, session));
+    if (!task) throw new Error("Task not found or not allowed");
+    const accumulated = Number(task.accumulatedSeconds ?? 0);
+    const runningSeconds = task.timerStatus === "running" ? secondsBetween(task.lastTimerStartedAt, now) : 0;
+    const update: Record<string, unknown> = {};
+
+    if (command === "start") {
+      update.timerStatus = "running";
+      update.startedAt = task.startedAt ?? now;
+      update.lastTimerStartedAt = now;
+      update.completedAt = null;
+      if (task.status === "to_do") update.status = "in_progress";
+    }
+    if (command === "pause") {
+      update.timerStatus = "paused";
+      update.accumulatedSeconds = accumulated + runningSeconds;
+      update.lastTimerStartedAt = null;
+    }
+    if (command === "stop") {
+      update.timerStatus = "stopped";
+      update.status = "complete";
+      update.completedAt = now;
+      update.accumulatedSeconds = accumulated + runningSeconds;
+      update.lastTimerStartedAt = null;
+    }
+
+    await ProjectTask.updateOne({ _id: task._id }, update, { runValidators: true });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: `Project Task Timer ${command}`, entityType: "ProjectTask", entityId: taskId, metadata: { projectId } });
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/tasks");
+    await sendDueTaskNotifications({ organizationId }).catch(() => undefined);
+    return { ok: true, message: command === "start" ? "Timer started" : command === "pause" ? "Timer paused" : "Task completed" };
   } catch (error) {
     return actionError(error);
   }

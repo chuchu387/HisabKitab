@@ -9,6 +9,7 @@ import { safeObjectId } from "@/lib/utils";
 import { Project } from "@/models/Project";
 import { ProjectTask } from "@/models/ProjectTask";
 import { User } from "@/models/User";
+import { sendDueTaskNotifications } from "@/services/task-due-notifications";
 
 void Project;
 void User;
@@ -33,7 +34,8 @@ export default async function TasksPage({ searchParams }: any) {
   const [tasks, projects, assignees] = await Promise.all([
     ProjectTask.find(query).populate("projectId assigneeId createdBy").sort({ createdAt: -1 }).lean(),
     Project.find({ organizationId }).sort({ name: 1 }).lean(),
-    User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean()
+    User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean(),
+    sendDueTaskNotifications({ organizationId }).catch(() => undefined)
   ]);
 
   return (

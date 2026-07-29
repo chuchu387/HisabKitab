@@ -95,6 +95,41 @@ export async function notifyTaskAssigned(user: UserLike & { organizationId?: str
   });
 }
 
+export async function notifyTaskDue(recipients: Array<UserLike & { organizationId?: string }>, task: { title: string; projectName?: string; estimatedHours?: number; elapsedHours?: number; taskUrl?: string }) {
+  const href = task.taskUrl ?? appUrl("/tasks");
+  await Promise.all(recipients.map((recipient) => {
+    if (!recipient.organizationId || !recipient._id) return Promise.resolve();
+    return createNotification({
+      organizationId: recipient.organizationId,
+      userId: recipient._id,
+      title: "Task time is due",
+      message: `${task.title} has reached its estimated time${task.projectName ? ` in ${task.projectName}` : ""}.`,
+      href: toAppPath(href),
+      type: "task"
+    }).catch(() => undefined);
+  }));
+  const to = recipients.filter((recipient) => recipient.email).map((recipient) => ({ email: String(recipient.email), name: recipient.name }));
+  if (!to.length) return;
+  await sendEmail({
+    to,
+    subject: `Task due: ${task.title}`,
+    organizationId: recipients.find((recipient) => recipient.organizationId)?.organizationId ?? null,
+    template: "task_due",
+    entityType: "ProjectTask",
+    html: emailLayout(
+      "Task time is due",
+      `
+        <p>A task has reached its assigned time estimate.</p>
+        <p><strong>Task:</strong> ${escapeHtml(task.title)}</p>
+        <p><strong>Project:</strong> ${escapeHtml(task.projectName ?? "-")}</p>
+        <p><strong>Estimate:</strong> ${escapeHtml(String(task.estimatedHours ?? 0))} hours</p>
+        <p><strong>Tracked:</strong> ${escapeHtml(String(task.elapsedHours ?? 0))} hours</p>
+        ${actionButton("Open Task Board", href)}
+      `
+    )
+  });
+}
+
 export async function notifyExpenseApproval(user: UserLike & { organizationId?: string }, expense: { description?: string; amount?: number; approvalStatus: string; expenseUrl?: string }) {
   const href = expense.expenseUrl ?? appUrl("/expenses");
   if (user.organizationId && user._id) {
