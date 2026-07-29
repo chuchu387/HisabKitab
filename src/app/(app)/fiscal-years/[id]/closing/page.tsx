@@ -8,24 +8,30 @@ import { StatCard } from "@/components/stat-card";
 import { toggleFiscalYearStatus } from "@/actions/fiscal-years";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
-import { dateInput, formatDate, money } from "@/lib/utils";
+import { dateInput, formatDate, isObjectId, money } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
 import { getDerivedLedger } from "@/services/accounts";
 import { getFinancialStatements } from "@/services/financial-statements";
+import { emptyFinancialStatements, emptyLedger } from "@/services/statement-fallback";
 
 export default async function FiscalYearClosingPage({ params }: any) {
   const { organizationId } = await requireTenant();
   await requireRole(["owner"]);
   await connectToDatabase();
   const routeParams = await params;
+  if (!isObjectId(routeParams.id)) notFound();
   const year = await FiscalYear.findOne({ _id: routeParams.id, organizationId }).lean();
   if (!year) notFound();
   const from = dateInput((year as any).startDate);
   const to = dateInput((year as any).endDate);
-  const [statements, ledger] = await Promise.all([
+  const [statementsResult, ledgerResult] = await Promise.all([
     getFinancialStatements({ organizationId, from, to }),
     getDerivedLedger(organizationId, from, to)
-  ]);
+  ].map((promise) => Promise.resolve(promise).then((value) => ({ ok: true as const, value })).catch((error) => ({ ok: false as const, error }))));
+  if (!statementsResult.ok) console.error("Fiscal year closing statements failed", statementsResult.error);
+  if (!ledgerResult.ok) console.error("Fiscal year closing ledger failed", ledgerResult.error);
+  const statements = (statementsResult.ok ? statementsResult.value : emptyFinancialStatements(from, to)) as any;
+  const ledger = (ledgerResult.ok ? ledgerResult.value : emptyLedger()) as any;
   const debit = ledger.summary.reduce((sum: number, row: any) => sum + (row.debit ?? 0), 0);
   const credit = ledger.summary.reduce((sum: number, row: any) => sum + (row.credit ?? 0), 0);
   const difference = Number((debit - credit).toFixed(2));

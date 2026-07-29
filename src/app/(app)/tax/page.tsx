@@ -1,7 +1,5 @@
 import { Types } from "mongoose";
-import { unstable_rethrow } from "next/navigation";
 import { DataTable } from "@/components/data-table";
-import { AccountingErrorState } from "@/components/accounting-error-state";
 import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
@@ -15,13 +13,7 @@ import { ProjectPayment } from "@/models/ProjectPayment";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
 
 export default async function TaxPage(props: any) {
-  try {
-    return await TaxContent(props);
-  } catch (error) {
-    unstable_rethrow(error);
-    console.error("Tax page failed", error);
-    return <AccountingErrorState title="Tax Summary" description="VAT, TDS, taxable expense, and estimated income tax summary for audit preparation." />;
-  }
+  return TaxContent(props);
 }
 
 async function TaxContent({ searchParams }: any) {
@@ -48,11 +40,17 @@ async function TaxContent({ searchParams }: any) {
     expenseMatch.expenseDate = range;
     paymentMatch.paymentDate = range;
   }
-  const [taxAgg, revenueAgg, expenses] = await Promise.all([
+  const [taxResult, revenueResult, expensesResult] = await Promise.all([
     Expense.aggregate([{ $match: expenseMatch }, { $group: { _id: null, vat: { $sum: "$vatAmount" }, tds: { $sum: "$tdsAmount" }, taxable: { $sum: { $cond: ["$taxable", "$amount", 0] } }, total: { $sum: "$amount" } } }]),
     ProjectPayment.aggregate([{ $match: paymentMatch }, { $group: { _id: null, revenue: { $sum: "$amount" } } }]),
     Expense.find(expenseMatch).populate("categoryId projectId").sort({ expenseDate: -1 }).lean()
-  ]);
+  ].map((promise) => Promise.resolve(promise).then((value) => ({ ok: true as const, value })).catch((error) => ({ ok: false as const, error }))));
+  if (!taxResult.ok) console.error("Tax aggregate failed", taxResult.error);
+  if (!revenueResult.ok) console.error("Tax revenue failed", revenueResult.error);
+  if (!expensesResult.ok) console.error("Tax expenses failed", expensesResult.error);
+  const taxAgg = taxResult.ok ? taxResult.value : [];
+  const revenueAgg = revenueResult.ok ? revenueResult.value : [];
+  const expenses = expensesResult.ok ? expensesResult.value : [];
   const tax = taxAgg[0] ?? { vat: 0, tds: 0, taxable: 0, total: 0 };
   const revenue = revenueAgg[0]?.revenue ?? 0;
   const profitBeforeTax = revenue - tax.total;

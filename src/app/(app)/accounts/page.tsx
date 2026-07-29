@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { unstable_rethrow } from "next/navigation";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AccountingErrorState } from "@/components/accounting-error-state";
 import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
@@ -12,6 +10,7 @@ import { FiscalYear } from "@/models/FiscalYear";
 import { Organization } from "@/models/Organization";
 import { fiscalYearOptions, getFinancialStatements } from "@/services/financial-statements";
 import { getDerivedLedger } from "@/services/accounts";
+import { emptyFinancialStatements, emptyLedger } from "@/services/statement-fallback";
 
 type ReportRow = {
   label: string;
@@ -37,13 +36,7 @@ type FiscalYearOption = {
 };
 
 export default async function AccountsPage(props: any) {
-  try {
-    return await AccountsContent(props);
-  } catch (error) {
-    unstable_rethrow(error);
-    console.error("Accounts page failed", error);
-    return <AccountingErrorState title="Accounts" description="Audit-style financial statements with clickable drilldowns to supporting records." />;
-  }
+  return AccountsContent(props);
 }
 
 async function AccountsContent({ searchParams }: any) {
@@ -65,13 +58,23 @@ async function AccountsContent({ searchParams }: any) {
     to: customRange && typeof params?.to === "string" ? params.to : fy.to
   };
   const compareFilters = compareFY ? { organizationId, from: compareFY.from, to: compareFY.to } : undefined;
-  const [statements, organization, ledger, compareStatements, compareLedger] = await Promise.all([
+  const [statementsResult, organizationResult, ledgerResult, compareStatementsResult, compareLedgerResult] = await Promise.all([
     getFinancialStatements(filters),
     Organization.findById(organizationId).select("name").lean() as any,
     getDerivedLedger(organizationId, filters.from, filters.to),
     compareFilters ? getFinancialStatements(compareFilters) : Promise.resolve(null),
     compareFilters ? getDerivedLedger(organizationId, compareFilters.from, compareFilters.to) : Promise.resolve(null)
-  ]);
+  ].map((promise) => Promise.resolve(promise).then((value) => ({ ok: true as const, value })).catch((error) => ({ ok: false as const, error }))));
+  if (!statementsResult.ok) console.error("Accounts statements failed", statementsResult.error);
+  if (!ledgerResult.ok) console.error("Accounts ledger failed", ledgerResult.error);
+  if (!organizationResult.ok) console.error("Accounts organization failed", organizationResult.error);
+  if (!compareStatementsResult.ok) console.error("Accounts compare statements failed", compareStatementsResult.error);
+  if (!compareLedgerResult.ok) console.error("Accounts compare ledger failed", compareLedgerResult.error);
+  const statements = (statementsResult.ok ? statementsResult.value : emptyFinancialStatements(filters.from, filters.to)) as any;
+  const organization = organizationResult.ok ? organizationResult.value : null;
+  const ledger = (ledgerResult.ok ? ledgerResult.value : emptyLedger()) as any;
+  const compareStatements = (compareStatementsResult.ok ? compareStatementsResult.value : null) as any;
+  const compareLedger = (compareLedgerResult.ok ? compareLedgerResult.value : null) as any;
   const qs = new URLSearchParams({ from: filters.from, to: filters.to });
   const baseLedger = `/ledger?${qs}`;
   const expenseBase = `/expenses?from=${filters.from}&to=${filters.to}&approvalStatus=approved`;
