@@ -5,6 +5,7 @@ import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { Client } from "@/models/Client";
 import { Invoice } from "@/models/Invoice";
+import { Organization } from "@/models/Organization";
 import { Project } from "@/models/Project";
 import { invoiceSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
@@ -22,8 +23,10 @@ export async function createInvoice(_: ActionState, formData: FormData): Promise
       const project = await Project.exists({ _id: data.projectId, organizationId });
       if (!project) throw new Error("Project not found");
     }
+    const organization = (await Organization.findById(organizationId).select("vatRegistered defaultVatRate").lean()) as any;
     const quantity = Number(data.quantity);
-    const vatRate = Number(data.vatRate);
+    const vatApplicable = Boolean(data.vatApplicable && organization?.vatRegistered);
+    const vatRate = vatApplicable ? Number(data.vatRate || organization?.defaultVatRate || 13) : 0;
     const paidAmount = Number(data.paidAmount);
     const amount = round(quantity * data.rate);
     const vatAmount = round(amount * (vatRate / 100));
@@ -36,6 +39,7 @@ export async function createInvoice(_: ActionState, formData: FormData): Promise
       invoiceDate: data.invoiceDate,
       dueDate: data.dueDate,
       status: data.status,
+      vatApplicable,
       lines: [{ description: data.description, quantity, rate: data.rate, amount }],
       subtotal: amount,
       vatRate,

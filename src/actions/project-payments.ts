@@ -7,6 +7,7 @@ import { requireRole, requireTenant } from "@/lib/permissions";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { Invoice } from "@/models/Invoice";
+import { Organization } from "@/models/Organization";
 import { actionError, parseForm } from "@/actions/helpers";
 import { projectPaymentSchema } from "@/validations/schemas";
 import { deleteReceipt, saveReceipt } from "@/services/gridfs";
@@ -40,6 +41,11 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
       if (!invoice) throw new Error("Invoice not found for this project");
     } else if (data.autoCreateInvoice) {
       if (!project.clientId) throw new Error("This project has no client. Select an invoice manually or attach a client to the project first.");
+      const organization = (await Organization.findById(organizationId).select("vatRegistered defaultVatRate").lean()) as any;
+      const vatApplicable = Boolean(organization?.vatRegistered);
+      const vatRate = vatApplicable ? Number(organization?.defaultVatRate ?? 13) : 0;
+      const subtotal = data.amount;
+      const vatAmount = Number((subtotal * (vatRate / 100)).toFixed(2));
       const invoice = await Invoice.create({
         organizationId,
         clientId: project.clientId,
@@ -48,11 +54,12 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
         invoiceDate: data.paymentDate,
         dueDate: data.paymentDate,
         status: "paid",
-        lines: [{ description: data.note || `Payment received for ${project.name}`, quantity: 1, rate: data.amount, amount: data.amount }],
-        subtotal: data.amount,
-        vatRate: 0,
-        vatAmount: 0,
-        total: data.amount,
+        vatApplicable,
+        lines: [{ description: data.note || `Payment received for ${project.name}`, quantity: 1, rate: subtotal, amount: subtotal }],
+        subtotal,
+        vatRate,
+        vatAmount,
+        total: Number((subtotal + vatAmount).toFixed(2)),
         paidAmount: data.amount,
         notes: `Auto-created from payment ${voucherNumber}`,
         createdBy: session.user.userId

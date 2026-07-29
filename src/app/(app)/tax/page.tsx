@@ -9,6 +9,7 @@ import { requireRole, requireTenant } from "@/lib/permissions";
 import { dateInput, formatDate, money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { FiscalYear } from "@/models/FiscalYear";
+import { Invoice } from "@/models/Invoice";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
 
@@ -36,25 +37,32 @@ async function TaxContent({ searchParams }: any) {
   }
   const expenseMatch: any = { organizationId: new Types.ObjectId(organizationId), approvalStatus: "approved" };
   const paymentMatch: any = { organizationId: new Types.ObjectId(organizationId) };
+  const invoiceMatch: any = { organizationId: new Types.ObjectId(organizationId), status: { $ne: "void" } };
   if (Object.keys(range).length) {
     expenseMatch.expenseDate = range;
     paymentMatch.paymentDate = range;
+    invoiceMatch.invoiceDate = range;
   }
-  const [taxResult, revenueResult, expensesResult] = await Promise.all([
+  const [taxResult, revenueResult, invoiceTaxResult, expensesResult] = await Promise.all([
     Expense.aggregate([{ $match: expenseMatch }, { $group: { _id: null, vat: { $sum: "$vatAmount" }, tds: { $sum: "$tdsAmount" }, taxable: { $sum: { $cond: ["$taxable", "$amount", 0] } }, total: { $sum: "$amount" } } }]),
     ProjectPayment.aggregate([{ $match: paymentMatch }, { $group: { _id: null, revenue: { $sum: "$amount" } } }]),
+    Invoice.aggregate([{ $match: invoiceMatch }, { $group: { _id: null, outputVat: { $sum: "$vatAmount" }, invoiceTotal: { $sum: "$total" }, invoiceSubtotal: { $sum: "$subtotal" } } }]),
     Expense.find(expenseMatch).populate("categoryId projectId").sort({ expenseDate: -1 }).lean()
   ].map((promise) => Promise.resolve(promise).then((value) => ({ ok: true as const, value })).catch((error) => ({ ok: false as const, error }))));
   if (!taxResult.ok) console.error("Tax aggregate failed", taxResult.error);
   if (!revenueResult.ok) console.error("Tax revenue failed", revenueResult.error);
+  if (!invoiceTaxResult.ok) console.error("Tax invoice VAT failed", invoiceTaxResult.error);
   if (!expensesResult.ok) console.error("Tax expenses failed", expensesResult.error);
   const taxAgg = taxResult.ok ? taxResult.value : [];
   const revenueAgg = revenueResult.ok ? revenueResult.value : [];
+  const invoiceTaxAgg = invoiceTaxResult.ok ? invoiceTaxResult.value : [];
   const expenses = expensesResult.ok ? expensesResult.value : [];
   const tax = taxAgg[0] ?? { vat: 0, tds: 0, taxable: 0, total: 0 };
+  const invoiceTax = invoiceTaxAgg[0] ?? { outputVat: 0, invoiceTotal: 0, invoiceSubtotal: 0 };
   const revenue = revenueAgg[0]?.revenue ?? 0;
   const profitBeforeTax = revenue - tax.total;
   const estimatedIncomeTax = Math.max(profitBeforeTax, 0) * 0.25;
+  const netVatPayable = (invoiceTax.outputVat ?? 0) - (tax.vat ?? 0);
   return (
     <PageShell title="Tax Summary" description="VAT, TDS, taxable expense, and estimated income tax summary for audit preparation.">
       <FilterForm className="filter-bar">
@@ -69,7 +77,9 @@ async function TaxContent({ searchParams }: any) {
       </FilterForm>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Revenue" value={revenue} currency />
-        <StatCard label="Expense VAT" value={tax.vat} currency />
+        <StatCard label="Output VAT" value={invoiceTax.outputVat ?? 0} currency />
+        <StatCard label="Input VAT" value={tax.vat} currency />
+        <StatCard label={netVatPayable >= 0 ? "Net VAT Payable" : "VAT Credit"} value={Math.abs(netVatPayable)} currency />
         <StatCard label="TDS" value={tax.tds} currency />
         <StatCard label="Estimated Income Tax" value={estimatedIncomeTax} currency />
       </div>

@@ -11,9 +11,11 @@ import { Textarea } from "@/components/ui/textarea";
 
 const initialState = { ok: false, message: "" };
 
-export function InvoiceForm({ clients, projects }: { clients: any[]; projects: any[] }) {
+export function InvoiceForm({ clients, projects, organization }: { clients: any[]; projects: any[]; organization?: any }) {
   const [state, formAction, pending] = useActionState(createInvoice, initialState);
   const today = new Date().toISOString().slice(0, 10);
+  const defaultVatRate = organization?.defaultVatRate ?? 13;
+  const vatRegistered = Boolean(organization?.vatRegistered);
   return (
     <form action={formAction} className="grid gap-4 rounded-lg border bg-card p-4 shadow-sm md:grid-cols-3">
       <Field name="invoiceNumber" label="Invoice No." />
@@ -37,7 +39,14 @@ export function InvoiceForm({ clients, projects }: { clients: any[]; projects: a
       <div className="md:col-span-3"><Field name="description" label="Line Description" /></div>
       <Field name="quantity" label="Qty" type="number" min="0.01" step="0.01" defaultValue="1" />
       <Field name="rate" label="Rate" type="number" min="0" step="0.01" />
-      <Field name="vatRate" label="VAT %" type="number" min="0" step="0.01" defaultValue="0" />
+      <div className="space-y-2">
+        <Label>VAT</Label>
+        <label className="flex h-10 items-center gap-2 rounded-lg border bg-card px-3 text-sm shadow-sm">
+          <input type="checkbox" name="vatApplicable" defaultChecked={vatRegistered} disabled={!vatRegistered} className="h-4 w-4 rounded border" />
+          <span>{vatRegistered ? "Apply VAT" : "VAT not registered"}</span>
+        </label>
+      </div>
+      <Field name="vatRate" label="VAT %" type="number" min="0" step="0.01" defaultValue={defaultVatRate} />
       <Field name="paidAmount" label="Paid Amount" type="number" min="0" step="0.01" defaultValue="0" />
       <div className="space-y-2 md:col-span-2"><Label>Notes</Label><Textarea name="notes" /></div>
       <div className="grid gap-3 md:col-span-3">

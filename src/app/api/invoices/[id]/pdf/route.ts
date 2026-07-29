@@ -28,6 +28,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   page.drawText("INVOICE", { x: 40, y: 790, font: bold, size: 22, color: rgb(0.06, 0.46, 0.43) });
   page.drawText(organization?.name ?? "HisabKitab", { x: 40, y: 760, font: bold, size: 12 });
+  if (organization?.panNumber) page.drawText(`PAN/VAT: ${organization.panNumber}`, { x: 40, y: 744, font, size: 9 });
   page.drawText(`Invoice: ${invoice.invoiceNumber}`, { x: 380, y: 760, font, size: 10 });
   page.drawText(`Date: ${dateInput(invoice.invoiceDate) || "-"}`, { x: 380, y: 744, font, size: 10 });
   page.drawText(`Due: ${dateInput(invoice.dueDate) || "-"}`, { x: 380, y: 728, font, size: 10 });
@@ -45,7 +46,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     page.drawText(money(line.amount), { x: 480, y, font, size: 9 });
   });
   page.drawText(`Subtotal: ${money(invoice.subtotal)}`, { x: 390, y: 500, font, size: 10 });
-  page.drawText(`VAT: ${money(invoice.vatAmount)}`, { x: 390, y: 482, font, size: 10 });
+  page.drawText(`VAT${invoice.vatApplicable ? ` (${invoice.vatRate ?? 0}%)` : " (not applicable)"}: ${money(invoice.vatAmount)}`, { x: 390, y: 482, font, size: 10 });
   page.drawText(`Total: ${money(invoice.total)}`, { x: 390, y: 462, font: bold, size: 12 });
   const bytes = await pdf.save();
   return new NextResponse(Buffer.from(bytes), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename=${invoice.invoiceNumber}.pdf` } });

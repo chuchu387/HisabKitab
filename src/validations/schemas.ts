@@ -40,6 +40,9 @@ export const organizationSchema = z.object({
   phone: z.string().max(40).optional().default(""),
   address: z.string().max(300).optional().default(""),
   generalBudget: z.coerce.number().min(0).default(0),
+  panNumber: z.string().max(40).optional().default(""),
+  vatRegistered: z.coerce.boolean().default(false),
+  defaultVatRate: z.preprocess((value) => value === "" ? 13 : value, z.coerce.number().min(0).default(13)),
   status: z.enum(organizationStatuses).default("active")
 });
 
@@ -53,7 +56,10 @@ export const organizationSettingsSchema = organizationSchema.pick({
   email: true,
   phone: true,
   address: true,
-  generalBudget: true
+  generalBudget: true,
+  panNumber: true,
+  vatRegistered: true,
+  defaultVatRate: true
 });
 
 export const userSchema = z.object({
@@ -110,6 +116,7 @@ export const invoiceSchema = z.object({
   invoiceDate: z.coerce.date(),
   dueDate: z.coerce.date(),
   status: z.enum(["draft", "sent", "partial", "paid", "void"]).default("draft"),
+  vatApplicable: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
   description: z.string().min(2).max(500),
   quantity: z.preprocess((value) => value === "" ? 1 : value, z.coerce.number().positive().default(1)),
   rate: z.coerce.number().min(0),

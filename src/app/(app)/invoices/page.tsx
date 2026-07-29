@@ -13,6 +13,7 @@ import { requireRole, requireTenant } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { Client } from "@/models/Client";
 import { Invoice } from "@/models/Invoice";
+import { Organization } from "@/models/Organization";
 import { Project } from "@/models/Project";
 
 void Client;
@@ -23,10 +24,11 @@ export default async function InvoicesPage({ searchParams }: any) {
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
   const params = await searchParams;
-  const [clients, projects, invoices] = await Promise.all([
+  const [clients, projects, invoices, organization] = await Promise.all([
     Client.find({ organizationId, active: { $ne: false } }).sort({ name: 1 }).lean(),
     Project.find({ organizationId }).sort({ name: 1 }).lean(),
-    Invoice.find({ organizationId }).populate("clientId projectId").sort({ invoiceDate: -1 }).lean()
+    Invoice.find({ organizationId }).populate("clientId projectId").sort({ invoiceDate: -1 }).lean(),
+    Organization.findById(organizationId).select("vatRegistered defaultVatRate panNumber").lean()
   ]);
   const invoiceClients = clients.map((client: any) => ({
     _id: client._id.toString(),
@@ -44,18 +46,19 @@ export default async function InvoicesPage({ searchParams }: any) {
   const totals = invoices.reduce((acc: any, invoice: any) => {
     acc.total += invoice.total ?? 0;
     acc.paid += invoice.paidAmount ?? 0;
+    acc.vat += invoice.vatAmount ?? 0;
     acc.due += Math.max((invoice.total ?? 0) - (invoice.paidAmount ?? 0), 0);
     return acc;
-  }, { total: 0, paid: 0, due: 0 });
+  }, { total: 0, paid: 0, vat: 0, due: 0 });
   return (
     <PageShell title="Invoices" description="Create and track client invoices. Email sending is intentionally disabled for invoices.">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Invoice Total" value={totals.total} currency />
         <StatCard label="Paid" value={totals.paid} currency />
+        <StatCard label="Output VAT" value={totals.vat} currency />
         <StatCard label="Due" value={totals.due} currency />
-        <StatCard label="Invoices" value={invoices.length} />
       </div>
-      <InvoiceForm clients={invoiceClients} projects={invoiceProjects} />
+      <InvoiceForm clients={invoiceClients} projects={invoiceProjects} organization={JSON.parse(JSON.stringify(organization))} />
       <DataTable data={invoices} pagination={{ basePath: "/invoices", searchParams: params }} columns={[
         { header: "Invoice", cell: (invoice: any) => invoice.invoiceNumber },
         { header: "Client", cell: (invoice: any) => invoice.clientId?.name ?? "-" },
@@ -63,6 +66,7 @@ export default async function InvoicesPage({ searchParams }: any) {
         { header: "Date", cell: (invoice: any) => formatDate(invoice.invoiceDate) },
         { header: "Due Date", cell: (invoice: any) => formatDate(invoice.dueDate) },
         { header: "Status", cell: (invoice: any) => <Badge variant={invoice.status === "paid" ? "success" : invoice.status === "void" ? "danger" : "warning"}>{invoice.status}</Badge> },
+        { header: "VAT", cell: (invoice: any) => invoice.vatApplicable ? money(invoice.vatAmount ?? 0) : "No VAT" },
         { header: "Total", cell: (invoice: any) => money(invoice.total ?? 0) },
         { header: "Balance", cell: (invoice: any) => money(Math.max((invoice.total ?? 0) - (invoice.paidAmount ?? 0), 0)) },
         { header: "Actions", cell: (invoice: any) => <div className="flex gap-2"><Button asChild size="sm" variant="outline"><Link href={`/api/invoices/${invoice._id}/pdf`}><Download className="h-4 w-4" />PDF</Link></Button><form action={deleteInvoice}><input type="hidden" name="id" value={invoice._id.toString()} /><ConfirmButton /></form></div> }

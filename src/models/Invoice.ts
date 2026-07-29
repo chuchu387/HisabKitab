@@ -19,6 +19,7 @@ const invoiceSchema = new Schema(
     invoiceDate: { type: Date, required: true, index: true },
     dueDate: { type: Date, required: true, index: true },
     status: { type: String, enum: ["draft", "sent", "partial", "paid", "void"], default: "draft", index: true },
+    vatApplicable: { type: Boolean, default: false, index: true },
     lines: { type: [invoiceLineSchema], default: [] },
     subtotal: { type: Number, default: 0 },
     vatRate: { type: Number, default: 0, min: 0 },
