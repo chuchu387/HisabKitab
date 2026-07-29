@@ -24,10 +24,23 @@ export default async function InvoicesPage({ searchParams }: any) {
   await connectToDatabase();
   const params = await searchParams;
   const [clients, projects, invoices] = await Promise.all([
-    Client.find({ organizationId, active: true }).sort({ name: 1 }).lean(),
-    Project.find({ organizationId, projectType: "client" }).sort({ name: 1 }).lean(),
+    Client.find({ organizationId, active: { $ne: false } }).sort({ name: 1 }).lean(),
+    Project.find({ organizationId }).sort({ name: 1 }).lean(),
     Invoice.find({ organizationId }).populate("clientId projectId").sort({ invoiceDate: -1 }).lean()
   ]);
+  const invoiceClients = clients.map((client: any) => ({
+    _id: client._id.toString(),
+    name: client.name,
+    code: client.code,
+    active: client.active !== false
+  }));
+  const invoiceProjects = projects.map((project: any) => ({
+    _id: project._id.toString(),
+    name: project.name,
+    code: project.code,
+    projectType: project.projectType ?? "client",
+    clientId: project.clientId?.toString?.() ?? ""
+  }));
   const totals = invoices.reduce((acc: any, invoice: any) => {
     acc.total += invoice.total ?? 0;
     acc.paid += invoice.paidAmount ?? 0;
@@ -42,7 +55,7 @@ export default async function InvoicesPage({ searchParams }: any) {
         <StatCard label="Due" value={totals.due} currency />
         <StatCard label="Invoices" value={invoices.length} />
       </div>
-      <InvoiceForm clients={JSON.parse(JSON.stringify(clients))} projects={JSON.parse(JSON.stringify(projects))} />
+      <InvoiceForm clients={invoiceClients} projects={invoiceProjects} />
       <DataTable data={invoices} pagination={{ basePath: "/invoices", searchParams: params }} columns={[
         { header: "Invoice", cell: (invoice: any) => invoice.invoiceNumber },
         { header: "Client", cell: (invoice: any) => invoice.clientId?.name ?? "-" },

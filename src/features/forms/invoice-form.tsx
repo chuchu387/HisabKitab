@@ -19,8 +19,20 @@ export function InvoiceForm({ clients, projects }: { clients: any[]; projects: a
       <Field name="invoiceNumber" label="Invoice No." />
       <Field name="invoiceDate" label="Invoice Date" type="date" defaultValue={today} />
       <Field name="dueDate" label="Due Date" type="date" defaultValue={today} />
-      <div className="space-y-2"><Label>Client</Label><Select name="clientId" required>{clients.map((client) => <option key={client._id} value={client._id}>{client.name}</option>)}</Select></div>
-      <div className="space-y-2"><Label>Project</Label><Select name="projectId"><option value="">No project</option>{projects.map((project) => <option key={project._id} value={project._id}>{project.name}</option>)}</Select></div>
+      <div className="space-y-2">
+        <Label>Client</Label>
+        <Select name="clientId" required defaultValue="">
+          <option value="" disabled>{clients.length ? "Select client" : "No clients found"}</option>
+          {clients.map((client) => <option key={client._id} value={client._id}>{client.name}{client.code ? ` (${client.code})` : ""}</option>)}
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Project</Label>
+        <Select name="projectId" defaultValue="">
+          <option value="">No project</option>
+          {projects.map((project) => <option key={project._id} value={project._id}>{project.name}{project.code ? ` (${project.code})` : ""}{project.projectType === "internal" ? " - Internal" : ""}</option>)}
+        </Select>
+      </div>
       <div className="space-y-2"><Label>Status</Label><Select name="status" defaultValue="draft"><option value="draft">Draft</option><option value="sent">Sent</option><option value="partial">Partial</option><option value="paid">Paid</option><option value="void">Void</option></Select></div>
       <div className="md:col-span-3"><Field name="description" label="Line Description" /></div>
       <Field name="quantity" label="Qty" type="number" min="0.01" step="0.01" defaultValue="1" />
