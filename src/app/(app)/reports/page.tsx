@@ -10,17 +10,23 @@ import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
 import { dateInput, formatDate, money } from "@/lib/utils";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
+import { FiscalYear } from "@/models/FiscalYear";
 import { Project } from "@/models/Project";
 import { getReports } from "@/services/accounting";
+import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter } from "@/services/fiscal-year-filter";
 
 export default async function ReportsPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await connectToDatabase();
   const params = await searchParams;
+  const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();
+  const fiscalYearOptions = buildFiscalYearFilterOptions(savedFiscalYears as any[]);
+  const selectedFY = typeof params?.fy === "string" ? params.fy : "all";
+  const fyRange = dateRangeForFiscalYearFilter(fiscalYearOptions, selectedFY, params?.from, params?.to);
   const filters = {
     organizationId,
-    from: typeof params?.from === "string" ? params.from : undefined,
-    to: typeof params?.to === "string" ? params.to : undefined,
+    from: fyRange.from ? dateInput(fyRange.from) : undefined,
+    to: fyRange.to ? dateInput(fyRange.to) : undefined,
     projectId: typeof params?.projectId === "string" ? params.projectId : undefined,
     categoryId: typeof params?.categoryId === "string" ? params.categoryId : undefined
   };
@@ -29,7 +35,7 @@ export default async function ReportsPage({ searchParams }: any) {
     Project.find({ organizationId }).sort({ name: 1 }).select("name code").lean(),
     ExpenseCategory.find({ organizationId }).sort({ name: 1 }).select("name").lean()
   ]);
-  const qs = new URLSearchParams(Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => typeof v === "string")) as Record<string, string>);
+  const qs = new URLSearchParams(Object.fromEntries(Object.entries({ ...params, from: filters.from, to: filters.to }).filter(([, v]) => typeof v === "string" && v)) as Record<string, string>);
   const periodLabel = filters.from || filters.to ? `${filters.from ?? "Start"} to ${filters.to ?? "Today"}` : "All time";
   const now = new Date();
   const thisMonth = new URLSearchParams({ from: dateInput(new Date(now.getFullYear(), now.getMonth(), 1)), to: dateInput(now) });
@@ -72,6 +78,11 @@ export default async function ReportsPage({ searchParams }: any) {
   return (
     <PageShell title="Reports" description="Summary, project, and expense reports with CSV/PDF exports.">
       <form className="filter-bar">
+        <select className="native-control" name="fy" defaultValue={selectedFY}>
+          <option value="all">All fiscal years</option>
+          {fiscalYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          <option value="custom">Custom date range</option>
+        </select>
         <input className="native-control" type="date" name="from" defaultValue={filters.from} />
         <input className="native-control" type="date" name="to" defaultValue={filters.to} />
         <select className="native-control" name="projectId" defaultValue={filters.projectId ?? ""}>

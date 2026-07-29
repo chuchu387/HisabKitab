@@ -11,12 +11,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { BulkLinkExpensesForm } from "@/features/expenses/bulk-link-expenses-form";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
-import { money, safeDate, safeObjectId } from "@/lib/utils";
+import { money, safeObjectId } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
+import { FiscalYear } from "@/models/FiscalYear";
 import { Project } from "@/models/Project";
 import { User } from "@/models/User";
-import { nepalFiscalYearForDate } from "@/services/nepal-fiscal-year";
+import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
 
 void User;
 
@@ -27,6 +28,10 @@ export default async function ExpensesPage({ searchParams }: any) {
   const organizationObjectId = new Types.ObjectId(organizationId);
   const query: any = { organizationId: organizationObjectId };
   const q = typeof params?.q === "string" ? params.q : "";
+  const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();
+  const fiscalYearOptions = buildFiscalYearFilterOptions(savedFiscalYears as any[]);
+  const selectedFY = typeof params?.fy === "string" ? params.fy : "all";
+  const fyRange = dateRangeForFiscalYearFilter(fiscalYearOptions, selectedFY, params?.from, params?.to);
   if (q) query.description = new RegExp(q, "i");
   if (session.user.role === "staff") {
     query.createdBy = new Types.ObjectId(session.user.userId);
@@ -34,12 +39,14 @@ export default async function ExpensesPage({ searchParams }: any) {
     const submittedBy = safeObjectId(params.submittedBy);
     if (submittedBy) query.createdBy = submittedBy;
   }
-  if (params?.from || params?.to) {
+  if (fyRange.from || fyRange.to) {
     query.expenseDate = {};
-    const from = safeDate(params.from);
-    const to = safeDate(params.to);
-    if (from) query.expenseDate.$gte = from;
-    if (to) query.expenseDate.$lte = to;
+    if (fyRange.from) query.expenseDate.$gte = fyRange.from;
+    if (fyRange.to) {
+      const end = fyRange.to;
+      end.setHours(23, 59, 59, 999);
+      query.expenseDate.$lte = end;
+    }
     if (!Object.keys(query.expenseDate).length) delete query.expenseDate;
   }
   if (params?.projectId === "general") {
@@ -84,12 +91,17 @@ export default async function ExpensesPage({ searchParams }: any) {
   const pendingTotal = totals[0]?.pendingTotal ?? 0;
   const expensesWithFiscalYear = expenses.map((expense: any) => ({
     ...expense,
-    fiscalYearLabel: nepalFiscalYearForDate(new Date(expense.expenseDate)).label
+    fiscalYearLabel: fiscalYearLabelForDate(expense.expenseDate)
   }));
   return (
     <PageShell title="Expenses" action={<Button asChild><Link href="/expenses/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
       <form className="filter-bar">
         <SearchBar placeholder="Search description" defaultValue={q} />
+        <select className="native-control" name="fy" defaultValue={selectedFY}>
+          <option value="all">All fiscal years</option>
+          {fiscalYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          <option value="custom">Custom date range</option>
+        </select>
         <input className="native-control" type="date" name="from" defaultValue={params?.from ?? ""} />
         <input className="native-control" type="date" name="to" defaultValue={params?.to ?? ""} />
         <select name="projectId" defaultValue={params?.projectId ?? ""} className="native-control">

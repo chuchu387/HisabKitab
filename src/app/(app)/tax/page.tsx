@@ -5,23 +5,27 @@ import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
-import { formatDate, money, safeDate } from "@/lib/utils";
+import { dateInput, formatDate, money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
+import { FiscalYear } from "@/models/FiscalYear";
 import { ProjectPayment } from "@/models/ProjectPayment";
+import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
 
 export default async function TaxPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
   await requireRole(["owner", "admin"]);
   await connectToDatabase();
   const params = await searchParams;
-  const from = typeof params?.from === "string" ? params.from : undefined;
-  const to = typeof params?.to === "string" ? params.to : undefined;
+  const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();
+  const fiscalYearOptions = buildFiscalYearFilterOptions(savedFiscalYears as any[]);
+  const selectedFY = typeof params?.fy === "string" ? params.fy : "all";
+  const fyRange = dateRangeForFiscalYearFilter(fiscalYearOptions, selectedFY, params?.from, params?.to);
+  const from = fyRange.from ? dateInput(fyRange.from) : undefined;
+  const to = fyRange.to ? dateInput(fyRange.to) : undefined;
   const range: any = {};
-  const start = safeDate(from);
-  const endDate = safeDate(to);
-  if (start) range.$gte = start;
-  if (endDate) {
-    const end = endDate;
+  if (fyRange.from) range.$gte = fyRange.from;
+  if (fyRange.to) {
+    const end = fyRange.to;
     end.setHours(23, 59, 59, 999);
     range.$lte = end;
   }
@@ -43,6 +47,11 @@ export default async function TaxPage({ searchParams }: any) {
   return (
     <PageShell title="Tax Summary" description="VAT, TDS, taxable expense, and estimated income tax summary for audit preparation.">
       <form className="filter-bar">
+        <select className="native-control" name="fy" defaultValue={selectedFY}>
+          <option value="all">All fiscal years</option>
+          {fiscalYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          <option value="custom">Custom date range</option>
+        </select>
         <input className="native-control" type="date" name="from" defaultValue={from} />
         <input className="native-control" type="date" name="to" defaultValue={to} />
         <Button variant="outline">Filter</Button>
@@ -55,6 +64,7 @@ export default async function TaxPage({ searchParams }: any) {
       </div>
       <DataTable data={expenses} pagination={{ basePath: "/tax", searchParams: params }} columns={[
         { header: "Date", cell: (expense: any) => formatDate(expense.expenseDate) },
+        { header: "FY", cell: (expense: any) => fiscalYearLabelForDate(expense.expenseDate) },
         { header: "Vendor", cell: (expense: any) => expense.vendorName || "-" },
         { header: "PAN/VAT", cell: (expense: any) => expense.vendorPan || "-" },
         { header: "Bill", cell: (expense: any) => expense.billNumber || "-" },
