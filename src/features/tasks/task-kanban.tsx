@@ -35,6 +35,7 @@ export function TaskKanban({
   assignees,
   currentRole,
   taskPermissions,
+  defaultFolderId = "",
   title = "To Do Checklist"
 }: {
   projectId?: string;
@@ -44,6 +45,7 @@ export function TaskKanban({
   assignees: any[];
   currentRole: string;
   taskPermissions: any;
+  defaultFolderId?: string;
   title?: string;
 }) {
   const [items, setItems] = useState(tasks);
@@ -161,7 +163,7 @@ export function TaskKanban({
       </div>
 
       {showFolders && <TaskFolderManager folders={folders} projects={projects} canManageProjects={taskPermissions.canManageFolderProjects} />}
-      {showCreate && <TaskCreateForm fixedProjectId={projectId} projects={projects} folders={folders} assignees={assignees} canAssign={taskPermissions.canAssignTask} />}
+      {showCreate && <TaskCreateForm fixedProjectId={projectId} projects={projects} folders={folders} assignees={assignees} canAssign={taskPermissions.canAssignTask} defaultFolderId={defaultFolderId} />}
 
       {view === "kanban" && <div className="grid gap-4 xl:grid-cols-4">
         {statuses.map((status) => {
@@ -221,10 +223,10 @@ export function TaskKanban({
   );
 }
 
-function TaskCreateForm({ fixedProjectId, projects, folders, assignees, canAssign }: { fixedProjectId?: string; projects: any[]; folders: any[]; assignees: any[]; canAssign: boolean }) {
+function TaskCreateForm({ fixedProjectId, projects, folders, assignees, canAssign, defaultFolderId = "" }: { fixedProjectId?: string; projects: any[]; folders: any[]; assignees: any[]; canAssign: boolean; defaultFolderId?: string }) {
   const action = fixedProjectId ? createProjectTask.bind(null, fixedProjectId) : createGlobalProjectTask;
   const [state, formAction, pending] = useActionState(action, initialState);
-  const [folderId, setFolderId] = useState("");
+  const [folderId, setFolderId] = useState(defaultFolderId);
   const folder = folders.find((item) => item._id === folderId);
   const availableProjects = folder ? (folder.projectIds ?? []) : projects;
   const availableFolders = fixedProjectId
@@ -326,7 +328,12 @@ function TaskFolderCard({ folder, projects, canManageProjects }: { folder: any; 
   const [state, formAction, pending] = useActionState(updateTaskFolder.bind(null, folder._id), initialState);
   return (
     <form action={formAction} className="space-y-3 rounded-lg border bg-background p-3">
-      <Field name="name" label="Folder" defaultValue={folder.name} />
+      <div className="flex items-start justify-between gap-3">
+        <Field name="name" label="Folder" defaultValue={folder.name} />
+        <Button asChild variant="outline" size="sm" className="mt-7 shrink-0">
+          <Link href={`/tasks/folders/${folder._id}`}>Open</Link>
+        </Button>
+      </div>
       <div className="space-y-2">
         <Label>Description</Label>
         <Textarea name="description" defaultValue={folder.description} rows={2} />
