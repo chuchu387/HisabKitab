@@ -196,6 +196,10 @@ export const projectTaskSchema = z.object({
   title: z.string().min(2).max(160),
   description: z.string().max(1000).optional().default(""),
   status: z.enum(projectTaskStatuses).default("to_do"),
+  priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+  severity: z.enum(["minor", "normal", "major", "critical"]).default("normal"),
+  dueDate: z.preprocess((value) => value === "" ? null : value, z.coerce.date().nullable().optional()).default(null),
+  milestone: z.string().max(120).optional().default(""),
   assigneeId: z.string().optional().nullable(),
   estimatedHours: z.coerce.number().min(0).default(0),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().or(z.literal("")).default("")

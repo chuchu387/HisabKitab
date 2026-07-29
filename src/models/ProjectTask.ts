@@ -8,6 +8,10 @@ const projectTaskSchema = new Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
     status: { type: String, enum: projectTaskStatuses, default: "to_do", index: true },
+    priority: { type: String, enum: ["low", "medium", "high", "urgent"], default: "medium", index: true },
+    severity: { type: String, enum: ["minor", "normal", "major", "critical"], default: "normal", index: true },
+    dueDate: { type: Date, default: null, index: true },
+    milestone: { type: String, default: "", trim: true, index: true },
     assigneeId: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
     assigneeIds: [{ type: Schema.Types.ObjectId, ref: "User", index: true }],
     estimatedHours: { type: Number, default: 0, min: 0 },
@@ -19,6 +23,18 @@ const projectTaskSchema = new Schema(
     accumulatedSeconds: { type: Number, default: 0, min: 0 },
     dueNotifiedAt: { type: Date, default: null },
     imageId: { type: Schema.Types.ObjectId, default: null },
+    attachmentIds: [{ type: Schema.Types.ObjectId }],
+    comments: [{
+      userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+      message: { type: String, required: true, trim: true },
+      createdAt: { type: Date, default: Date.now }
+    }],
+    activity: [{
+      userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+      action: { type: String, required: true },
+      metadata: { type: Schema.Types.Mixed, default: {} },
+      createdAt: { type: Date, default: Date.now }
+    }],
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true }
   },
   { timestamps: true }
@@ -26,6 +42,8 @@ const projectTaskSchema = new Schema(
 
 projectTaskSchema.index({ organizationId: 1, projectId: 1, status: 1 });
 projectTaskSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
+projectTaskSchema.index({ organizationId: 1, dueDate: 1, status: 1 });
+projectTaskSchema.index({ organizationId: 1, milestone: 1, status: 1 });
 projectTaskSchema.index({ organizationId: 1, assigneeId: 1, status: 1 });
 projectTaskSchema.index({ organizationId: 1, assigneeIds: 1, status: 1 });
 projectTaskSchema.index({ organizationId: 1, timerStatus: 1, dueNotifiedAt: 1 });

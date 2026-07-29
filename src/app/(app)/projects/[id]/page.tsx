@@ -28,7 +28,7 @@ export default async function ProjectDetailPage({ params, searchParams }: any) {
   const [financials, projectExpenses, tasks, assignees] = await Promise.all([
     getProjectFinancials(organizationId, projectId),
     Expense.find({ organizationId, projectId }).populate("categoryId createdBy").sort({ expenseDate: -1 }).lean(),
-    ProjectTask.find({ organizationId, projectId }).populate("assigneeId assigneeIds createdBy").sort({ createdAt: -1 }).lean(),
+    ProjectTask.find({ organizationId, projectId }).populate("assigneeId assigneeIds createdBy comments.userId activity.userId").sort({ createdAt: -1 }).lean(),
     User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean()
   ]);
   if (!financials.project) notFound();
@@ -82,7 +82,7 @@ export default async function ProjectDetailPage({ params, searchParams }: any) {
           { header: "Open", cell: (expense: any) => <Button asChild variant="outline" size="sm"><Link href={`/expenses/${expense._id}`}>View</Link></Button> }
         ]} />
       </section>
-      <ProjectTasksPanel projectId={projectId} tasks={JSON.parse(JSON.stringify(tasks))} assignees={JSON.parse(JSON.stringify(assignees))} />
+      <ProjectTasksPanel projectId={projectId} tasks={JSON.parse(JSON.stringify(tasks))} assignees={JSON.parse(JSON.stringify(assignees))} currentRole={session.user.role} />
     </PageShell>
   );
 }

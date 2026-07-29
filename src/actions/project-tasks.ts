@@ -20,13 +20,6 @@ async function assertProjectAccess(projectId: string, organizationId: string) {
   if (!project) throw new Error("Project not found");
 }
 
-async function normalizeAssignee(assigneeId: string | null | undefined, organizationId: string) {
-  if (!assigneeId) return null;
-  const user = await User.exists({ _id: assigneeId, organizationId, active: true, role: { $in: ["admin", "staff"] } });
-  if (!user) throw new Error("Assignee not found");
-  return assigneeId;
-}
-
 async function normalizeAssignees(formData: FormData, organizationId: string) {
   const ids = Array.from(new Set(formData.getAll("assigneeIds").map((value) => String(value)).filter(Boolean)));
   const legacyAssigneeId = String(formData.get("assigneeId") ?? "");
@@ -36,6 +29,22 @@ async function normalizeAssignees(formData: FormData, organizationId: string) {
   const validIds = new Set(users.map((user: any) => user._id.toString()));
   if (validIds.size !== ids.length) throw new Error("One or more assignees were not found");
   return { assigneeId: ids[0], assigneeIds: ids };
+}
+
+async function saveTaskFiles(formData: FormData, organizationId: string, projectId: string, taskId?: string) {
+  const files = [
+    ...formData.getAll("attachments"),
+    ...formData.getAll("image")
+  ].filter((value): value is File => value instanceof File && value.size > 0);
+  const ids = [];
+  for (const file of files.slice(0, 8)) {
+    ids.push(await saveReceipt(file, { organizationId, projectId, taskId, entityType: "ProjectTask" }));
+  }
+  return ids;
+}
+
+function activity(userId: string, action: string, metadata: Record<string, unknown> = {}) {
+  return { userId, action, metadata, createdAt: new Date() };
 }
 
 function taskManageQuery(taskId: string, projectId: string, organizationId: string, session: Awaited<ReturnType<typeof requireTenant>>["session"]) {
@@ -69,15 +78,16 @@ export async function createProjectTask(projectId: string, _: ActionState, formD
     await assertProjectAccess(projectId, organizationId);
     const data = parseForm(projectTaskSchema, formData);
     const assignees = await normalizeAssignees(formData, organizationId);
-    const image = formData.get("image");
-    const imageId = image instanceof File && image.size > 0 ? await saveReceipt(image, { organizationId, projectId, entityType: "ProjectTask" }) : null;
+    const attachmentIds = await saveTaskFiles(formData, organizationId, projectId);
     const task = await ProjectTask.create({
       ...data,
       ...assignees,
       color: data.color || fallbackTaskColor(`${data.title}-${Date.now()}`),
       organizationId,
       projectId,
-      imageId,
+      imageId: attachmentIds[0] ?? null,
+      attachmentIds,
+      activity: [activity(session.user.userId, "created", { status: data.status, priority: data.priority })],
       createdBy: session.user.userId
     });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Created", entityType: "ProjectTask", entityId: task._id.toString(), metadata: { projectId, status: data.status } });
@@ -107,9 +117,16 @@ export async function updateProjectTask(taskId: string, projectId: string, _: Ac
     const assignees = await normalizeAssignees(formData, organizationId);
     const update: Record<string, unknown> = { ...data, ...assignees };
     if (!data.color) update.color = fallbackTaskColor(`${data.title}-${taskId}`);
-    const image = formData.get("image");
-    if (image instanceof File && image.size > 0) update.imageId = await saveReceipt(image, { organizationId, projectId, taskId, entityType: "ProjectTask" });
-    const updated = await ProjectTask.findOneAndUpdate(taskManageQuery(taskId, projectId, organizationId, session), update, { runValidators: true }).lean() as any;
+    const attachmentIds = await saveTaskFiles(formData, organizationId, projectId, taskId);
+    const updateCommand: Record<string, unknown> = {
+      $set: update,
+      $push: { activity: activity(session.user.userId, "updated", { status: data.status, priority: data.priority, severity: data.severity }) }
+    };
+    if (attachmentIds.length) {
+      update.imageId = attachmentIds[0];
+      updateCommand.$addToSet = { attachmentIds: { $each: attachmentIds } };
+    }
+    const updated = await ProjectTask.findOneAndUpdate(taskManageQuery(taskId, projectId, organizationId, session), updateCommand, { runValidators: true }).lean() as any;
     if (!updated) throw new Error("Task not found or not allowed");
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Updated", entityType: "ProjectTask", entityId: taskId, metadata: { projectId, status: data.status } });
     const previousAssignees = new Set([updated.assigneeId?.toString?.(), ...(updated.assigneeIds ?? []).map((id: any) => id.toString())].filter(Boolean));
@@ -137,13 +154,24 @@ export async function moveProjectTask(taskId: string, projectId: string, status:
     const task = await ProjectTask.findOne(taskManageQuery(taskId, projectId, organizationId, session));
     if (!task) throw new Error("Task not found or not allowed");
     const update: Record<string, unknown> = { status };
+    if (status === "in_progress" && task.timerStatus !== "running") {
+      update.timerStatus = "running";
+      update.startedAt = task.startedAt ?? now;
+      update.lastTimerStartedAt = now;
+      update.completedAt = null;
+    }
+    if (status !== "in_progress" && status !== "complete" && task.timerStatus === "running") {
+      update.timerStatus = "paused";
+      update.lastTimerStartedAt = null;
+      update.accumulatedSeconds = Number(task.accumulatedSeconds ?? 0) + secondsBetween(task.lastTimerStartedAt, now);
+    }
     if (status === "complete") {
       update.timerStatus = "stopped";
       update.completedAt = task.completedAt ?? now;
       update.lastTimerStartedAt = null;
       update.accumulatedSeconds = Number(task.accumulatedSeconds ?? 0) + (task.timerStatus === "running" ? secondsBetween(task.lastTimerStartedAt, now) : 0);
     }
-    await ProjectTask.updateOne({ _id: task._id }, update, { runValidators: true });
+    await ProjectTask.updateOne({ _id: task._id }, { $set: update, $push: { activity: activity(session.user.userId, "moved", { status }) } }, { runValidators: true });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Status Updated", entityType: "ProjectTask", entityId: taskId, metadata: { projectId, status } });
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/tasks");
@@ -175,6 +203,7 @@ export async function updateProjectTaskTimer(taskId: string, projectId: string, 
       if (task.status === "to_do") update.status = "in_progress";
     }
     if (command === "pause") {
+      if (session.user.role === "staff") throw new Error("Move the task to another status to stop staff time tracking");
       update.timerStatus = "paused";
       update.accumulatedSeconds = accumulated + runningSeconds;
       update.lastTimerStartedAt = null;
@@ -187,12 +216,71 @@ export async function updateProjectTaskTimer(taskId: string, projectId: string, 
       update.lastTimerStartedAt = null;
     }
 
-    await ProjectTask.updateOne({ _id: task._id }, update, { runValidators: true });
+    await ProjectTask.updateOne({ _id: task._id }, { $set: update, $push: { activity: activity(session.user.userId, `timer_${command}`) } }, { runValidators: true });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: `Project Task Timer ${command}`, entityType: "ProjectTask", entityId: taskId, metadata: { projectId } });
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/tasks");
     await sendDueTaskNotifications({ organizationId }).catch(() => undefined);
     return { ok: true, message: command === "start" ? "Timer started" : command === "pause" ? "Timer paused" : "Task completed" };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function bulkStartProjectTasks(taskIds: string[]): Promise<ActionState> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await requireRole(["owner", "admin"]);
+    await connectToDatabase();
+    const ids = Array.from(new Set(taskIds.filter(Boolean)));
+    if (!ids.length) throw new Error("Select at least one task");
+    const now = new Date();
+    const tasks = await ProjectTask.find({ _id: { $in: ids }, organizationId, status: { $ne: "complete" } }).select("_id projectId startedAt").lean() as any[];
+    if (tasks.length) {
+      await ProjectTask.bulkWrite(tasks.map((task) => ({
+        updateOne: {
+          filter: { _id: task._id, organizationId },
+          update: {
+            $set: { status: "in_progress", timerStatus: "running", startedAt: task.startedAt ?? now, lastTimerStartedAt: now, completedAt: null },
+            $push: { activity: activity(session.user.userId, "bulk_timer_start") }
+          },
+          runValidators: true
+        }
+      })) as any);
+    }
+    const projectIds = Array.from(new Set(tasks.map((task) => task.projectId?.toString?.()).filter(Boolean)));
+    projectIds.forEach((id) => revalidatePath(`/projects/${id}`));
+    revalidatePath("/tasks");
+    await sendDueTaskNotifications({ organizationId }).catch(() => undefined);
+    return { ok: true, message: `Started ${tasks.length} task timers` };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function addProjectTaskComment(taskId: string, projectId: string, _: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await requireRole(["owner", "admin", "staff"]);
+    await connectToDatabase();
+    await assertProjectAccess(projectId, organizationId);
+    const message = String(formData.get("message") ?? "").trim();
+    if (message.length < 2) throw new Error("Comment must be at least 2 characters");
+    if (message.length > 1000) throw new Error("Comment must be 1000 characters or less");
+    const updated = await ProjectTask.findOneAndUpdate(
+      taskManageQuery(taskId, projectId, organizationId, session),
+      {
+        $push: {
+          comments: { userId: session.user.userId, message, createdAt: new Date() },
+          activity: activity(session.user.userId, "commented")
+        }
+      },
+      { runValidators: true }
+    ).lean();
+    if (!updated) throw new Error("Task not found or not allowed");
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/tasks");
+    return { ok: true, message: "Comment added" };
   } catch (error) {
     return actionError(error);
   }
@@ -225,6 +313,7 @@ export async function deleteProjectTask(formData: FormData) {
   const task = (await ProjectTask.findOneAndDelete(taskManageQuery(taskId, projectId, organizationId, session)).lean()) as any;
   if (!task) throw new Error("Task not found or not allowed");
   if (task?.imageId) await deleteReceipt(task.imageId.toString()).catch(() => undefined);
+  for (const id of task?.attachmentIds ?? []) await deleteReceipt(id.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Deleted", entityType: "ProjectTask", entityId: taskId, metadata: { projectId } });
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/tasks");
