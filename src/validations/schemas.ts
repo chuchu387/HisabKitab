@@ -69,7 +69,11 @@ export const userSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).optional().or(z.literal("")),
   role: z.enum(roles).refine((role) => role !== "super_admin", "Organization users cannot be Super Admin"),
-  active: z.coerce.boolean().default(true)
+  active: z.coerce.boolean().default(true),
+  canCreateTask: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
+  canAssignTask: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
+  canCreateFolder: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
+  canManageFolderProjects: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false))
 });
 
 export const projectSchema = z
@@ -193,6 +197,7 @@ export const generalFundSchema = z.object({
 });
 
 export const projectTaskSchema = z.object({
+  folderId: z.string().optional().nullable(),
   title: z.string().min(2).max(160),
   description: z.string().max(1000).optional().default(""),
   status: z.enum(projectTaskStatuses).default("to_do"),
@@ -203,6 +208,13 @@ export const projectTaskSchema = z.object({
   assigneeId: z.string().optional().nullable(),
   estimatedHours: z.coerce.number().min(0).default(0),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().or(z.literal("")).default("")
+});
+
+export const taskFolderSchema = z.object({
+  name: z.string().min(2).max(120),
+  description: z.string().max(500).optional().default(""),
+  projectIds: z.array(z.string()).default([]),
+  active: z.coerce.boolean().default(true)
 });
 
 export const reportFilterSchema = z.object({

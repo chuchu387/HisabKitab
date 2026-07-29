@@ -17,8 +17,13 @@ export async function createUser(_: ActionState, formData: FormData): Promise<Ac
     await requireRole(["owner"]);
     await connectToDatabase();
     const data = parseForm(userSchema.required({ password: true }), formData);
+    const taskPermissions = taskPermissionsFrom(data);
     const user = await User.create({
-      ...data,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      active: data.active,
+      taskPermissions,
       organizationId,
       createdBy: session.user.userId,
       password: await bcrypt.hash(String(data.password), 12)
@@ -38,7 +43,7 @@ export async function updateUser(id: string, _: ActionState, formData: FormData)
     await requireRole(["owner"]);
     await connectToDatabase();
     const data = parseForm(userSchema, formData);
-    const update: Record<string, unknown> = { name: data.name, email: data.email, role: data.role, active: data.active };
+    const update: Record<string, unknown> = { name: data.name, email: data.email, role: data.role, active: data.active, taskPermissions: taskPermissionsFrom(data) };
     if (data.password) update.password = await bcrypt.hash(data.password, 12);
     await User.findOneAndUpdate({ _id: id, organizationId }, update, { runValidators: true });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "User Updated", entityType: "User", entityId: id, metadata: { email: data.email, role: data.role } });
@@ -47,6 +52,15 @@ export async function updateUser(id: string, _: ActionState, formData: FormData)
   } catch (error) {
     return actionError(error);
   }
+}
+
+function taskPermissionsFrom(data: any) {
+  return {
+    canCreateTask: Boolean(data.canCreateTask),
+    canAssignTask: Boolean(data.canAssignTask),
+    canCreateFolder: Boolean(data.canCreateFolder),
+    canManageFolderProjects: Boolean(data.canManageFolderProjects)
+  };
 }
 
 export async function disableUser(formData: FormData) {

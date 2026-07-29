@@ -5,6 +5,7 @@ const projectTaskSchema = new Schema(
   {
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true, index: true },
+    folderId: { type: Schema.Types.ObjectId, ref: "TaskFolder", default: null, index: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
     status: { type: String, enum: projectTaskStatuses, default: "to_do", index: true },
@@ -41,6 +42,7 @@ const projectTaskSchema = new Schema(
 );
 
 projectTaskSchema.index({ organizationId: 1, projectId: 1, status: 1 });
+projectTaskSchema.index({ organizationId: 1, folderId: 1, status: 1 });
 projectTaskSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
 projectTaskSchema.index({ organizationId: 1, dueDate: 1, status: 1 });
 projectTaskSchema.index({ organizationId: 1, milestone: 1, status: 1 });

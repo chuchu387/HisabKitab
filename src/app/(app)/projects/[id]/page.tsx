@@ -12,6 +12,7 @@ import { formatDate, isObjectId, money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { ProjectTask } from "@/models/ProjectTask";
+import { TaskFolder } from "@/models/TaskFolder";
 import { User } from "@/models/User";
 import { getProjectFinancials } from "@/services/accounting";
 
@@ -25,14 +26,20 @@ export default async function ProjectDetailPage({ params, searchParams }: any) {
   const queryParams = await searchParams;
   const projectId = routeParams.id;
   if (!isObjectId(projectId)) notFound();
-  const [financials, projectExpenses, tasks, assignees] = await Promise.all([
+  const [financials, projectExpenses, tasks, folders, assignees, currentUser] = await Promise.all([
     getProjectFinancials(organizationId, projectId),
     Expense.find({ organizationId, projectId }).populate("categoryId createdBy").sort({ expenseDate: -1 }).lean(),
-    ProjectTask.find({ organizationId, projectId }).populate("assigneeId assigneeIds createdBy comments.userId activity.userId").sort({ createdAt: -1 }).lean(),
-    User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean()
+    ProjectTask.find({ organizationId, projectId }).populate("folderId assigneeId assigneeIds createdBy comments.userId activity.userId").sort({ createdAt: -1 }).lean(),
+    TaskFolder.find({ organizationId, active: true, projectIds: projectId }).populate("projectIds createdBy").sort({ name: 1 }).lean(),
+    User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean(),
+    User.findOne({ _id: session.user.userId, organizationId }).select("taskPermissions").lean()
   ]);
   if (!financials.project) notFound();
   const canManage = ["owner", "admin"].includes(session.user.role);
+  const fallbackTaskPermissions = session.user.role === "staff"
+    ? { canCreateTask: true, canAssignTask: false, canCreateFolder: false, canManageFolderProjects: false }
+    : { canCreateTask: true, canAssignTask: true, canCreateFolder: true, canManageFolderProjects: true };
+  const taskPermissions = session.user.role === "owner" ? fallbackTaskPermissions : { ...fallbackTaskPermissions, ...((currentUser as any)?.taskPermissions ?? {}) };
   return (
     <PageShell
       title={financials.project.name}
@@ -82,7 +89,7 @@ export default async function ProjectDetailPage({ params, searchParams }: any) {
           { header: "Open", cell: (expense: any) => <Button asChild variant="outline" size="sm"><Link href={`/expenses/${expense._id}`}>View</Link></Button> }
         ]} />
       </section>
-      <ProjectTasksPanel projectId={projectId} tasks={JSON.parse(JSON.stringify(tasks))} assignees={JSON.parse(JSON.stringify(assignees))} currentRole={session.user.role} />
+      <ProjectTasksPanel projectId={projectId} tasks={JSON.parse(JSON.stringify(tasks))} folders={JSON.parse(JSON.stringify(folders))} assignees={JSON.parse(JSON.stringify(assignees))} currentRole={session.user.role} taskPermissions={taskPermissions} />
     </PageShell>
   );
 }

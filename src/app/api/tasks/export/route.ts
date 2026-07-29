@@ -53,6 +53,10 @@ function taskQuery(searchParams: URLSearchParams, organizationId: string) {
     const projectId = safeObjectId(searchParams.get("projectId"));
     if (projectId) query.projectId = projectId;
   }
+  if (searchParams.get("folderId")) {
+    const folderId = safeObjectId(searchParams.get("folderId"));
+    if (folderId) query.folderId = folderId;
+  }
   if (searchParams.get("assigneeId")) {
     const assigneeId = safeObjectId(searchParams.get("assigneeId"));
     if (assigneeId) query.$and = [{ $or: [{ assigneeId }, { assigneeIds: assigneeId }] }];

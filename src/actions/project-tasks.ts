@@ -5,6 +5,7 @@ import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { Project } from "@/models/Project";
 import { ProjectTask } from "@/models/ProjectTask";
+import { TaskFolder } from "@/models/TaskFolder";
 import { User } from "@/models/User";
 import { actionError, parseForm } from "@/actions/helpers";
 import { projectTaskSchema } from "@/validations/schemas";
@@ -18,6 +19,26 @@ import type { ActionState } from "@/types";
 async function assertProjectAccess(projectId: string, organizationId: string) {
   const project = await Project.exists({ _id: projectId, organizationId });
   if (!project) throw new Error("Project not found");
+}
+
+async function assertFolderProjectAccess(folderId: string | null | undefined, projectId: string, organizationId: string) {
+  if (!folderId) return null;
+  const folder = await TaskFolder.findOne({ _id: folderId, organizationId, active: true }).select("name projectIds").lean() as any;
+  if (!folder) throw new Error("Task folder not found");
+  const allowed = (folder.projectIds ?? []).map((id: any) => id.toString()).includes(projectId);
+  if (!allowed) throw new Error("Selected project is not inside this task folder");
+  return folderId;
+}
+
+async function currentTaskPermissions(organizationId: string, userId: string, role: string) {
+  if (role === "owner") {
+    return { canCreateTask: true, canAssignTask: true, canCreateFolder: true, canManageFolderProjects: true };
+  }
+  const fallback = role === "admin"
+    ? { canCreateTask: true, canAssignTask: true, canCreateFolder: true, canManageFolderProjects: true }
+    : { canCreateTask: true, canAssignTask: false, canCreateFolder: false, canManageFolderProjects: false };
+  const user = await User.findOne({ _id: userId, organizationId }).select("taskPermissions").lean() as any;
+  return { ...fallback, ...(user?.taskPermissions ?? {}) };
 }
 
 async function normalizeAssignees(formData: FormData, organizationId: string) {
@@ -75,9 +96,12 @@ export async function createProjectTask(projectId: string, _: ActionState, formD
     const { session, organizationId } = await requireTenant();
     await requireRole(["owner", "admin", "staff"]);
     await connectToDatabase();
+    const permissions = await currentTaskPermissions(organizationId, session.user.userId, session.user.role);
+    if (!permissions.canCreateTask) throw new Error("You do not have permission to create tasks");
     await assertProjectAccess(projectId, organizationId);
     const data = parseForm(projectTaskSchema, formData);
-    const assignees = await normalizeAssignees(formData, organizationId);
+    await assertFolderProjectAccess(data.folderId, projectId, organizationId);
+    const assignees = permissions.canAssignTask ? await normalizeAssignees(formData, organizationId) : { assigneeId: session.user.userId, assigneeIds: [session.user.userId] };
     const attachmentIds = await saveTaskFiles(formData, organizationId, projectId);
     const task = await ProjectTask.create({
       ...data,
@@ -85,6 +109,7 @@ export async function createProjectTask(projectId: string, _: ActionState, formD
       color: data.color || fallbackTaskColor(`${data.title}-${Date.now()}`),
       organizationId,
       projectId,
+      folderId: data.folderId || null,
       imageId: attachmentIds[0] ?? null,
       attachmentIds,
       activity: [activity(session.user.userId, "created", { status: data.status, priority: data.priority })],
@@ -112,10 +137,13 @@ export async function updateProjectTask(taskId: string, projectId: string, _: Ac
     const { session, organizationId } = await requireTenant();
     await requireRole(["owner", "admin", "staff"]);
     await connectToDatabase();
+    const permissions = await currentTaskPermissions(organizationId, session.user.userId, session.user.role);
     await assertProjectAccess(projectId, organizationId);
     const data = parseForm(projectTaskSchema, formData);
-    const assignees = await normalizeAssignees(formData, organizationId);
-    const update: Record<string, unknown> = { ...data, ...assignees };
+    await assertFolderProjectAccess(data.folderId, projectId, organizationId);
+    const assignees = permissions.canAssignTask ? await normalizeAssignees(formData, organizationId) : null;
+    const update: Record<string, unknown> = { ...data, folderId: data.folderId || null };
+    if (assignees) Object.assign(update, assignees);
     if (!data.color) update.color = fallbackTaskColor(`${data.title}-${taskId}`);
     const attachmentIds = await saveTaskFiles(formData, organizationId, projectId, taskId);
     const updateCommand: Record<string, unknown> = {
@@ -130,9 +158,9 @@ export async function updateProjectTask(taskId: string, projectId: string, _: Ac
     if (!updated) throw new Error("Task not found or not allowed");
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Updated", entityType: "ProjectTask", entityId: taskId, metadata: { projectId, status: data.status } });
     const previousAssignees = new Set([updated.assigneeId?.toString?.(), ...(updated.assigneeIds ?? []).map((id: any) => id.toString())].filter(Boolean));
-    const addedAssignees = assignees.assigneeIds.filter((assigneeId) => !previousAssignees.has(assigneeId));
+    const addedAssignees = assignees ? assignees.assigneeIds.filter((assigneeId) => !previousAssignees.has(assigneeId)) : [];
     if (addedAssignees.length) {
-      await sendTaskAssignmentEmail(organizationId, projectId, { ...updated, ...data, assigneeId: assignees.assigneeId, assigneeIds: addedAssignees }).catch(() => undefined);
+      await sendTaskAssignmentEmail(organizationId, projectId, { ...updated, ...data, assigneeId: assignees?.assigneeId, assigneeIds: addedAssignees }).catch(() => undefined);
     }
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/tasks");

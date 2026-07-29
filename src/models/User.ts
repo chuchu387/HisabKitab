@@ -9,6 +9,12 @@ const userSchema = new Schema(
     password: { type: String, required: true, select: false },
     role: { type: String, enum: roles, required: true, index: true },
     active: { type: Boolean, default: true, index: true },
+    taskPermissions: {
+      canCreateTask: { type: Boolean, default: true },
+      canAssignTask: { type: Boolean, default: false },
+      canCreateFolder: { type: Boolean, default: false },
+      canManageFolderProjects: { type: Boolean, default: false }
+    },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null }
   },
   { timestamps: true }

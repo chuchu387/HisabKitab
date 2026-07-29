@@ -5,6 +5,7 @@ import { useActionState, useEffect, useMemo, useState, useTransition } from "rea
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock, Download, Flag, ImageIcon, ListChecks, MessageSquare, Pause, Play, Plus, TimerReset, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { addProjectTaskComment, bulkStartProjectTasks, createGlobalProjectTask, createProjectTask, deleteProjectTask, moveProjectTask, updateProjectTask, updateProjectTaskTimer } from "@/actions/project-tasks";
+import { createTaskFolder, updateTaskFolder } from "@/actions/task-folders";
 import { ActionMessage } from "@/components/action-message";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { Button } from "@/components/ui/button";
@@ -30,15 +31,19 @@ export function TaskKanban({
   projectId,
   tasks,
   projects,
+  folders,
   assignees,
   currentRole,
+  taskPermissions,
   title = "To Do Checklist"
 }: {
   projectId?: string;
   tasks: ProjectTaskLike[];
   projects: any[];
+  folders: any[];
   assignees: any[];
   currentRole: string;
+  taskPermissions: any;
   title?: string;
 }) {
   const [items, setItems] = useState(tasks);
@@ -48,6 +53,7 @@ export function TaskKanban({
   const [view, setView] = useState<"kanban" | "calendar" | "milestones" | "time" | "sla">("kanban");
   const [queryString, setQueryString] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [showFolders, setShowFolders] = useState(false);
   const [isMoving, startMove] = useTransition();
   const [isBulkStarting, startBulkStart] = useTransition();
   const totalHours = items.reduce((sum, task) => sum + (Number(task.estimatedHours) || 0), 0);
@@ -135,10 +141,16 @@ export function TaskKanban({
           <ViewButton active={view === "sla"} onClick={() => setView("sla")} icon={<AlertTriangle className="h-4 w-4" />} label="SLA" />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="default" size="sm" onClick={() => setShowCreate((value) => !value)}>
+          {taskPermissions.canCreateFolder && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowFolders((value) => !value)}>
+              <Flag className="h-4 w-4" />
+              {showFolders ? "Hide Folders" : "Task Folders"}
+            </Button>
+          )}
+          {taskPermissions.canCreateTask && <Button type="button" variant="default" size="sm" onClick={() => setShowCreate((value) => !value)}>
             <Plus className="h-4 w-4" />
             {showCreate ? "Hide Form" : "New Task"}
-          </Button>
+          </Button>}
           {canBulkStart && (
             <Button type="button" variant="outline" size="sm" disabled={isBulkStarting || checkedIds.length === 0} onClick={bulkStart}>
               <TimerReset className="h-4 w-4" />
@@ -148,7 +160,8 @@ export function TaskKanban({
         </div>
       </div>
 
-      {showCreate && <TaskCreateForm fixedProjectId={projectId} projects={projects} assignees={assignees} />}
+      {showFolders && <TaskFolderManager folders={folders} projects={projects} canManageProjects={taskPermissions.canManageFolderProjects} />}
+      {showCreate && <TaskCreateForm fixedProjectId={projectId} projects={projects} folders={folders} assignees={assignees} canAssign={taskPermissions.canAssignTask} />}
 
       {view === "kanban" && <div className="grid gap-4 xl:grid-cols-4">
         {statuses.map((status) => {
@@ -196,8 +209,10 @@ export function TaskKanban({
       {selected && (
         <TaskDetailDialog
           task={items.find((item) => item._id === selected._id) ?? selected}
+          folders={folders}
           assignees={assignees}
           currentRole={currentRole}
+          canAssign={taskPermissions.canAssignTask}
           onClose={() => setSelected(null)}
           onLocalUpdate={(updated) => setItems((current) => current.map((item) => item._id === updated._id ? { ...item, ...updated } : item))}
         />
@@ -206,17 +221,30 @@ export function TaskKanban({
   );
 }
 
-function TaskCreateForm({ fixedProjectId, projects, assignees }: { fixedProjectId?: string; projects: any[]; assignees: any[] }) {
+function TaskCreateForm({ fixedProjectId, projects, folders, assignees, canAssign }: { fixedProjectId?: string; projects: any[]; folders: any[]; assignees: any[]; canAssign: boolean }) {
   const action = fixedProjectId ? createProjectTask.bind(null, fixedProjectId) : createGlobalProjectTask;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [folderId, setFolderId] = useState("");
+  const folder = folders.find((item) => item._id === folderId);
+  const availableProjects = folder ? (folder.projectIds ?? []) : projects;
+  const availableFolders = fixedProjectId
+    ? folders.filter((item) => (item.projectIds ?? []).some((project: any) => (project._id ?? project)?.toString?.() === fixedProjectId || String(project._id ?? project) === fixedProjectId))
+    : folders;
 
   return (
-    <form action={formAction} encType="multipart/form-data" className="grid gap-4 rounded-lg border bg-card p-4 sm:p-5 md:grid-cols-2">
+    <form action={formAction} encType="multipart/form-data" className="grid gap-3 rounded-lg border bg-card p-3 sm:p-4 md:grid-cols-4">
       <Field name="title" label="Task" placeholder="Task title" />
+      <div className="space-y-2">
+        <Label>Folder</Label>
+        <Select name="folderId" value={folderId} onChange={(event) => setFolderId(event.target.value)}>
+          <option value="">Unfiled</option>
+          {availableFolders.map((folder) => <option key={folder._id} value={folder._id}>{folder.name}</option>)}
+        </Select>
+      </div>
       {!fixedProjectId && (
         <div className="space-y-2">
           <Label>Project</Label>
-          <ProjectSelect projects={projects} />
+          <ProjectSelect projects={availableProjects} />
         </div>
       )}
       <div className="space-y-2">
@@ -235,24 +263,24 @@ function TaskCreateForm({ fixedProjectId, projects, assignees }: { fixedProjectI
       </div>
       <Field name="dueDate" label="Due Date" type="date" />
       <Field name="milestone" label="Milestone" placeholder="Sprint 1, QA, Launch" />
-      <div className="space-y-2">
+      {canAssign && <div className="space-y-2 md:col-span-2">
         <Label>Assign To</Label>
         <AssigneeChecklist assignees={assignees} />
-      </div>
+      </div>}
       <Field name="estimatedHours" label="Estimated Hours" type="number" min="0" step="0.25" defaultValue="0" />
       <div className="space-y-2">
         <Label>Task Color</Label>
         <Input name="color" type="color" defaultValue="#2563eb" className="h-10 p-1" />
       </div>
-      <div className="space-y-2 md:col-span-2">
+      <div className="space-y-2 md:col-span-4">
         <Label>Description</Label>
         <Textarea name="description" placeholder="Task details" />
       </div>
-      <div className="space-y-2 md:col-span-2">
+      <div className="space-y-2 md:col-span-4">
         <Label>Task Attachments</Label>
         <Input name="attachments" type="file" accept="image/*" multiple />
       </div>
-      <div className="grid gap-3 sm:flex sm:items-center sm:justify-between md:col-span-2">
+      <div className="grid gap-3 sm:flex sm:items-center sm:justify-between md:col-span-4">
         <ActionMessage state={state} />
         <Button disabled={pending}>
           <Plus className="h-4 w-4" />
@@ -260,6 +288,74 @@ function TaskCreateForm({ fixedProjectId, projects, assignees }: { fixedProjectI
         </Button>
       </div>
     </form>
+  );
+}
+
+function TaskFolderManager({ folders, projects, canManageProjects }: { folders: any[]; projects: any[]; canManageProjects: boolean }) {
+  const [state, formAction, pending] = useActionState(createTaskFolder, initialState);
+  return (
+    <div className="grid gap-4 rounded-lg border bg-card p-3 sm:p-4 xl:grid-cols-[360px_1fr]">
+      <form action={formAction} className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold">Create Task Folder</h3>
+          <p className="text-xs text-muted-foreground">Group projects first, then create tasks inside that project context.</p>
+        </div>
+        <Field name="name" label="Folder Name" placeholder="Sharp Line QA" />
+        <div className="space-y-2">
+          <Label>Description</Label>
+          <Textarea name="description" placeholder="What this folder is for" rows={3} />
+        </div>
+        <ProjectChecklist projects={projects} disabled={!canManageProjects} />
+        <input type="hidden" name="active" value="true" />
+        <ActionMessage state={state} />
+        <Button size="sm" disabled={pending}>{pending ? "Creating..." : "Create Folder"}</Button>
+      </form>
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold">Folders</h3>
+        <div className="grid max-h-[360px] gap-3 overflow-y-auto overscroll-contain pr-1 md:grid-cols-2">
+          {folders.length ? folders.map((folder) => (
+            <TaskFolderCard key={folder._id} folder={folder} projects={projects} canManageProjects={canManageProjects} />
+          )) : <p className="text-sm text-muted-foreground">No task folders yet</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskFolderCard({ folder, projects, canManageProjects }: { folder: any; projects: any[]; canManageProjects: boolean }) {
+  const [state, formAction, pending] = useActionState(updateTaskFolder.bind(null, folder._id), initialState);
+  return (
+    <form action={formAction} className="space-y-3 rounded-lg border bg-background p-3">
+      <Field name="name" label="Folder" defaultValue={folder.name} />
+      <div className="space-y-2">
+        <Label>Description</Label>
+        <Textarea name="description" defaultValue={folder.description} rows={2} />
+      </div>
+      <ProjectChecklist projects={projects} selectedIds={(folder.projectIds ?? []).map((project: any) => project._id?.toString?.() ?? project.toString())} disabled={!canManageProjects} />
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={folder.active ?? true} className="h-4 w-4 rounded border-input accent-primary" /> Active</label>
+      <ActionMessage state={state} />
+      <Button size="sm" variant="outline" disabled={pending || !canManageProjects}>{pending ? "Saving..." : "Save Folder"}</Button>
+    </form>
+  );
+}
+
+function ProjectChecklist({ projects, selectedIds = [], disabled = false }: { projects: any[]; selectedIds?: string[]; disabled?: boolean }) {
+  const selected = new Set(selectedIds);
+  return (
+    <div className="space-y-2">
+      <Label>Projects</Label>
+      <div className="grid max-h-40 gap-2 overflow-y-auto rounded-md border bg-card p-2 overscroll-contain">
+        {projects.length ? projects.map((project) => {
+          const id = project._id?.toString?.() ?? String(project._id);
+          return (
+            <label key={id} className="flex min-w-0 items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
+              <input name="projectIds" type="checkbox" value={id} defaultChecked={selected.has(id)} disabled={disabled} className="h-4 w-4 rounded border-input accent-primary disabled:opacity-50" />
+              <span className="truncate">{project.name} <span className="text-xs text-muted-foreground">({project.code})</span></span>
+            </label>
+          );
+        }) : <p className="px-2 py-1.5 text-sm text-muted-foreground">No projects available</p>}
+      </div>
+    </div>
   );
 }
 
@@ -311,7 +407,7 @@ function CompactTaskCard({ task, checked, canSelect, onChecked, onOpen, onDragSt
   );
 }
 
-function TaskDetailDialog({ task, assignees, currentRole, onClose, onLocalUpdate }: { task: ProjectTaskLike; assignees: any[]; currentRole: string; onClose: () => void; onLocalUpdate: (task: ProjectTaskLike) => void }) {
+function TaskDetailDialog({ task, folders, assignees, currentRole, canAssign, onClose, onLocalUpdate }: { task: ProjectTaskLike; folders: any[]; assignees: any[]; currentRole: string; canAssign: boolean; onClose: () => void; onLocalUpdate: (task: ProjectTaskLike) => void }) {
   const projectId = getProjectId(task);
   const [state, formAction, pending] = useActionState(updateProjectTask.bind(null, task._id, projectId), initialState);
   const [isTimerPending, startTimerTransition] = useTransition();
@@ -378,9 +474,13 @@ function TaskDetailDialog({ task, assignees, currentRole, onClose, onLocalUpdate
                 <StatusSelect defaultValue={task.status} />
               </div>
               <div className="space-y-2">
+                <Label>Folder</Label>
+                <FolderSelect folders={folders} projectId={projectId} defaultValue={task.folderId?._id ?? task.folderId ?? ""} />
+              </div>
+              {canAssign && <div className="space-y-2">
                 <Label>Assign To</Label>
                 <AssigneeChecklist assignees={assignees} selectedIds={taskAssigneeIds(task)} compact />
-              </div>
+              </div>}
               <div className="space-y-2">
                 <Label>Priority</Label>
                 <PrioritySelect defaultValue={task.priority ?? "medium"} />
@@ -472,6 +572,19 @@ function ProjectSelect({ projects }: { projects: any[] }) {
       {projects.map((project) => (
         <option key={project._id} value={project._id}>{project.name} ({project.code})</option>
       ))}
+    </Select>
+  );
+}
+
+function FolderSelect({ folders, projectId, defaultValue = "" }: { folders: any[]; projectId: string; defaultValue?: string }) {
+  const availableFolders = folders.filter((folder) => (folder.projectIds ?? []).some((project: any) => {
+    const id = project._id?.toString?.() ?? project.toString();
+    return id === projectId;
+  }));
+  return (
+    <Select name="folderId" defaultValue={defaultValue}>
+      <option value="">Unfiled</option>
+      {availableFolders.map((folder) => <option key={folder._id} value={folder._id}>{folder.name}</option>)}
     </Select>
   );
 }
