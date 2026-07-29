@@ -8,6 +8,7 @@ import { ManualJournalEntry } from "@/models/ManualJournalEntry";
 import { OpeningBalance } from "@/models/OpeningBalance";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
+import { paymentBreakdown } from "@/services/project-payment-accounting";
 
 void ExpenseCategory;
 
@@ -47,7 +48,7 @@ export async function getDerivedLedger(organizationId: string, from?: string, to
     return Object.keys(range).length ? { [field]: range } : {};
   };
   const [payments, funds, expenses, openingBalances, bankAccounts, journals] = await Promise.all([
-    ProjectPayment.find({ organizationId: oid, ...dateMatch("paymentDate") }).populate("projectId bankAccountId").sort({ paymentDate: 1 }).lean(),
+    ProjectPayment.find({ organizationId: oid, ...dateMatch("paymentDate") }).populate("projectId bankAccountId invoiceId").sort({ paymentDate: 1 }).lean(),
     GeneralFund.find({ organizationId: oid, ...dateMatch("fundDate") }).populate("bankAccountId").sort({ fundDate: 1 }).lean(),
     Expense.find({ organizationId: oid, approvalStatus: "approved", ...dateMatch("expenseDate") }).populate("projectId categoryId bankAccountId").sort({ expenseDate: 1 }).lean(),
     OpeningBalance.find({ organizationId: oid }).sort({ createdAt: 1 }).lean(),
@@ -66,8 +67,10 @@ export async function getDerivedLedger(organizationId: string, from?: string, to
   }
   for (const payment of payments as any[]) {
     const memo = `Client payment: ${payment.projectId?.name ?? "Project"}`;
-    entries.push(line(payment.paymentDate, "ProjectPayment", payment._id, "1000", cashAccountName(payment.bankAccountId), memo, payment.amount, 0));
-    entries.push(line(payment.paymentDate, "ProjectPayment", payment._id, "4000", "Client Project Revenue", memo, 0, payment.amount));
+    const breakdown = paymentBreakdown(payment);
+    entries.push(line(payment.paymentDate, "ProjectPayment", payment._id, "1000", cashAccountName(payment.bankAccountId), memo, breakdown.cashAmount, 0));
+    entries.push(line(payment.paymentDate, "ProjectPayment", payment._id, "4000", "Client Project Revenue", memo, 0, breakdown.serviceAmount));
+    if (breakdown.vatPortion > 0) entries.push(line(payment.paymentDate, "ProjectPayment", payment._id, "2000", "Tax Payable", `Output VAT: ${payment.projectId?.name ?? "Project"}`, 0, breakdown.vatPortion));
   }
   for (const fund of funds as any[]) {
     const memo = `Owner/other fund: ${fund.note || "Fund added"}`;

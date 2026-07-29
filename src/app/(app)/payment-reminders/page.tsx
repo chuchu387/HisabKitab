@@ -11,6 +11,7 @@ import { Client } from "@/models/Client";
 import { EmailLog } from "@/models/EmailLog";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
+import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
 export default async function PaymentRemindersPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
@@ -22,8 +23,9 @@ export default async function PaymentRemindersPage({ searchParams }: any) {
     Project.find({ organizationId, projectType: "client", totalBudget: { $gt: 0 } }).populate({ path: "clientId", model: Client, select: "name email contactPerson" }).sort({ endDate: 1 }).lean(),
     ProjectPayment.aggregate([
       { $match: { organizationId: oid } },
+      ...paymentAccountingStages(),
       { $sort: { paymentDate: -1 } },
-      { $group: { _id: "$projectId", lastPaymentDate: { $first: "$paymentDate" }, totalPaid: { $sum: "$amount" } } }
+      { $group: { _id: "$projectId", lastPaymentDate: { $first: "$paymentDate" }, totalPaid: { $sum: "$serviceAmountForAccounting" } } }
     ]),
     EmailLog.aggregate([
       { $match: { organizationId: oid, template: "payment_due_reminder", entityType: "Project" } },

@@ -15,6 +15,7 @@ import { money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
+import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
 export default async function ProjectsPage({ searchParams }: any) {
   const { organizationId, session } = await requireTenant();
@@ -32,13 +33,15 @@ export default async function ProjectsPage({ searchParams }: any) {
       { $sort: { createdAt: -1 } },
       { $skip: skip },
       { $limit: pageSize },
-      { $lookup: { from: ProjectPayment.collection.name, localField: "_id", foreignField: "projectId", as: "payments" } },
+      { $lookup: { from: ProjectPayment.collection.name, let: { projectId: "$_id" }, pipeline: [{ $match: { $expr: { $eq: ["$projectId", "$$projectId"] } } }, ...paymentAccountingStages()], as: "payments" } },
       { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
       { $lookup: { from: "users", localField: "createdBy", foreignField: "_id", as: "creator" } },
       { $lookup: { from: "clients", localField: "clientId", foreignField: "_id", as: "client" } },
       {
         $addFields: {
-          paidTotal: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] },
+          paidTotal: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.serviceAmountForAccounting" }] },
+          cashReceivedTotal: { $sum: "$payments.amount" },
+          vatCollectedTotal: { $sum: "$payments.vatPortionForAccounting" },
           expenseTotal: {
             $sum: {
               $map: {

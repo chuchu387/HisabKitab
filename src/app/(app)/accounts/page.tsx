@@ -75,7 +75,7 @@ async function AccountsContent({ searchParams }: any) {
   const compareBaseLedger = compareQs ? `/ledger?${compareQs}` : baseLedger;
   const compareExpenseBase = compareFilters ? `/expenses?from=${compareFilters.from}&to=${compareFilters.to}&approvalStatus=approved` : expenseBase;
   const summary = statements.summary;
-  const netCashMovementAfterFunds = summary.revenue + summary.ownerFunds - summary.totalExpenses;
+  const netCashMovementAfterFunds = (summary.cashReceived ?? summary.revenue) + summary.ownerFunds - summary.totalExpenses;
   const liabilitiesAndEquity = summary.totalLiabilities + summary.ownerEquity;
   const balanceDifference = summary.totalAssets - liabilitiesAndEquity;
   const balanceRows = withComparison([
@@ -87,6 +87,7 @@ async function AccountsContent({ searchParams }: any) {
     { label: "Total Assets", amount: summary.totalAssets, total: true },
     { label: "Liabilities & Equity", section: true },
     { label: "Current Liabilities", level: 1 },
+    { label: "Output VAT Payable", amount: summary.outputVatCollectedToDate ?? 0, level: 2, href: "/tax" },
     { label: "Estimated Tax Provision", amount: summary.estimatedTaxPayable, level: 2, href: "/tax" },
     { label: "Accounts Payable", amount: 0, level: 2 },
     { label: "Total Liabilities", amount: summary.totalLiabilities, total: true },
@@ -104,6 +105,7 @@ async function AccountsContent({ searchParams }: any) {
     { label: "Total Assets", amount: compareStatements.summary.totalAssets, total: true },
     { label: "Liabilities & Equity", section: true },
     { label: "Current Liabilities", level: 1 },
+    { label: "Output VAT Payable", amount: compareStatements.summary.outputVatCollectedToDate ?? 0, level: 2, href: "/tax" },
     { label: "Estimated Tax Provision", amount: compareStatements.summary.estimatedTaxPayable, level: 2, href: "/tax" },
     { label: "Accounts Payable", amount: 0, level: 2 },
     { label: "Total Liabilities", amount: compareStatements.summary.totalLiabilities, total: true },

@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
   });
   const summaryRows = [
     { section: "Summary", metric: "Total Budget", value: reports.summary.totalBudget },
-    { section: "Summary", metric: "Total Project Received", value: (reports.summary as any).totalReceived ?? 0 },
+    { section: "Summary", metric: "Project Service Received", value: (reports.summary as any).totalReceived ?? 0 },
+    { section: "Summary", metric: "Project Cash Received", value: (reports.summary as any).totalCashReceived ?? (reports.summary as any).totalReceived ?? 0 },
     { section: "Summary", metric: "Due", value: (reports.summary as any).dueAmount ?? 0 },
     { section: "Summary", metric: "Client Project Expenses", value: (reports.summary as any).clientProjectExpenses ?? 0 },
     { section: "Summary", metric: "Internal Project Expenses", value: (reports.summary as any).internalProjectExpenses ?? 0 },

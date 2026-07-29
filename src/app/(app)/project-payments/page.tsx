@@ -18,6 +18,7 @@ import { Invoice } from "@/models/Invoice";
 import { BankAccount } from "@/models/BankAccount";
 import { FiscalYear } from "@/models/FiscalYear";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
+import { paymentBreakdown } from "@/services/project-payment-accounting";
 
 void Project;
 void User;
@@ -47,13 +48,14 @@ export default async function ProjectPaymentsPage({ searchParams }: any) {
     Invoice.find({ organizationId, status: { $ne: "void" } }).populate("clientId").sort({ invoiceDate: -1 }).lean(),
     BankAccount.find({ organizationId, active: true }).sort({ name: 1 }).lean()
   ]);
-  const totalReceived = payments.reduce((sum: number, payment: any) => sum + (payment.amount ?? 0), 0);
-  const clientProjectCount = projects.filter((project: any) => (project.projectType ?? "client") === "client").length;
-  const internalProjectCount = projects.filter((project: any) => project.projectType === "internal").length;
+  const paymentRows = (payments as any[]).map((payment) => ({ ...payment, accounting: paymentBreakdown(payment) }));
+  const totalCashReceived = paymentRows.reduce((sum: number, payment: any) => sum + (payment.accounting.cashAmount ?? 0), 0);
+  const totalServiceReceived = paymentRows.reduce((sum: number, payment: any) => sum + (payment.accounting.serviceAmount ?? 0), 0);
+  const totalVatCollected = paymentRows.reduce((sum: number, payment: any) => sum + (payment.accounting.vatPortion ?? 0), 0);
   const receivedByProject = new Map<string, number>();
-  for (const payment of payments as any[]) {
+  for (const payment of paymentRows as any[]) {
     const projectId = payment.projectId?._id?.toString?.() ?? payment.projectId?.toString?.();
-    if (projectId) receivedByProject.set(projectId, (receivedByProject.get(projectId) ?? 0) + (payment.amount ?? 0));
+    if (projectId) receivedByProject.set(projectId, (receivedByProject.get(projectId) ?? 0) + (payment.accounting.serviceAmount ?? 0));
   }
   const projectSummaries = projects.map((project: any) => {
     const received = (project.receivedAmount ?? 0) > 0 ? project.receivedAmount : (receivedByProject.get(project._id.toString()) ?? 0);
@@ -67,10 +69,10 @@ export default async function ProjectPaymentsPage({ searchParams }: any) {
     <PageShell title="Project Payments" description="Track client payments by project. These records automatically update each project's received total.">
       <FiscalYearLockWarning organizationId={organizationId} />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Payment Received Till Now" value={totalReceived} currency />
+        <StatCard label="Cash Received Till Now" value={totalCashReceived} currency />
+        <StatCard label="Service Received" value={totalServiceReceived} currency />
+        <StatCard label="VAT Collected" value={totalVatCollected} currency />
         <StatCard label="Payment Records" value={payments.length} />
-        <StatCard label="Client Projects" value={clientProjectCount} />
-        <StatCard label="Internal Projects" value={internalProjectCount} />
       </div>
       <ProjectPaymentForm projects={JSON.parse(JSON.stringify(projects))} invoices={JSON.parse(JSON.stringify(invoices))} bankAccounts={JSON.parse(JSON.stringify(bankAccounts))} />
       <FilterForm className="filter-bar">
@@ -95,12 +97,14 @@ export default async function ProjectPaymentsPage({ searchParams }: any) {
       </section>
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Payment History</h2>
-      <DataTable data={payments} pagination={{ basePath: "/project-payments", searchParams: params, pageParam: "historyPage", pageSizeParam: "historyPageSize" }} columns={[
+      <DataTable data={paymentRows} pagination={{ basePath: "/project-payments", searchParams: params, pageParam: "historyPage", pageSizeParam: "historyPageSize" }} columns={[
         { header: "Voucher", cell: (p: any) => p.voucherNumber || "-" },
         { header: "Date", cell: (p: any) => formatDate(p.paymentDate) },
         { header: "FY", cell: (p: any) => fiscalYearLabelForDate(p.paymentDate) },
         { header: "Project", cell: (p: any) => p.projectId?.name ?? "-" },
-        { header: "Amount", cell: (p: any) => money(p.amount) },
+        { header: "Cash", cell: (p: any) => money(p.accounting.cashAmount) },
+        { header: "Service", cell: (p: any) => money(p.accounting.serviceAmount) },
+        { header: "VAT", cell: (p: any) => p.accounting.vatPortion ? money(p.accounting.vatPortion) : "-" },
         { header: "Invoice", cell: (p: any) => p.invoiceId?.invoiceNumber ?? "-" },
         { header: "Account", cell: (p: any) => p.bankAccountId?.name ?? "Default" },
         { header: "Note", cell: (p: any) => p.note || "-" },

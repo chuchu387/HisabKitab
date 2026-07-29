@@ -4,6 +4,7 @@ export function emptyFinancialStatements(from?: string, to?: string) {
   const periodTo = to || today;
   const summary = {
     revenue: 0,
+    cashReceived: 0,
     ownerFunds: 0,
     clientProjectExpenses: 0,
     internalProjectExpenses: 0,
@@ -12,6 +13,8 @@ export function emptyFinancialStatements(from?: string, to?: string) {
     grossProfit: 0,
     netProfitBeforeTax: 0,
     estimatedTaxPayable: 0,
+    outputVatCollected: 0,
+    outputVatCollectedToDate: 0,
     netProfitAfterTax: 0,
     cashAtBank: 0,
     accountsReceivable: 0,

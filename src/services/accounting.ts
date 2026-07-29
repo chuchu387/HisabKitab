@@ -8,6 +8,7 @@ import { GeneralFund } from "@/models/GeneralFund";
 import { User } from "@/models/User";
 import { Client } from "@/models/Client";
 import { safeDate } from "@/lib/utils";
+import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
 export type ReportFilters = {
   organizationId: string;
@@ -70,14 +71,16 @@ export async function getAccountingSummary(organizationId: string, filters: { fr
     Organization.findById(organizationId).lean(),
     Project.aggregate([
       { $match: { organizationId: oid } },
-      { $lookup: { from: ProjectPayment.collection.name, let: { projectId: "$_id" }, pipeline: [{ $match: { $expr: { $eq: ["$projectId", "$$projectId"] }, ...paymentDateMatch } }], as: "payments" } },
+      { $lookup: { from: ProjectPayment.collection.name, let: { projectId: "$_id" }, pipeline: [{ $match: { $expr: { $eq: ["$projectId", "$$projectId"] }, ...paymentDateMatch } }, ...paymentAccountingStages()], as: "payments" } },
       {
         $project: {
           totalBudget: 1,
-          received: { $sum: "$payments.amount" }
+          received: { $sum: "$payments.serviceAmountForAccounting" },
+          cashReceived: { $sum: "$payments.amount" },
+          outputVatCollected: { $sum: "$payments.vatPortionForAccounting" }
         }
       },
-      { $group: { _id: null, totalBudget: { $sum: "$totalBudget" }, totalReceived: { $sum: "$received" } } }
+      { $group: { _id: null, totalBudget: { $sum: "$totalBudget" }, totalReceived: { $sum: "$received" }, totalCashReceived: { $sum: "$cashReceived" }, outputVatCollected: { $sum: "$outputVatCollected" } } }
     ]),
     GeneralFund.aggregate([{ $match: { organizationId: oid, ...fundDateMatch } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
     Expense.aggregate([{ $match: { organizationId: oid, projectId: { $ne: null }, ...expenseDateMatch, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
@@ -94,6 +97,8 @@ export async function getAccountingSummary(organizationId: string, filters: { fr
   ]);
   const totalBudget = currency(projectTotals[0]?.totalBudget ?? 0);
   const totalReceived = currency(projectTotals[0]?.totalReceived ?? 0);
+  const totalCashReceived = currency(projectTotals[0]?.totalCashReceived ?? totalReceived);
+  const outputVatCollected = currency(projectTotals[0]?.outputVatCollected ?? 0);
   const projectExpenses = currency(projectExpenseAgg[0]?.total ?? 0);
   const clientProjectExpenses = currency(projectExpenseByType.find((row: any) => row._id === "client")?.total ?? 0);
   const internalProjectExpenses = currency(projectExpenseByType.find((row: any) => row._id === "internal")?.total ?? 0);
@@ -104,7 +109,9 @@ export async function getAccountingSummary(organizationId: string, filters: { fr
     activeProjects,
     totalBudget,
     totalReceived,
-    totalFunding: currency(totalReceived + generalBudget),
+    totalCashReceived,
+    outputVatCollected,
+    totalFunding: currency(totalCashReceived + generalBudget),
     generalBudget,
     projectExpenses,
     clientProjectExpenses,
@@ -118,7 +125,7 @@ export async function getAccountingSummary(organizationId: string, filters: { fr
     generalBudgetBalance: currency(generalBudget - generalExpenses),
     receivableRemaining: currency(totalBudget - totalReceived),
     cashAfterExpenses: currency(totalReceived - projectExpenses),
-    organizationCashBalance: currency(totalReceived + generalBudget - projectExpenses - generalExpenses)
+    organizationCashBalance: currency(totalCashReceived + generalBudget - projectExpenses - generalExpenses)
   };
 }
 
@@ -138,7 +145,7 @@ export async function getProjectFinancials(organizationId: string, projectId: st
   }
   const [project, paymentAgg, agg, pendingAgg] = await Promise.all([
     Project.findOne({ _id: projectId, organizationId }).populate("createdBy clientId").lean(),
-    ProjectPayment.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId), projectId: pid } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
+    ProjectPayment.aggregate([{ $match: { organizationId: new Types.ObjectId(organizationId), projectId: pid } }, ...paymentAccountingStages(), { $group: { _id: null, total: { $sum: "$serviceAmountForAccounting" }, cash: { $sum: "$amount" }, count: { $sum: 1 } } }]),
     Expense.aggregate([
       { $match: { organizationId: new Types.ObjectId(organizationId), projectId: pid, ...approvedExpenseCondition() } },
       { $group: { _id: null, total: { $sum: "$amount" } } }
@@ -189,9 +196,9 @@ export async function getDashboardCharts(organizationId: string, filters: { from
     ]),
     Project.aggregate([
       { $match: { organizationId: oid } },
-      { $lookup: { from: ProjectPayment.collection.name, let: { projectId: "$_id" }, pipeline: [{ $match: { $expr: { $eq: ["$projectId", "$$projectId"] }, ...paymentDateMatch } }], as: "payments" } },
+      { $lookup: { from: ProjectPayment.collection.name, let: { projectId: "$_id" }, pipeline: [{ $match: { $expr: { $eq: ["$projectId", "$$projectId"] }, ...paymentDateMatch } }, ...paymentAccountingStages()], as: "payments" } },
       { $lookup: { from: Expense.collection.name, let: { projectId: "$_id" }, pipeline: [{ $match: { $expr: { $eq: ["$projectId", "$$projectId"] }, ...expenseDateMatch } }], as: "expenses" } },
-      { $project: { name: 1, budget: "$totalBudget", received: { $sum: "$payments.amount" }, expense: { $sum: { $map: { input: { $filter: { input: "$expenses", as: "expense", cond: { $eq: ["$$expense.approvalStatus", "approved"] } } }, as: "expense", in: "$$expense.amount" } } }, _id: 0 } },
+      { $project: { name: 1, budget: "$totalBudget", received: { $sum: "$payments.serviceAmountForAccounting" }, expense: { $sum: { $map: { input: { $filter: { input: "$expenses", as: "expense", cond: { $eq: ["$$expense.approvalStatus", "approved"] } } }, as: "expense", in: "$$expense.amount" } } }, _id: 0 } },
       { $limit: 10 }
     ])
   ]);
@@ -228,7 +235,7 @@ export async function getReports(filters: ReportFilters) {
   ] = await Promise.all([
     Organization.findById(filters.organizationId).lean(),
     Project.find(projectScope).populate({ path: "clientId", model: Client, select: "name code" }).sort({ name: 1 }).lean(),
-    ProjectPayment.aggregate([{ $match: paymentMatch }, { $group: { _id: "$projectId", total: { $sum: "$amount" } } }]),
+    ProjectPayment.aggregate([{ $match: paymentMatch }, ...paymentAccountingStages(), { $group: { _id: "$projectId", total: { $sum: "$serviceAmountForAccounting" }, cash: { $sum: "$amount" } } }]),
     GeneralFund.aggregate([{ $match: fundMatch }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     GeneralFund.countDocuments({ organizationId: filters.organizationId }),
     Expense.aggregate([{ $match: expenseProjectMatch }, { $group: { _id: "$projectId", total: { $sum: "$amount" } } }]),
@@ -264,11 +271,13 @@ export async function getReports(filters: ReportFilters) {
   ]);
 
   const paymentByProject = new Map(paymentAgg.map((row: any) => [String(row._id), row.total]));
+  const cashByProject = new Map(paymentAgg.map((row: any) => [String(row._id), row.cash ?? row.total]));
   const expenseByProject = new Map(projectExpenseAgg.map((row: any) => [String(row._id), row.total]));
   const projects = projectDocs.map((project: any) => {
     const budget = currency(project.totalBudget ?? 0);
     const paymentTotal = range ? currency(paymentByProject.get(String(project._id)) ?? 0) : 0;
     const received = currency(range ? paymentTotal : effectiveReceived(project.receivedAmount ?? 0, paymentByProject.get(String(project._id)) ?? 0));
+    const cashReceived = currency(cashByProject.get(String(project._id)) ?? received);
     const expense = currency(expenseByProject.get(String(project._id)) ?? 0);
     return {
       _id: project._id,
@@ -280,6 +289,7 @@ export async function getReports(filters: ReportFilters) {
       clientCode: project.clientId?.code ?? "",
       budget,
       received,
+      cashReceived,
       expense,
       remaining: currency(budget - expense),
       receivableRemaining: currency(budget - received),
@@ -289,6 +299,7 @@ export async function getReports(filters: ReportFilters) {
 
   const totalBudget = currency(projects.reduce((sum: number, project: any) => sum + project.budget, 0));
   const totalReceived = currency(projects.reduce((sum: number, project: any) => sum + project.received, 0));
+  const totalCashReceived = currency(projects.reduce((sum: number, project: any) => sum + project.cashReceived, 0));
   const projectExpenses = currency(projects.reduce((sum: number, project: any) => sum + project.expense, 0));
   const clientProjectExpenses = currency(projects.filter((project: any) => project.projectType !== "internal").reduce((sum: number, project: any) => sum + project.expense, 0));
   const internalProjectExpenses = currency(projects.filter((project: any) => project.projectType === "internal").reduce((sum: number, project: any) => sum + project.expense, 0));
@@ -299,7 +310,8 @@ export async function getReports(filters: ReportFilters) {
     activeProjects: projectDocs.filter((project: any) => project.status === "active").length,
     totalBudget,
     totalReceived,
-    totalFunding: currency(totalReceived + generalBudget),
+    totalCashReceived,
+    totalFunding: currency(totalCashReceived + generalBudget),
     generalBudget,
     projectExpenses,
     clientProjectExpenses,
@@ -313,7 +325,7 @@ export async function getReports(filters: ReportFilters) {
     generalBudgetBalance: currency(generalBudget - generalExpenses),
     receivableRemaining: currency(totalBudget - totalReceived),
     cashAfterExpenses: currency(totalReceived - projectExpenses),
-    organizationCashBalance: currency(totalReceived + generalBudget - projectExpenses - generalExpenses)
+    organizationCashBalance: currency(totalCashReceived + generalBudget - projectExpenses - generalExpenses)
   };
   return { summary, projects, expenses, categorySummary, monthlySummary, expenseTypeSummary };
 }

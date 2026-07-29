@@ -106,12 +106,13 @@ export default async function ReportsPage({ searchParams }: any) {
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total Budget" value={reports.summary.totalBudget} currency />
-        <StatCard label="Total Project Received" value={(reports.summary as any).totalReceived ?? 0} currency />
+        <StatCard label="Project Service Received" value={(reports.summary as any).totalReceived ?? 0} currency />
+        <StatCard label="Project Cash Received" value={(reports.summary as any).totalCashReceived ?? (reports.summary as any).totalReceived ?? 0} currency />
         <StatCard label="Due" value={(reports.summary as any).dueAmount ?? 0} currency />
         <StatCard label="Client Project Expenses" value={(reports.summary as any).clientProjectExpenses ?? 0} currency />
         <StatCard label="Internal Project Expenses" value={(reports.summary as any).internalProjectExpenses ?? 0} currency />
         <StatCard label="All Project Expenses" value={reports.summary.projectExpenses} currency />
-        <StatCard label="Company Project Cash Balance" value={(reports.summary as any).projectPaidBalance ?? 0} currency />
+        <StatCard label="Project Service Balance" value={(reports.summary as any).projectPaidBalance ?? 0} currency />
         <StatCard label="Owner/Other Funds" value={(reports.summary as any).generalBudget ?? 0} currency />
         <StatCard label="General Expenses" value={reports.summary.generalExpenses} currency />
         <StatCard label="Company Cash Balance" value={(reports.summary as any).organizationCashBalance ?? 0} currency />
@@ -127,7 +128,8 @@ export default async function ReportsPage({ searchParams }: any) {
       <Card>
         <CardContent className="grid gap-4 p-5 lg:grid-cols-3">
           <ReportSummaryBlock title="Money In" rows={[
-            ["Project payments received", (reports.summary as any).totalReceived ?? 0],
+            ["Project service received", (reports.summary as any).totalReceived ?? 0],
+            ["Project cash received", (reports.summary as any).totalCashReceived ?? (reports.summary as any).totalReceived ?? 0],
             ["Owner/other funds", (reports.summary as any).generalBudget ?? 0]
           ]} />
           <ReportSummaryBlock title="Money Out" rows={[

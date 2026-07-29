@@ -4,6 +4,7 @@ import { GeneralFund } from "@/models/GeneralFund";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { nepalFiscalYearForDate, nepalFiscalYearOptions, nepalFiscalYearRange } from "@/services/nepal-fiscal-year";
+import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
 const taxRate = 0.25;
 
@@ -44,7 +45,11 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
     allExpensesToDate,
     clientProjects
   ] = await Promise.all([
-    ProjectPayment.aggregate([{ $match: { organizationId: oid, paymentDate: period } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
+    ProjectPayment.aggregate([
+      { $match: { organizationId: oid, paymentDate: period } },
+      ...paymentAccountingStages(),
+      { $group: { _id: null, total: { $sum: "$serviceAmountForAccounting" }, cash: { $sum: "$amount" }, vat: { $sum: "$vatPortionForAccounting" }, count: { $sum: 1 } } }
+    ]),
     GeneralFund.aggregate([{ $match: { organizationId: oid, fundDate: period } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
     Expense.aggregate([
       { $match: { organizationId: oid, expenseDate: period, approvalStatus: "approved" } },
@@ -77,7 +82,11 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
       { $project: { projectName: 1, projectCode: 1, total: 1, _id: 0 } },
       { $sort: { total: -1 } }
     ]),
-    ProjectPayment.aggregate([{ $match: { organizationId: oid, paymentDate: throughEnd } }, { $group: { _id: "$projectId", total: { $sum: "$amount" } } }]),
+    ProjectPayment.aggregate([
+      { $match: { organizationId: oid, paymentDate: throughEnd } },
+      ...paymentAccountingStages(),
+      { $group: { _id: "$projectId", total: { $sum: "$serviceAmountForAccounting" }, cash: { $sum: "$amount" }, vat: { $sum: "$vatPortionForAccounting" } } }
+    ]),
     GeneralFund.aggregate([{ $match: { organizationId: oid, fundDate: throughEnd } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Expense.aggregate([{ $match: { organizationId: oid, expenseDate: throughEnd, approvalStatus: "approved" } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Project.find({ organizationId: oid, projectType: "client", totalBudget: { $gt: 0 } }).select("name code totalBudget receivedAmount").lean()
@@ -97,6 +106,8 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
   }).filter((project) => project.due > 0);
 
   const revenue = round(periodProjectPayments[0]?.total ?? 0);
+  const cashReceived = round(periodProjectPayments[0]?.cash ?? revenue);
+  const outputVatCollected = round(periodProjectPayments[0]?.vat ?? 0);
   const ownerFunds = round(periodGeneralFunds[0]?.total ?? 0);
   const clientProjectExpenses = round(typeTotal(periodExpenseByType, "client_project"));
   const internalProjectExpenses = round(typeTotal(periodExpenseByType, "internal_project"));
@@ -107,13 +118,14 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
   const estimatedTaxPayable = round(Math.max(netProfitBeforeTax, 0) * taxRate);
   const netProfitAfterTax = round(netProfitBeforeTax - estimatedTaxPayable);
 
-  const allPaymentsTotal = round([...paymentToDateByProject.values()].reduce((sum, value) => sum + value, 0));
+  const allPaymentsTotal = round(allProjectPaymentsToDate.reduce((sum: number, row: any) => sum + (row.cash ?? 0), 0));
+  const outputVatCollectedToDate = round(allProjectPaymentsToDate.reduce((sum: number, row: any) => sum + (row.vat ?? 0), 0));
   const allGeneralFundsTotal = round(allGeneralFundsToDate[0]?.total ?? 0);
   const allExpensesTotal = round(allExpensesToDate[0]?.total ?? 0);
   const cashAtBank = round(allPaymentsTotal + allGeneralFundsTotal - allExpensesTotal);
   const accountsReceivable = round(receivableRows.reduce((sum, project) => sum + project.due, 0));
   const totalAssets = round(cashAtBank + accountsReceivable);
-  const totalLiabilities = estimatedTaxPayable;
+  const totalLiabilities = round(estimatedTaxPayable + outputVatCollectedToDate);
   const ownerEquity = round(totalAssets - totalLiabilities);
 
   return {
@@ -124,6 +136,7 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
     },
     summary: {
       revenue,
+      cashReceived,
       ownerFunds,
       clientProjectExpenses,
       internalProjectExpenses,
@@ -132,6 +145,8 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
       grossProfit,
       netProfitBeforeTax,
       estimatedTaxPayable,
+      outputVatCollected,
+      outputVatCollectedToDate,
       netProfitAfterTax,
       cashAtBank,
       accountsReceivable,
@@ -145,6 +160,7 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
         { account: "Accounts Receivable", amount: accountsReceivable }
       ],
       liabilities: [
+        { account: "Output VAT Payable", amount: outputVatCollectedToDate },
         { account: "Estimated Tax Provision", amount: estimatedTaxPayable },
         { account: "Accounts Payable", amount: 0 }
       ],
@@ -164,13 +180,13 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
       { account: "Net Profit After Tax", amount: netProfitAfterTax }
     ],
     cashFlow: [
-      { account: "Client Payments Received", amount: revenue },
+      { account: "Client Payments Received", amount: cashReceived },
       { account: "Owner/Other Funds Received", amount: ownerFunds },
       { account: "Approved Expenses Paid", amount: -totalExpenses },
-      { account: "Net Cash Movement In Period", amount: round(revenue + ownerFunds - totalExpenses) },
+      { account: "Net Cash Movement In Period", amount: round(cashReceived + ownerFunds - totalExpenses) },
       { account: "Cash / Bank Balance At Period End", amount: cashAtBank }
     ],
-    trialBalance: closingTrialBalance(cashAtBank, accountsReceivable, estimatedTaxPayable, ownerEquity),
+    trialBalance: closingTrialBalance(cashAtBank, accountsReceivable, totalLiabilities, ownerEquity),
     expenseByCategory: periodExpenseByCategory,
     expenseByProject: periodExpenseByProject,
     receivables: receivableRows
@@ -206,7 +222,7 @@ function closingTrialBalance(cashAtBank: number, accountsReceivable: number, tax
   return [
     { accountCode: "1000", accountName: "Cash / Bank", debit: cashAtBank >= 0 ? cashAtBank : 0, credit: cashAtBank < 0 ? Math.abs(cashAtBank) : 0 },
     { accountCode: "1100", accountName: "Accounts Receivable", debit: accountsReceivable, credit: 0 },
-    { accountCode: "2000", accountName: "Estimated Tax Provision", debit: 0, credit: taxPayable },
+    { accountCode: "2000", accountName: "Tax Payable", debit: 0, credit: taxPayable },
     { accountCode: "3000", accountName: "Owner Equity / Retained Earnings", debit: ownerEquity < 0 ? Math.abs(ownerEquity) : 0, credit: ownerEquity >= 0 ? ownerEquity : 0 }
   ].filter((row) => row.debit !== 0 || row.credit !== 0);
 }

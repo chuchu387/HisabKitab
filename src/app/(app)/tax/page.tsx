@@ -15,6 +15,7 @@ import { Invoice } from "@/models/Invoice";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
 import { getFinancialStatements } from "@/services/financial-statements";
+import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
 export default async function TaxPage(props: any) {
   return TaxContent(props);
@@ -50,7 +51,7 @@ async function TaxContent({ searchParams }: any) {
   }
   const [taxResult, revenueResult, fundResult, invoiceTaxResult, expensesResult, invoicesResult, paymentsResult, fundsResult, statementsResult] = await Promise.all([
     Expense.aggregate([{ $match: expenseMatch }, { $group: { _id: null, vat: { $sum: "$vatAmount" }, tds: { $sum: "$tdsAmount" }, taxable: { $sum: { $cond: ["$taxable", "$amount", 0] } }, total: { $sum: "$amount" } } }]),
-    ProjectPayment.aggregate([{ $match: paymentMatch }, { $group: { _id: null, revenue: { $sum: "$amount" } } }]),
+    ProjectPayment.aggregate([{ $match: paymentMatch }, ...paymentAccountingStages(), { $group: { _id: null, revenue: { $sum: "$serviceAmountForAccounting" }, cash: { $sum: "$amount" }, vat: { $sum: "$vatPortionForAccounting" } } }]),
     GeneralFund.aggregate([{ $match: fundMatch }, { $group: { _id: null, funds: { $sum: "$amount" } } }]),
     Invoice.aggregate([{ $match: invoiceMatch }, { $group: { _id: null, outputVat: { $sum: "$vatAmount" }, invoiceTotal: { $sum: "$total" }, invoiceSubtotal: { $sum: "$subtotal" } } }]),
     Expense.find(expenseMatch).populate("categoryId projectId").sort({ expenseDate: -1 }).lean(),
@@ -80,9 +81,10 @@ async function TaxContent({ searchParams }: any) {
   const tax = taxAgg[0] ?? { vat: 0, tds: 0, taxable: 0, total: 0 };
   const invoiceTax = invoiceTaxAgg[0] ?? { outputVat: 0, invoiceTotal: 0, invoiceSubtotal: 0 };
   const revenue = revenueAgg[0]?.revenue ?? 0;
+  const cashReceived = revenueAgg[0]?.cash ?? revenue;
   const founderFunds = fundAgg[0]?.funds ?? 0;
   const profitBeforeTax = statements?.summary.netProfitBeforeTax ?? (revenue - tax.total);
-  const cashMovementAfterFunds = revenue + founderFunds - (tax.total ?? 0);
+  const cashMovementAfterFunds = cashReceived + founderFunds - (tax.total ?? 0);
   const estimatedIncomeTax = Math.max(profitBeforeTax, 0) * 0.25;
   const netVatPayable = (invoiceTax.outputVat ?? 0) - (tax.vat ?? 0);
   const periodLabel = selectedFY === "all" ? "All fiscal years" : (statements?.period.label ?? "Selected period");

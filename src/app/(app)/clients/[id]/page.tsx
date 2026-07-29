@@ -13,6 +13,7 @@ import { Client } from "@/models/Client";
 import { Expense } from "@/models/Expense";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
+import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
 export default async function ClientDetailPage({ params, searchParams }: any) {
   const { organizationId } = await requireTenant();
@@ -27,11 +28,11 @@ export default async function ClientDetailPage({ params, searchParams }: any) {
   const oid = new Types.ObjectId(organizationId);
   const projects = await Project.aggregate([
     { $match: { organizationId: oid, clientId: clientObjectId } },
-    { $lookup: { from: ProjectPayment.collection.name, localField: "_id", foreignField: "projectId", as: "payments" } },
+    { $lookup: { from: ProjectPayment.collection.name, let: { projectId: "$_id" }, pipeline: [{ $match: { $expr: { $eq: ["$projectId", "$$projectId"] } } }, ...paymentAccountingStages()], as: "payments" } },
     { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
     {
       $addFields: {
-        received: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] },
+        received: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.serviceAmountForAccounting" }] },
         expense: { $sum: { $map: { input: { $filter: { input: "$expenses", as: "expense", cond: { $eq: ["$$expense.approvalStatus", "approved"] } } }, as: "expense", in: "$$expense.amount" } } }
       }
     },
