@@ -3,6 +3,7 @@ import { Expense } from "@/models/Expense";
 import { GeneralFund } from "@/models/GeneralFund";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
+import { nepalFiscalYearForDate, nepalFiscalYearOptions, nepalFiscalYearRange } from "@/services/nepal-fiscal-year";
 
 const taxRate = 0.25;
 
@@ -13,27 +14,15 @@ export type FinancialStatementFilters = {
 };
 
 export function fiscalYearOptions(now = new Date()) {
-  const current = fiscalYearForDate(now);
-  return Array.from({ length: 6 }, (_, index) => fiscalYearRange(current.startYear - index));
+  return nepalFiscalYearOptions(now);
 }
 
 export function fiscalYearForDate(date: Date) {
-  const year = date.getFullYear();
-  const start = new Date(year, 6, 17);
-  return date >= start ? fiscalYearRange(year) : fiscalYearRange(year - 1);
+  return nepalFiscalYearForDate(date);
 }
 
 export function fiscalYearRange(startYear: number) {
-  const startDate = new Date(startYear, 6, 17);
-  const endDate = new Date(startYear + 1, 6, 16, 23, 59, 59, 999);
-  return {
-    label: `FY ${startYear}/${String(startYear + 1).slice(-2)}`,
-    startYear,
-    from: startDate.toISOString().slice(0, 10),
-    to: endDate.toISOString().slice(0, 10),
-    startDate,
-    endDate
-  };
+  return nepalFiscalYearRange(startYear);
 }
 
 export async function getFinancialStatements(filters: FinancialStatementFilters) {

@@ -25,6 +25,10 @@ export function FiscalYearForm() {
   );
 }
 
+export function NepalFiscalYearSetupButton() {
+  return <Button className="mt-4 w-full" variant="secondary">Setup Running FY</Button>;
+}
+
 function Field({ label, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return <div className="space-y-2"><Label>{label}</Label><Input {...props} required /></div>;
 }

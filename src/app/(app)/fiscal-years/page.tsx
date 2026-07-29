@@ -3,11 +3,12 @@ import { ConfirmButton } from "@/components/ui/confirm-button";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { FiscalYearForm } from "@/features/forms/fiscal-year-form";
-import { toggleFiscalYearStatus } from "@/actions/fiscal-years";
+import { setupCurrentNepalFiscalYear, toggleFiscalYearStatus } from "@/actions/fiscal-years";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
+import { NepalFiscalYearSetupButton } from "@/features/forms/fiscal-year-form";
 
 export default async function FiscalYearsPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
@@ -17,7 +18,14 @@ export default async function FiscalYearsPage({ searchParams }: any) {
   const years = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).lean();
   return (
     <PageShell title="Fiscal Years" description="Close audited fiscal years to prevent accidental edits to old accounting records.">
-      <FiscalYearForm />
+      <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
+        <FiscalYearForm />
+        <form action={setupCurrentNepalFiscalYear} className="rounded-lg border bg-card p-4 shadow-sm">
+          <p className="text-sm font-semibold">Nepal Fiscal Year</p>
+          <p className="mt-1 max-w-xs text-xs text-muted-foreground">Create/open the running Nepal FY and close previous FYs.</p>
+          <NepalFiscalYearSetupButton />
+        </form>
+      </div>
       <DataTable data={years} pagination={{ basePath: "/fiscal-years", searchParams: params }} columns={[
         { header: "Name", cell: (year: any) => year.name },
         { header: "Start", cell: (year: any) => formatDate(year.startDate) },
