@@ -10,6 +10,7 @@ import { expenseApprovalSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
 import { saveReceipt, deleteReceipt } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
+import { assertFiscalYearOpen } from "@/services/fiscal-years";
 import { appUrl } from "@/services/email";
 import { notifyExpenseApproval, notifyExpenseSubmitted } from "@/services/notifications";
 import { User } from "@/models/User";
@@ -38,6 +39,7 @@ export async function createExpense(_: ActionState, formData: FormData): Promise
     await requireRole(["owner", "admin", "staff"]);
     await connectToDatabase();
     const data = parseForm(expenseSchema, formData);
+    await assertFiscalYearOpen(organizationId, data.expenseDate);
     const receipt = formData.get("receipt");
     const receiptImageId = receipt instanceof File && receipt.size > 0 ? await saveReceipt(receipt, { organizationId, userId: session.user.userId }) : null;
     const expense = await Expense.create({
@@ -73,6 +75,7 @@ export async function updateExpense(id: string, _: ActionState, formData: FormDa
     await requireRole(["owner", "admin", "staff"]);
     await connectToDatabase();
     const data = parseForm(expenseSchema, formData);
+    await assertFiscalYearOpen(organizationId, data.expenseDate);
     const update: Record<string, unknown> = { ...data, projectId: data.projectId || null };
     const receipt = formData.get("receipt");
     if (receipt instanceof File && receipt.size > 0) update.receiptImageId = await saveReceipt(receipt, { organizationId, userId: session.user.userId });
@@ -93,6 +96,7 @@ export async function deleteExpense(formData: FormData) {
   const id = String(formData.get("id"));
   const expense = (await Expense.findOneAndDelete(ownableQuery(id, organizationId, session)).lean()) as any;
   if (!expense) throw new Error("Expense not found or not allowed");
+  await assertFiscalYearOpen(organizationId, expense.expenseDate);
   if (expense?.receiptImageId) await deleteReceipt(expense.receiptImageId.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Deleted", entityType: "Expense", entityId: id });
   revalidateExpenseAccounting([expense.projectId]);

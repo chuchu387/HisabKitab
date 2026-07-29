@@ -1,12 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import { connectToDatabase } from "@/lib/db";
 import { AuditLog } from "@/models/AuditLog";
+import { ChartAccount } from "@/models/ChartAccount";
 import { Client } from "@/models/Client";
+import { FiscalYear } from "@/models/FiscalYear";
 import { Expense } from "@/models/Expense";
 import { ExpenseApprovalHistory } from "@/models/ExpenseApprovalHistory";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { GeneralFund } from "@/models/GeneralFund";
 import { EmailLog } from "@/models/EmailLog";
+import { Invoice } from "@/models/Invoice";
 import { Notification } from "@/models/Notification";
 import { Organization } from "@/models/Organization";
 import { PasswordResetToken } from "@/models/PasswordResetToken";
@@ -34,7 +37,7 @@ function loadLocalEnv() {
 async function main() {
   loadLocalEnv();
   await connectToDatabase();
-  const models = [Organization, User, Client, Project, ExpenseCategory, Expense, ExpenseApprovalHistory, AuditLog, ProjectPayment, GeneralFund, ProjectTask, Notification, PasswordResetToken, EmailLog];
+  const models = [Organization, User, Client, Project, ExpenseCategory, Expense, ExpenseApprovalHistory, AuditLog, ProjectPayment, GeneralFund, ProjectTask, Notification, PasswordResetToken, EmailLog, ChartAccount, FiscalYear, Invoice];
   for (const model of models) {
     await model.syncIndexes();
     console.log(`Synced indexes for ${model.modelName}`);

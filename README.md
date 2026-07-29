@@ -79,6 +79,10 @@ Email attempts are recorded in `Email Audit` with sent, failed, and skipped stat
 - Statements are generated from existing project payments, owner/other funds, approved expenses, and client project budgets.
 - PDF and CSV exports are available for audit/tax preparation.
 - Tax provision is an estimate only; final tax treatment should be confirmed by the auditor.
+- `Chart of Accounts` and `Ledger` provide generated double-entry views from payments, funds, and approved expenses.
+- `Invoices` supports invoice creation, PDF download, status tracking, VAT, paid amount, and balances. Invoice email sending is not enabled.
+- `Tax Summary` tracks vendor/PAN, bill number, VAT, TDS, taxable expenses, and estimated income tax.
+- `Fiscal Years` can close audited periods and prevent edits to expenses, project payments, and funds in closed date ranges.
 
 ## Client Management, Approval History, and Performance Logs
 

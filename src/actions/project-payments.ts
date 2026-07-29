@@ -10,6 +10,7 @@ import { actionError, parseForm } from "@/actions/helpers";
 import { projectPaymentSchema } from "@/validations/schemas";
 import { deleteReceipt, saveReceipt } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
+import { assertFiscalYearOpen } from "@/services/fiscal-years";
 import { appUrl } from "@/services/email";
 import { notifyProjectPayment } from "@/services/notifications";
 import { User } from "@/models/User";
@@ -21,6 +22,7 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
     await requireRole(["owner", "admin"]);
     await connectToDatabase();
     const data = parseForm(projectPaymentSchema, formData);
+    await assertFiscalYearOpen(organizationId, data.paymentDate);
     const project = (await Project.findOne({ _id: data.projectId, organizationId }).select("name receivedAmount").lean()) as any;
     if (!project) throw new Error("Project not found");
     const existingPaymentAgg = await ProjectPayment.aggregate([
@@ -54,6 +56,7 @@ export async function deleteProjectPayment(formData: FormData) {
   const id = String(formData.get("id"));
   const payment = (await ProjectPayment.findOneAndDelete({ _id: id, organizationId }).lean()) as any;
   if (!payment) throw new Error("Payment not found");
+  await assertFiscalYearOpen(organizationId, payment.paymentDate);
   if (payment.projectId) {
     await Project.updateOne({ _id: payment.projectId, organizationId }, [{ $set: { receivedAmount: { $max: [0, { $subtract: [{ $ifNull: ["$receivedAmount", 0] }, payment.amount] }] } } }]);
   }

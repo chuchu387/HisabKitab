@@ -92,8 +92,41 @@ export const expenseSchema = z.object({
   projectId: z.string().optional().nullable(),
   categoryId: objectIdSchema,
   amount: z.coerce.number().positive(),
+  vendorName: z.string().max(160).optional().default(""),
+  vendorPan: z.string().max(40).optional().default(""),
+  billNumber: z.string().max(80).optional().default(""),
+  vatAmount: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0).default(0)),
+  tdsAmount: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0).default(0)),
+  taxable: z.coerce.boolean().default(false),
   expenseDate: z.coerce.date(),
   description: z.string().min(2).max(1000)
+});
+
+export const invoiceSchema = z.object({
+  clientId: objectIdSchema,
+  projectId: z.string().optional().nullable(),
+  invoiceNumber: z.string().min(2).max(60),
+  invoiceDate: z.coerce.date(),
+  dueDate: z.coerce.date(),
+  status: z.enum(["draft", "sent", "partial", "paid", "void"]).default("draft"),
+  description: z.string().min(2).max(500),
+  quantity: z.preprocess((value) => value === "" ? 1 : value, z.coerce.number().positive().default(1)),
+  rate: z.coerce.number().min(0),
+  vatRate: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0).default(0)),
+  paidAmount: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0).default(0)),
+  notes: z.string().max(1000).optional().default("")
+}).refine((value) => value.dueDate >= value.invoiceDate, {
+  message: "Due date must be after invoice date",
+  path: ["dueDate"]
+});
+
+export const fiscalYearSchema = z.object({
+  name: z.string().min(4).max(30),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date()
+}).refine((value) => value.endDate >= value.startDate, {
+  message: "End date must be after start date",
+  path: ["endDate"]
 });
 
 export const expenseApprovalSchema = z.object({

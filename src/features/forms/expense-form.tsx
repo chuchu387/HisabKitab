@@ -19,6 +19,15 @@ export function ExpenseForm({ expense, categories, projects }: { expense?: any; 
     <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-4 sm:p-5 shadow-sm shadow-foreground/5 md:grid-cols-2" encType="multipart/form-data">
       <Field name="expenseDate" label="Expense Date" type="date" defaultValue={formatDate(expense?.expenseDate ?? new Date())} />
       <Field name="amount" label="Amount" type="number" min="0.01" step="0.01" defaultValue={expense?.amount} />
+      <Field name="vendorName" label="Vendor / Payee" defaultValue={expense?.vendorName} />
+      <Field name="vendorPan" label="Vendor PAN/VAT" defaultValue={expense?.vendorPan} />
+      <Field name="billNumber" label="Bill Number" defaultValue={expense?.billNumber} />
+      <Field name="vatAmount" label="VAT Amount" type="number" min="0" step="0.01" defaultValue={expense?.vatAmount ?? 0} />
+      <Field name="tdsAmount" label="TDS Amount" type="number" min="0" step="0.01" defaultValue={expense?.tdsAmount ?? 0} />
+      <div className="flex items-center gap-2 rounded-lg border bg-muted/25 px-3 py-2">
+        <input id="taxable" name="taxable" type="checkbox" defaultChecked={Boolean(expense?.taxable)} className="h-4 w-4 accent-[hsl(var(--primary))]" />
+        <Label htmlFor="taxable">Taxable / VAT Bill</Label>
+      </div>
       <div className="space-y-2">
         <Label htmlFor="categoryId">Category</Label>
         <Select id="categoryId" name="categoryId" defaultValue={expense?.categoryId?.toString()}>
