@@ -169,6 +169,7 @@ export const expenseApprovalSchema = z.object({
 export const projectPaymentSchema = z.object({
   projectId: objectIdSchema,
   invoiceId: z.string().optional().nullable(),
+  autoCreateInvoice: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
   bankAccountId: z.string().optional().nullable(),
   paymentDate: z.coerce.date(),
   amount: z.coerce.number().positive(),

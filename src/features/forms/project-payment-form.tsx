@@ -29,6 +29,10 @@ export function ProjectPaymentForm({ projects, invoices = [], bankAccounts = [] 
           <option value="">No invoice link</option>
           {invoices.map((invoice) => <option key={invoice._id} value={invoice._id}>{invoice.invoiceNumber} - {invoice.clientId?.name ?? "Client"}</option>)}
         </Select>
+        <label className="flex items-start gap-2 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+          <input type="checkbox" name="autoCreateInvoice" defaultChecked className="mt-0.5 h-4 w-4 rounded border" />
+          <span>Auto-create a paid invoice when no invoice is selected. Best audit flow: invoice and payment stay linked.</span>
+        </label>
       </div>
       <div className="space-y-2">
         <Label>Bank / Cash Account</Label>
