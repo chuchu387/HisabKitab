@@ -47,6 +47,7 @@ export function TaskKanban({
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
   const [view, setView] = useState<"kanban" | "calendar" | "milestones" | "time" | "sla">("kanban");
   const [queryString, setQueryString] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
   const [isMoving, startMove] = useTransition();
   const [isBulkStarting, startBulkStart] = useTransition();
   const totalHours = items.reduce((sum, task) => sum + (Number(task.estimatedHours) || 0), 0);
@@ -107,33 +108,23 @@ export function TaskKanban({
   }
 
   return (
-    <section className="space-y-5">
-      <div className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-2 xl:grid-cols-6">
-        <div className="xl:col-span-2">
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="text-2xl font-semibold">{items.length} tasks</p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Estimated</p>
-          <p className="text-2xl font-semibold">{totalHours}h</p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Tracked</p>
-          <p className="text-2xl font-semibold">{formatDuration(trackedSeconds)}</p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Overdue</p>
-          <p className="text-2xl font-semibold">{overdueCount}</p>
-        </div>
-        {statuses.map((status) => (
-          <div key={status.value}>
-            <p className="text-sm text-muted-foreground">{status.label}</p>
-            <p className="text-2xl font-semibold">{items.filter((task) => task.status === status.value).length}</p>
+    <section className="space-y-3">
+      <div className="rounded-lg border bg-card p-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">{title}</p>
+            <p className="text-xl font-semibold">{items.length} tasks</p>
           </div>
-        ))}
+          <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
+            <CompactMetric label="Estimate" value={`${totalHours}h`} />
+            <CompactMetric label="Tracked" value={formatDuration(trackedSeconds)} />
+            <CompactMetric label="Overdue" value={overdueCount} danger={overdueCount > 0} />
+            {statuses.map((status) => (
+              <CompactMetric key={status.value} label={status.label} value={items.filter((task) => task.status === status.value).length} color={status.color} />
+            ))}
+          </div>
+        </div>
       </div>
-
-      <TaskCreateForm fixedProjectId={projectId} projects={projects} assignees={assignees} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
@@ -143,13 +134,21 @@ export function TaskKanban({
           <ViewButton active={view === "time"} onClick={() => setView("time")} icon={<Clock className="h-4 w-4" />} label="Time Report" />
           <ViewButton active={view === "sla"} onClick={() => setView("sla")} icon={<AlertTriangle className="h-4 w-4" />} label="SLA" />
         </div>
-        {canBulkStart && (
-          <Button type="button" variant="outline" size="sm" disabled={isBulkStarting || checkedIds.length === 0} onClick={bulkStart}>
-            <TimerReset className="h-4 w-4" />
-            {isBulkStarting ? "Starting..." : `Start Selected (${checkedIds.length})`}
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="default" size="sm" onClick={() => setShowCreate((value) => !value)}>
+            <Plus className="h-4 w-4" />
+            {showCreate ? "Hide Form" : "New Task"}
           </Button>
-        )}
+          {canBulkStart && (
+            <Button type="button" variant="outline" size="sm" disabled={isBulkStarting || checkedIds.length === 0} onClick={bulkStart}>
+              <TimerReset className="h-4 w-4" />
+              {isBulkStarting ? "Starting..." : `Start Selected (${checkedIds.length})`}
+            </Button>
+          )}
+        </div>
       </div>
+
+      {showCreate && <TaskCreateForm fixedProjectId={projectId} projects={projects} assignees={assignees} />}
 
       {view === "kanban" && <div className="grid gap-4 xl:grid-cols-4">
         {statuses.map((status) => {
@@ -483,6 +482,18 @@ function ViewButton({ active, onClick, icon, label }: { active: boolean; onClick
       {icon}
       {label}
     </Button>
+  );
+}
+
+function CompactMetric({ label, value, color, danger = false }: { label: string; value: string | number; color?: string; danger?: boolean }) {
+  return (
+    <div className="min-w-[92px] rounded-md border bg-background px-2.5 py-2">
+      <p className="flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+        {color && <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />}
+        {label}
+      </p>
+      <p className={danger ? "text-base font-semibold text-destructive" : "text-base font-semibold"}>{value}</p>
+    </div>
   );
 }
 
