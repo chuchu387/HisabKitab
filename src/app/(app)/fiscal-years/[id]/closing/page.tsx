@@ -35,6 +35,7 @@ export default async function FiscalYearClosingPage({ params }: any) {
   const debit = ledger.summary.reduce((sum: number, row: any) => sum + (row.debit ?? 0), 0);
   const credit = ledger.summary.reduce((sum: number, row: any) => sum + (row.credit ?? 0), 0);
   const difference = Number((debit - credit).toFixed(2));
+  const cashMovementAfterFunds = Number((statements.summary.revenue + statements.summary.ownerFunds - statements.summary.totalExpenses).toFixed(2));
   const isClosed = (year as any).status === "closed";
   return (
     <PageShell title={`${(year as any).name} Closing`} description="Review core statements, download closing reports, then lock the fiscal year after audit checks are complete.">
@@ -66,7 +67,8 @@ export default async function FiscalYearClosingPage({ params }: any) {
       </section>
       <section className="grid gap-4 lg:grid-cols-2">
         <ChecklistItem title="Trial balance is balanced" ok={difference === 0} detail={`Debit ${money(debit)} · Credit ${money(credit)} · Difference ${money(difference)}`} />
-        <ChecklistItem title="Profit and loss generated" ok detail={`After tax result ${money(statements.summary.netProfitAfterTax)}`} />
+        <ChecklistItem title="Profit and loss generated" ok detail={`${statements.summary.netProfitAfterTax >= 0 ? "Net profit" : "Net loss"} ${money(statements.summary.netProfitAfterTax)} · founder/company funds are not revenue`} />
+        <ChecklistItem title="Cash movement after funds" ok={cashMovementAfterFunds >= 0} detail={`${money(statements.summary.revenue)} client payments + ${money(statements.summary.ownerFunds)} founder/company funds - ${money(statements.summary.totalExpenses)} expenses = ${money(cashMovementAfterFunds)}`} />
         <ChecklistItem title="Balance sheet generated" ok detail={`Assets ${money(statements.summary.totalAssets)} · Equity ${money(statements.summary.ownerEquity)}`} />
         <ChecklistItem title="Receivables reviewed" ok detail={`Outstanding client receivable ${money(statements.summary.accountsReceivable)}`} />
       </section>

@@ -75,6 +75,7 @@ async function AccountsContent({ searchParams }: any) {
   const compareBaseLedger = compareQs ? `/ledger?${compareQs}` : baseLedger;
   const compareExpenseBase = compareFilters ? `/expenses?from=${compareFilters.from}&to=${compareFilters.to}&approvalStatus=approved` : expenseBase;
   const summary = statements.summary;
+  const netCashMovementAfterFunds = summary.revenue + summary.ownerFunds - summary.totalExpenses;
   const liabilitiesAndEquity = summary.totalLiabilities + summary.ownerEquity;
   const balanceDifference = summary.totalAssets - liabilitiesAndEquity;
   const balanceRows = withComparison([
@@ -193,6 +194,11 @@ async function AccountsContent({ searchParams }: any) {
         <p className="mt-1 text-muted-foreground">
           Client income is recognized from project payments received. Expenses are recognized from approved expense records. Invoices track receivables, while payments track real cash movement.
         </p>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <BasisMetric label={summary.netProfitBeforeTax >= 0 ? "Operating Profit Before Tax" : "Operating Loss Before Tax"} value={summary.netProfitBeforeTax} />
+          <BasisMetric label="Founder/Company Funds Added" value={summary.ownerFunds} />
+          <BasisMetric label="Cash Movement After Funds" value={netCashMovementAfterFunds} />
+        </div>
       </section>
 
       <StatementReport title="Balance Sheet" company={organization?.name ?? "No company name"} period={`As of ${statements.period.to}`} comparisonPeriod={compareStatements ? `As of ${compareStatements.period.to}` : undefined} columns={["Balance"]} rows={balanceRows} />
@@ -206,6 +212,15 @@ async function AccountsContent({ searchParams }: any) {
         rows={[...trialRows, { label: "Grand Total", debit: trialDebit, credit: trialCredit, net: trialDebit - trialCredit, compareNet: trialCompareNet, total: true }]}
       />
     </PageShell>
+  );
+}
+
+function BasisMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border bg-muted/30 p-3">
+      <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
+      <p className={value < 0 ? "mt-1 text-lg font-semibold text-destructive" : "mt-1 text-lg font-semibold text-primary"}>{money(value)}</p>
+    </div>
   );
 }
 

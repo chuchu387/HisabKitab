@@ -10,6 +10,7 @@ import { requireRole, requireTenant } from "@/lib/permissions";
 import { dateInput, formatDate, money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { FiscalYear } from "@/models/FiscalYear";
+import { GeneralFund } from "@/models/GeneralFund";
 import { Invoice } from "@/models/Invoice";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
@@ -39,39 +40,49 @@ async function TaxContent({ searchParams }: any) {
   }
   const expenseMatch: any = { organizationId: new Types.ObjectId(organizationId), approvalStatus: "approved" };
   const paymentMatch: any = { organizationId: new Types.ObjectId(organizationId) };
+  const fundMatch: any = { organizationId: new Types.ObjectId(organizationId) };
   const invoiceMatch: any = { organizationId: new Types.ObjectId(organizationId), status: { $ne: "void" } };
   if (Object.keys(range).length) {
     expenseMatch.expenseDate = range;
     paymentMatch.paymentDate = range;
+    fundMatch.fundDate = range;
     invoiceMatch.invoiceDate = range;
   }
-  const [taxResult, revenueResult, invoiceTaxResult, expensesResult, invoicesResult, paymentsResult, statementsResult] = await Promise.all([
+  const [taxResult, revenueResult, fundResult, invoiceTaxResult, expensesResult, invoicesResult, paymentsResult, fundsResult, statementsResult] = await Promise.all([
     Expense.aggregate([{ $match: expenseMatch }, { $group: { _id: null, vat: { $sum: "$vatAmount" }, tds: { $sum: "$tdsAmount" }, taxable: { $sum: { $cond: ["$taxable", "$amount", 0] } }, total: { $sum: "$amount" } } }]),
     ProjectPayment.aggregate([{ $match: paymentMatch }, { $group: { _id: null, revenue: { $sum: "$amount" } } }]),
+    GeneralFund.aggregate([{ $match: fundMatch }, { $group: { _id: null, funds: { $sum: "$amount" } } }]),
     Invoice.aggregate([{ $match: invoiceMatch }, { $group: { _id: null, outputVat: { $sum: "$vatAmount" }, invoiceTotal: { $sum: "$total" }, invoiceSubtotal: { $sum: "$subtotal" } } }]),
     Expense.find(expenseMatch).populate("categoryId projectId").sort({ expenseDate: -1 }).lean(),
     Invoice.find(invoiceMatch).populate("clientId projectId").sort({ invoiceDate: -1 }).lean(),
     ProjectPayment.find(paymentMatch).populate("projectId invoiceId").sort({ paymentDate: -1 }).lean(),
+    GeneralFund.find(fundMatch).sort({ fundDate: -1 }).lean(),
     getFinancialStatements({ organizationId, from, to })
   ].map((promise) => Promise.resolve(promise).then((value) => ({ ok: true as const, value })).catch((error) => ({ ok: false as const, error }))));
   if (!taxResult.ok) console.error("Tax aggregate failed", taxResult.error);
   if (!revenueResult.ok) console.error("Tax revenue failed", revenueResult.error);
+  if (!fundResult.ok) console.error("Tax funds failed", fundResult.error);
   if (!invoiceTaxResult.ok) console.error("Tax invoice VAT failed", invoiceTaxResult.error);
   if (!expensesResult.ok) console.error("Tax expenses failed", expensesResult.error);
   if (!invoicesResult.ok) console.error("Tax invoices failed", invoicesResult.error);
   if (!paymentsResult.ok) console.error("Tax payments failed", paymentsResult.error);
+  if (!fundsResult.ok) console.error("Tax fund records failed", fundsResult.error);
   if (!statementsResult.ok) console.error("Tax financial statements failed", statementsResult.error);
   const taxAgg = taxResult.ok ? taxResult.value as any[] : [];
   const revenueAgg = revenueResult.ok ? revenueResult.value as any[] : [];
+  const fundAgg = fundResult.ok ? fundResult.value as any[] : [];
   const invoiceTaxAgg = invoiceTaxResult.ok ? invoiceTaxResult.value as any[] : [];
   const expenses = expensesResult.ok ? expensesResult.value as any[] : [];
   const invoices = invoicesResult.ok ? invoicesResult.value as any[] : [];
   const payments = paymentsResult.ok ? paymentsResult.value as any[] : [];
+  const funds = fundsResult.ok ? fundsResult.value as any[] : [];
   const statements = statementsResult.ok ? statementsResult.value as Awaited<ReturnType<typeof getFinancialStatements>> : null;
   const tax = taxAgg[0] ?? { vat: 0, tds: 0, taxable: 0, total: 0 };
   const invoiceTax = invoiceTaxAgg[0] ?? { outputVat: 0, invoiceTotal: 0, invoiceSubtotal: 0 };
   const revenue = revenueAgg[0]?.revenue ?? 0;
+  const founderFunds = fundAgg[0]?.funds ?? 0;
   const profitBeforeTax = statements?.summary.netProfitBeforeTax ?? (revenue - tax.total);
+  const cashMovementAfterFunds = revenue + founderFunds - (tax.total ?? 0);
   const estimatedIncomeTax = Math.max(profitBeforeTax, 0) * 0.25;
   const netVatPayable = (invoiceTax.outputVat ?? 0) - (tax.vat ?? 0);
   const periodLabel = selectedFY === "all" ? "All fiscal years" : (statements?.period.label ?? "Selected period");
@@ -98,6 +109,19 @@ async function TaxContent({ searchParams }: any) {
       description: payment.note || "Client payment received",
       debit: payment.amount ?? 0,
       credit: 0,
+      outputVat: 0,
+      inputVat: 0,
+      tds: 0
+    })),
+    ...funds.map((fund: any) => ({
+      date: fund.fundDate,
+      fyDate: fund.fundDate,
+      type: "Founder/Company Fund",
+      party: "Owner / Founder",
+      reference: fund.voucherNumber || "-",
+      description: fund.note || "Company fund added",
+      debit: 0,
+      credit: fund.amount ?? 0,
       outputVat: 0,
       inputVat: 0,
       tds: 0
@@ -131,12 +155,14 @@ async function TaxContent({ searchParams }: any) {
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="space-y-1 p-4 text-sm">
           <p><span className="font-semibold">Showing:</span> {periodLabel}</p>
-          <p className="text-muted-foreground">Founder/company funds are funding entries, not taxable revenue. Profit or loss is calculated from client payments minus approved expenses.</p>
+          <p className="text-muted-foreground">Founder/company funds are funding entries, not taxable revenue. Operating profit or loss is client payments minus approved expenses; cash movement after funds includes founder/company money added.</p>
         </CardContent>
       </Card>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Revenue" value={revenue} currency />
-        <StatCard label="Profit / Loss Before Tax" value={profitBeforeTax} currency />
+        <StatCard label={profitBeforeTax >= 0 ? "Operating Profit Before Tax" : "Operating Loss Before Tax"} value={profitBeforeTax} currency />
+        <StatCard label="Founder/Company Funds Added" value={founderFunds} currency />
+        <StatCard label="Cash Movement After Funds" value={cashMovementAfterFunds} currency />
         <StatCard label="Output VAT" value={invoiceTax.outputVat ?? 0} currency />
         <StatCard label="Input VAT" value={tax.vat} currency />
         <StatCard label={netVatPayable >= 0 ? "Net VAT Payable" : "VAT Credit"} value={Math.abs(netVatPayable)} currency />
