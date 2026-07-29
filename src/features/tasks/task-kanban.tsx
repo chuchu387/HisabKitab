@@ -45,7 +45,7 @@ export function TaskKanban({
   const [selected, setSelected] = useState<ProjectTaskLike | null>(null);
   const [draggingId, setDraggingId] = useState("");
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
-  const [view, setView] = useState<"kanban" | "calendar" | "milestones" | "time">("kanban");
+  const [view, setView] = useState<"kanban" | "calendar" | "milestones" | "time" | "sla">("kanban");
   const [isMoving, startMove] = useTransition();
   const [isBulkStarting, startBulkStart] = useTransition();
   const totalHours = items.reduce((sum, task) => sum + (Number(task.estimatedHours) || 0), 0);
@@ -139,6 +139,7 @@ export function TaskKanban({
           <ViewButton active={view === "calendar"} onClick={() => setView("calendar")} icon={<CalendarDays className="h-4 w-4" />} label="Calendar" />
           <ViewButton active={view === "milestones"} onClick={() => setView("milestones")} icon={<Flag className="h-4 w-4" />} label="Milestones" />
           <ViewButton active={view === "time"} onClick={() => setView("time")} icon={<Clock className="h-4 w-4" />} label="Time Report" />
+          <ViewButton active={view === "sla"} onClick={() => setView("sla")} icon={<AlertTriangle className="h-4 w-4" />} label="SLA" />
         </div>
         {canBulkStart && (
           <Button type="button" variant="outline" size="sm" disabled={isBulkStarting || checkedIds.length === 0} onClick={bulkStart}>
@@ -189,6 +190,7 @@ export function TaskKanban({
       {view === "calendar" && <CalendarView tasks={items} onOpen={setSelected} />}
       {view === "milestones" && <MilestoneView tasks={items} onOpen={setSelected} />}
       {view === "time" && <TimeReportView tasks={items} />}
+      {view === "sla" && <SlaReportView tasks={items} onOpen={setSelected} />}
 
       {selected && (
         <TaskDetailDialog
@@ -271,37 +273,36 @@ function CompactTaskCard({ task, checked, canSelect, onChecked, onOpen, onDragSt
     <div
       draggable
       onDragStart={onDragStart}
-      className="w-full rounded-md border bg-background p-3 text-left shadow-sm transition duration-150 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+      className="w-full rounded-md border bg-background px-2.5 py-2 text-left shadow-sm transition duration-150 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
       style={{ borderLeftWidth: 5, borderLeftColor: color }}
     >
       <div className="flex items-start justify-between gap-2">
         <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
           <h4 className="line-clamp-2 text-sm font-semibold">{task.title}</h4>
         </button>
-        <span className={`shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium ${overdue ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>
+        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${overdue ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}>
           {statusLabel(task.status)}
         </span>
       </div>
-      <button type="button" onClick={onOpen} className="mt-3 block w-full text-left">
-        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+      <button type="button" onClick={onOpen} className="mt-2 block w-full text-left">
+        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDuration(elapsed)} / {formatHours(task.estimatedHours)}</span>
           <span className="truncate">{task.timerStatus === "running" ? "Running" : assigneeNames(task)}</span>
         </div>
         {extraSeconds > 0 && (
-          <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+          <div className="mt-1.5 inline-flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
             <AlertTriangle className="h-3 w-3" />
             Extra {formatDuration(extraSeconds)}
           </div>
         )}
-        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-          <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">{priorityLabel(task.priority)}</span>
-          <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">{severityLabel(task.severity)}</span>
-          {task.dueDate && <span className={isOverdue(task) ? "rounded-md bg-destructive/10 px-2 py-0.5 text-destructive" : "rounded-md bg-muted px-2 py-0.5 text-muted-foreground"}>{dateLabel(task.dueDate)}</span>}
+        <div className="mt-1.5 flex flex-wrap gap-1 text-[10px]">
+          <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">{priorityLabel(task.priority)}</span>
+          {task.dueDate && <span className={isOverdue(task) ? "rounded bg-destructive/10 px-1.5 py-0.5 text-destructive" : "rounded bg-muted px-1.5 py-0.5 text-muted-foreground"}>{dateLabel(task.dueDate)}</span>}
         </div>
       </button>
       {canSelect && (
-        <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-          <input type="checkbox" checked={checked} onChange={(event) => onChecked(event.target.checked)} className="h-4 w-4 rounded border-input accent-primary" />
+        <label className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+          <input type="checkbox" checked={checked} onChange={(event) => onChecked(event.target.checked)} className="h-3.5 w-3.5 rounded border-input accent-primary" />
           Bulk start
         </label>
       )}
@@ -408,7 +409,6 @@ function TaskDetailDialog({ task, assignees, currentRole, onClose, onLocalUpdate
             <div className="flex flex-wrap gap-2">
               <Button size="sm" disabled={pending}>{pending ? "Saving..." : "Save Changes"}</Button>
             </div>
-            <TaskComments task={task} projectId={projectId} />
             <TaskActivity task={task} />
           </form>
 
@@ -456,6 +456,7 @@ function TaskDetailDialog({ task, assignees, currentRole, onClose, onLocalUpdate
               <input type="hidden" name="projectId" value={projectId} />
               <ConfirmButton label="Delete" variant="outline" className="w-full text-destructive" />
             </form>
+            <TaskComments task={task} projectId={projectId} />
           </aside>
         </div>
       </div>
@@ -661,6 +662,66 @@ function TimeReportView({ tasks }: { tasks: ProjectTaskLike[] }) {
     <div className="grid gap-4 lg:grid-cols-2">
       <ReportTable title="Time By Staff" rows={[...byAssignee.values()]} />
       <ReportTable title="Time By Project" rows={[...byProject.values()]} />
+    </div>
+  );
+}
+
+function SlaReportView({ tasks, onOpen }: { tasks: ProjectTaskLike[]; onOpen: (task: ProjectTaskLike) => void }) {
+  const estimatedTasks = tasks.filter((task) => Number(task.estimatedHours ?? 0) > 0);
+  const overrunTasks = estimatedTasks
+    .map((task) => ({ task, extraSeconds: overrunSeconds(task), elapsed: elapsedForTask(task) }))
+    .filter((item) => item.extraSeconds > 0)
+    .sort((a, b) => b.extraSeconds - a.extraSeconds);
+  const runningOverrun = overrunTasks.filter((item) => item.task.timerStatus === "running").length;
+  const onTime = estimatedTasks.length - overrunTasks.length;
+  const overrunRate = estimatedTasks.length ? Math.round((overrunTasks.length / estimatedTasks.length) * 100) : 0;
+  const totalExtra = overrunTasks.reduce((sum, item) => sum + item.extraSeconds, 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SlaCard label="Estimated Tasks" value={estimatedTasks.length} />
+        <SlaCard label="On Time" value={onTime} />
+        <SlaCard label="Overrun Rate" value={`${overrunRate}%`} tone={overrunRate > 30 ? "danger" : "normal"} />
+        <SlaCard label="Total Extra Time" value={formatDuration(totalExtra)} tone={totalExtra > 0 ? "danger" : "normal"} />
+      </div>
+      <div className="overflow-hidden rounded-lg border bg-card">
+        <div className="flex items-center justify-between gap-3 border-b p-4">
+          <div>
+            <h3 className="text-sm font-semibold">Task SLA Exceptions</h3>
+            <p className="text-xs text-muted-foreground">{runningOverrun} running tasks are already beyond estimate.</p>
+          </div>
+        </div>
+        <table className="w-full text-sm">
+          <thead className="bg-muted text-left text-xs uppercase text-muted-foreground">
+            <tr><th className="p-3">Task</th><th className="p-3">Status</th><th className="p-3">Assignee</th><th className="p-3 text-right">Estimate</th><th className="p-3 text-right">Actual</th><th className="p-3 text-right">Extra</th></tr>
+          </thead>
+          <tbody>
+            {overrunTasks.map(({ task, extraSeconds, elapsed }) => (
+              <tr key={task._id} className="border-t">
+                <td className="max-w-[320px] p-3">
+                  <button type="button" onClick={() => onOpen(task)} className="truncate font-medium text-primary hover:underline">{task.title}</button>
+                </td>
+                <td className="p-3">{statusLabel(task.status)}</td>
+                <td className="p-3">{assigneeNames(task)}</td>
+                <td className="p-3 text-right">{formatHours(task.estimatedHours)}</td>
+                <td className="p-3 text-right">{formatDuration(elapsed)}</td>
+                <td className="p-3 text-right font-medium text-destructive">{formatDuration(extraSeconds)}</td>
+              </tr>
+            ))}
+            {!overrunTasks.length && <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">No SLA overruns for the selected tasks</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function SlaCard({ label, value, tone = "normal" }: { label: string; value: string | number; tone?: "normal" | "danger" }) {
+  return (
+    <div className={tone === "danger" ? "rounded-lg border border-destructive/30 bg-destructive/5 p-4" : "rounded-lg border bg-card p-4"}>
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className={tone === "danger" ? "mt-1 text-2xl font-semibold text-destructive" : "mt-1 text-2xl font-semibold"}>{value}</p>
     </div>
   );
 }
