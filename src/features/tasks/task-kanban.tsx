@@ -16,10 +16,10 @@ import { Textarea } from "@/components/ui/textarea";
 const initialState = { ok: false, message: "" };
 
 const statuses = [
-  { value: "to_do", label: "To Do" },
-  { value: "in_progress", label: "In Progress" },
-  { value: "in_review", label: "In Review" },
-  { value: "complete", label: "Complete" }
+  { value: "to_do", label: "To Do", color: "#2563eb", tint: "rgba(37, 99, 235, 0.08)" },
+  { value: "in_progress", label: "In Progress", color: "#ea580c", tint: "rgba(234, 88, 12, 0.09)" },
+  { value: "in_review", label: "In Review", color: "#9333ea", tint: "rgba(147, 51, 234, 0.08)" },
+  { value: "complete", label: "Complete", color: "#16a34a", tint: "rgba(22, 163, 74, 0.08)" }
 ] as const;
 
 const fallbackColors = ["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#ea580c", "#0891b2", "#be123c", "#4f46e5", "#0f766e", "#a16207"];
@@ -156,14 +156,18 @@ export function TaskKanban({
               key={status.value}
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => onDrop(status.value)}
-              className="min-h-[260px] rounded-lg border bg-card p-3 transition-colors data-[moving=true]:opacity-75"
+              className="flex max-h-[min(72vh,760px)] min-h-[260px] flex-col overflow-hidden rounded-lg border bg-card transition-colors data-[moving=true]:opacity-75"
               data-moving={isMoving}
+              style={{ borderTopColor: status.color, boxShadow: `inset 0 3px 0 ${status.color}` }}
             >
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">{status.label}</h3>
-                <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">{columnTasks.length}</span>
+              <div className="flex items-center justify-between border-b p-3" style={{ backgroundColor: status.tint }}>
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: status.color }} />
+                  {status.label}
+                </h3>
+                <span className="rounded-md bg-background/80 px-2 py-0.5 text-xs text-muted-foreground">{columnTasks.length}</span>
               </div>
-              <div className="space-y-3">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 overscroll-contain">
                 {columnTasks.map((task) => (
                   <CompactTaskCard
                     key={task._id}
@@ -260,6 +264,7 @@ function CompactTaskCard({ task, checked, canSelect, onChecked, onOpen, onDragSt
   const elapsed = useLiveElapsed(task);
   const estimateSeconds = Number(task.estimatedHours ?? 0) * 3600;
   const overdue = estimateSeconds > 0 && elapsed >= estimateSeconds && task.status !== "complete";
+  const extraSeconds = overrunSeconds(task, elapsed);
   const color = task.color || fallbackColor(task._id);
 
   return (
@@ -282,6 +287,12 @@ function CompactTaskCard({ task, checked, canSelect, onChecked, onOpen, onDragSt
           <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{formatDuration(elapsed)} / {formatHours(task.estimatedHours)}</span>
           <span className="truncate">{task.timerStatus === "running" ? "Running" : assigneeNames(task)}</span>
         </div>
+        {extraSeconds > 0 && (
+          <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+            <AlertTriangle className="h-3 w-3" />
+            Extra {formatDuration(extraSeconds)}
+          </div>
+        )}
         <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
           <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">{priorityLabel(task.priority)}</span>
           <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">{severityLabel(task.severity)}</span>
@@ -303,6 +314,7 @@ function TaskDetailDialog({ task, assignees, currentRole, onClose, onLocalUpdate
   const [state, formAction, pending] = useActionState(updateProjectTask.bind(null, task._id, projectId), initialState);
   const [isTimerPending, startTimerTransition] = useTransition();
   const elapsed = useLiveElapsed(task);
+  const extraSeconds = overrunSeconds(task, elapsed);
   const color = task.color || fallbackColor(task._id);
 
   function timer(command: "start" | "pause" | "stop") {
@@ -347,6 +359,7 @@ function TaskDetailDialog({ task, assignees, currentRole, onClose, onLocalUpdate
             <h2 className="text-lg font-semibold">{task.title}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {statusLabel(task.status)} · {formatDuration(elapsed)} tracked · {formatHours(task.estimatedHours)} estimate
+              {extraSeconds > 0 ? ` · ${formatDuration(extraSeconds)} extra` : ""}
             </p>
           </div>
           <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close task details">
@@ -423,6 +436,7 @@ function TaskDetailDialog({ task, assignees, currentRole, onClose, onLocalUpdate
               <p className="text-xs uppercase text-muted-foreground">Timer</p>
               <p className="mt-1 text-2xl font-semibold">{formatDuration(elapsed)}</p>
               <p className="text-xs text-muted-foreground">Estimate {formatHours(task.estimatedHours)}</p>
+              {extraSeconds > 0 && <p className="mt-2 rounded-md bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">Extra time {formatDuration(extraSeconds)}</p>}
             </div>
             <div className="grid gap-2">
               <Button type="button" size="sm" disabled={isTimerPending || task.timerStatus === "running"} onClick={() => timer("start")}>
@@ -621,22 +635,25 @@ function MilestoneView({ tasks, onOpen }: { tasks: ProjectTaskLike[]; onOpen: (t
 }
 
 function TimeReportView({ tasks }: { tasks: ProjectTaskLike[] }) {
-  const byAssignee = new Map<string, { name: string; seconds: number; tasks: number }>();
-  const byProject = new Map<string, { name: string; seconds: number; tasks: number }>();
+  const byAssignee = new Map<string, { name: string; seconds: number; extraSeconds: number; tasks: number }>();
+  const byProject = new Map<string, { name: string; seconds: number; extraSeconds: number; tasks: number }>();
   for (const task of tasks) {
     const seconds = elapsedForTask(task);
+    const extraSeconds = overrunSeconds(task, seconds);
     const assignees = taskAssignees(task);
     if (!assignees.length) assignees.push({ _id: "unassigned", name: "Unassigned" });
     for (const assignee of assignees) {
       const key = assignee?._id?.toString?.() ?? String(assignee);
-      const current = byAssignee.get(key) ?? { name: assignee?.name ?? "User", seconds: 0, tasks: 0 };
+      const current = byAssignee.get(key) ?? { name: assignee?.name ?? "User", seconds: 0, extraSeconds: 0, tasks: 0 };
       current.seconds += seconds;
+      current.extraSeconds += extraSeconds;
       current.tasks += 1;
       byAssignee.set(key, current);
     }
     const projectKey = getProjectId(task);
-    const projectCurrent = byProject.get(projectKey) ?? { name: task.projectId?.name ?? "Project", seconds: 0, tasks: 0 };
+    const projectCurrent = byProject.get(projectKey) ?? { name: task.projectId?.name ?? "Project", seconds: 0, extraSeconds: 0, tasks: 0 };
     projectCurrent.seconds += seconds;
+    projectCurrent.extraSeconds += extraSeconds;
     projectCurrent.tasks += 1;
     byProject.set(projectKey, projectCurrent);
   }
@@ -648,13 +665,13 @@ function TimeReportView({ tasks }: { tasks: ProjectTaskLike[] }) {
   );
 }
 
-function ReportTable({ title, rows }: { title: string; rows: Array<{ name: string; seconds: number; tasks: number }> }) {
+function ReportTable({ title, rows }: { title: string; rows: Array<{ name: string; seconds: number; extraSeconds: number; tasks: number }> }) {
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
       <div className="border-b p-4"><h3 className="text-sm font-semibold">{title}</h3></div>
       <table className="w-full text-sm">
         <thead className="bg-muted text-left text-xs uppercase text-muted-foreground">
-          <tr><th className="p-3">Name</th><th className="p-3">Tasks</th><th className="p-3 text-right">Tracked</th></tr>
+          <tr><th className="p-3">Name</th><th className="p-3">Tasks</th><th className="p-3 text-right">Tracked</th><th className="p-3 text-right">Extra</th></tr>
         </thead>
         <tbody>
           {rows.sort((a, b) => b.seconds - a.seconds).map((row) => (
@@ -662,9 +679,10 @@ function ReportTable({ title, rows }: { title: string; rows: Array<{ name: strin
               <td className="p-3 font-medium">{row.name}</td>
               <td className="p-3">{row.tasks}</td>
               <td className="p-3 text-right">{formatDuration(row.seconds)}</td>
+              <td className={row.extraSeconds > 0 ? "p-3 text-right font-medium text-destructive" : "p-3 text-right text-muted-foreground"}>{row.extraSeconds > 0 ? formatDuration(row.extraSeconds) : "-"}</td>
             </tr>
           ))}
-          {!rows.length && <tr><td colSpan={3} className="p-4 text-center text-muted-foreground">No tracked time</td></tr>}
+          {!rows.length && <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">No tracked time</td></tr>}
         </tbody>
       </table>
     </div>
@@ -711,6 +729,12 @@ function secondsSince(value: string | Date | null | undefined) {
 
 function elapsedForTask(task: ProjectTaskLike) {
   return Number(task.accumulatedSeconds ?? 0) + (task.timerStatus === "running" ? secondsSince(task.lastTimerStartedAt) : 0);
+}
+
+function overrunSeconds(task: ProjectTaskLike, elapsed = elapsedForTask(task)) {
+  const estimateSeconds = Number(task.estimatedHours ?? 0) * 3600;
+  if (!estimateSeconds) return 0;
+  return Math.max(0, elapsed - estimateSeconds);
 }
 
 function formatDuration(seconds: number) {
