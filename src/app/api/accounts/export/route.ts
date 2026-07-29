@@ -5,7 +5,6 @@ import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Organization } from "@/models/Organization";
-import { getDerivedLedger } from "@/services/accounts";
 import { getFinancialStatements } from "@/services/financial-statements";
 
 export async function GET(request: NextRequest) {
@@ -19,10 +18,7 @@ export async function GET(request: NextRequest) {
     to: searchParams.get("to") ?? undefined
   }), Organization.findById(organizationId).select("name").lean() as any]);
   const statement = searchParams.get("statement") ?? "all";
-  const ledger = statement === "trial_balance" || statement === "closing" || statement === "all"
-    ? await getDerivedLedger(organizationId, statements.period.from, statements.period.to)
-    : null;
-  const rows = statementRows(statement, statements, ledger);
+  const rows = statementRows(statement, statements);
 
   if (searchParams.get("format") === "pdf") {
     const pdf = await PDFDocument.create();
@@ -34,7 +30,7 @@ export async function GET(request: NextRequest) {
     if (statement === "profit_loss") {
       drawSection(page, bold, font, "Profit and Loss", statements.profitAndLoss.map((row) => [row.account, formatAmount(row.amount)]), y);
     } else if (statement === "trial_balance") {
-      drawSection(page, bold, font, "Trial Balance", (ledger?.summary ?? []).map((row: any) => [`${row.accountCode} ${row.accountName}`, `Dr ${formatAmount(row.debit)} / Cr ${formatAmount(row.credit)}`]), y);
+      drawSection(page, bold, font, "Closing Trial Balance", (statements.trialBalance ?? []).map((row: any) => [`${row.accountCode} ${row.accountName}`, `Dr ${formatAmount(row.debit)} / Cr ${formatAmount(row.credit)}`]), y);
     } else {
       y = drawSection(page, bold, font, "Closing Summary", closingSummaryRows(statements), y);
       y = drawSection(page, bold, font, "Balance Sheet", balanceSheetRows(statements), y - 18);
@@ -48,7 +44,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse(csv, { headers: { "Content-Type": "text/csv", "Content-Disposition": `attachment; filename=${fileName(statement, "csv")}` } });
 }
 
-function statementRows(statement: string, statements: any, ledger: any) {
+function statementRows(statement: string, statements: any) {
   const summaryRows = Object.entries(statements.summary).map(([metric, value]) => ({ section: "Summary", account: metric, debit: "", credit: "", amount: value }));
   const balanceRows = [
     ...statements.balanceSheet.assets.map((row: any) => ({ section: "Balance Sheet - Assets", account: row.account, debit: row.amount, credit: "", amount: row.amount })),
@@ -56,7 +52,7 @@ function statementRows(statement: string, statements: any, ledger: any) {
     ...statements.balanceSheet.equity.map((row: any) => ({ section: "Balance Sheet - Equity", account: row.account, debit: "", credit: row.amount, amount: row.amount }))
   ];
   const profitRows = statements.profitAndLoss.map((row: any) => ({ section: "Profit and Loss", account: row.account, debit: row.amount < 0 ? Math.abs(row.amount) : "", credit: row.amount > 0 ? row.amount : "", amount: row.amount }));
-  const trialRows = (ledger?.summary ?? []).map((row: any) => ({ section: "Trial Balance", account: `${row.accountCode} - ${row.accountName}`, debit: row.debit, credit: row.credit, amount: row.balance }));
+  const trialRows = (statements.trialBalance ?? []).map((row: any) => ({ section: "Closing Trial Balance", account: `${row.accountCode} - ${row.accountName}`, debit: row.debit, credit: row.credit, amount: (row.debit ?? 0) - (row.credit ?? 0) }));
   const cashRows = statements.cashFlow.map((row: any) => ({ section: "Cash Flow", account: row.account, debit: "", credit: "", amount: row.amount }));
   const receivableRows = statements.receivables.map((row: any) => ({ section: "Accounts Receivable", account: `${row.projectName} (${row.projectCode})`, debit: row.due, credit: "", amount: row.due }));
   if (statement === "balance_sheet") return [...summaryRows.filter((row) => ["totalAssets", "totalLiabilities", "ownerEquity", "cashAtBank", "accountsReceivable"].includes(row.account)), ...balanceRows, ...receivableRows];

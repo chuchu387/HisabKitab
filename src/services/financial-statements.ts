@@ -170,14 +170,7 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
       { account: "Net Cash Movement In Period", amount: round(revenue + ownerFunds - totalExpenses) },
       { account: "Cash / Bank Balance At Period End", amount: cashAtBank }
     ],
-    trialBalance: [
-      { account: "Cash / Bank", debit: cashAtBank >= 0 ? cashAtBank : 0, credit: cashAtBank < 0 ? Math.abs(cashAtBank) : 0 },
-      { account: "Accounts Receivable", debit: accountsReceivable, credit: 0 },
-      { account: "Estimated Tax Provision", debit: 0, credit: estimatedTaxPayable },
-      { account: "Owner Equity", debit: ownerEquity < 0 ? Math.abs(ownerEquity) : 0, credit: ownerEquity >= 0 ? ownerEquity : 0 },
-      { account: "Revenue", debit: 0, credit: revenue },
-      { account: "Expenses", debit: totalExpenses, credit: 0 }
-    ],
+    trialBalance: closingTrialBalance(cashAtBank, accountsReceivable, estimatedTaxPayable, ownerEquity),
     expenseByCategory: periodExpenseByCategory,
     expenseByProject: periodExpenseByProject,
     receivables: receivableRows
@@ -207,4 +200,13 @@ function parseDateOr(value: string | undefined, fallback: Date) {
 function round(value: number) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Number(numeric.toFixed(2)) : 0;
+}
+
+function closingTrialBalance(cashAtBank: number, accountsReceivable: number, taxPayable: number, ownerEquity: number) {
+  return [
+    { accountCode: "1000", accountName: "Cash / Bank", debit: cashAtBank >= 0 ? cashAtBank : 0, credit: cashAtBank < 0 ? Math.abs(cashAtBank) : 0 },
+    { accountCode: "1100", accountName: "Accounts Receivable", debit: accountsReceivable, credit: 0 },
+    { accountCode: "2000", accountName: "Estimated Tax Provision", debit: 0, credit: taxPayable },
+    { accountCode: "3000", accountName: "Owner Equity / Retained Earnings", debit: ownerEquity < 0 ? Math.abs(ownerEquity) : 0, credit: ownerEquity >= 0 ? ownerEquity : 0 }
+  ].filter((row) => row.debit !== 0 || row.credit !== 0);
 }

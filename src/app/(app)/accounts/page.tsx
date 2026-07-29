@@ -9,7 +9,6 @@ import { dateInput, money } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
 import { Organization } from "@/models/Organization";
 import { fiscalYearOptions, getFinancialStatements } from "@/services/financial-statements";
-import { getDerivedLedger } from "@/services/accounts";
 import { emptyFinancialStatements, emptyLedger } from "@/services/statement-fallback";
 
 type ReportRow = {
@@ -58,23 +57,17 @@ async function AccountsContent({ searchParams }: any) {
     to: customRange && typeof params?.to === "string" ? params.to : fy.to
   };
   const compareFilters = compareFY ? { organizationId, from: compareFY.from, to: compareFY.to } : undefined;
-  const [statementsResult, organizationResult, ledgerResult, compareStatementsResult, compareLedgerResult] = await Promise.all([
+  const [statementsResult, organizationResult, compareStatementsResult] = await Promise.all([
     getFinancialStatements(filters),
     Organization.findById(organizationId).select("name").lean() as any,
-    getDerivedLedger(organizationId, filters.from, filters.to),
-    compareFilters ? getFinancialStatements(compareFilters) : Promise.resolve(null),
-    compareFilters ? getDerivedLedger(organizationId, compareFilters.from, compareFilters.to) : Promise.resolve(null)
+    compareFilters ? getFinancialStatements(compareFilters) : Promise.resolve(null)
   ].map((promise) => Promise.resolve(promise).then((value) => ({ ok: true as const, value })).catch((error) => ({ ok: false as const, error }))));
   if (!statementsResult.ok) console.error("Accounts statements failed", statementsResult.error);
-  if (!ledgerResult.ok) console.error("Accounts ledger failed", ledgerResult.error);
   if (!organizationResult.ok) console.error("Accounts organization failed", organizationResult.error);
   if (!compareStatementsResult.ok) console.error("Accounts compare statements failed", compareStatementsResult.error);
-  if (!compareLedgerResult.ok) console.error("Accounts compare ledger failed", compareLedgerResult.error);
   const statements = (statementsResult.ok ? statementsResult.value : emptyFinancialStatements(filters.from, filters.to)) as any;
   const organization = organizationResult.ok ? organizationResult.value : null;
-  const ledger = (ledgerResult.ok ? ledgerResult.value : emptyLedger()) as any;
   const compareStatements = (compareStatementsResult.ok ? compareStatementsResult.value : null) as any;
-  const compareLedger = (compareLedgerResult.ok ? compareLedgerResult.value : null) as any;
   const qs = new URLSearchParams({ from: filters.from, to: filters.to });
   const baseLedger = `/ledger?${qs}`;
   const expenseBase = `/expenses?from=${filters.from}&to=${filters.to}&approvalStatus=approved`;
@@ -146,7 +139,7 @@ async function AccountsContent({ searchParams }: any) {
     { label: "Estimated Tax Provision", amount: -compareStatements.summary.estimatedTaxPayable, level: 1, href: "/tax" },
     { label: "Net Profit After Tax", amount: compareStatements.summary.netProfitAfterTax, total: true }
   ] : undefined);
-  const trialRows: ReportRow[] = buildTrialRows(ledger.summary, compareLedger?.summary, baseLedger);
+  const trialRows: ReportRow[] = buildTrialRows(statements.trialBalance ?? [], compareStatements?.trialBalance, baseLedger);
   const trialDebit = trialRows.reduce((sum, row) => sum + (row.debit ?? 0), 0);
   const trialCredit = trialRows.reduce((sum, row) => sum + (row.credit ?? 0), 0);
   const trialCompareNet = trialRows.reduce((sum, row) => sum + (row.compareNet ?? 0), 0);
@@ -202,13 +195,13 @@ async function AccountsContent({ searchParams }: any) {
         </p>
       </section>
 
-      <StatementReport title="Balance Sheet" company={organization?.name ?? "No company name"} period={statements.period.label} comparisonPeriod={compareStatements?.period.label} columns={["Balance"]} rows={balanceRows} />
-      <StatementReport title="Profit and Loss" company={organization?.name ?? "No company name"} period={statements.period.label} comparisonPeriod={compareStatements?.period.label} columns={["Amount"]} rows={profitRows} />
+      <StatementReport title="Balance Sheet" company={organization?.name ?? "No company name"} period={`As of ${statements.period.to}`} comparisonPeriod={compareStatements ? `As of ${compareStatements.period.to}` : undefined} columns={["Balance"]} rows={balanceRows} />
+      <StatementReport title="Profit and Loss" company={organization?.name ?? "No company name"} period={`For ${statements.period.label}`} comparisonPeriod={compareStatements ? `For ${compareStatements.period.label}` : undefined} columns={["Amount"]} rows={profitRows} />
       <StatementReport
-        title="Trial Balance"
+        title="Closing Trial Balance"
         company={organization?.name ?? "No company name"}
-        period={statements.period.label}
-        comparisonPeriod={compareStatements?.period.label}
+        period={`As of ${statements.period.to}`}
+        comparisonPeriod={compareStatements ? `As of ${compareStatements.period.to}` : undefined}
         columns={["Debit", "Credit", "Net"]}
         rows={[...trialRows, { label: "Grand Total", debit: trialDebit, credit: trialCredit, net: trialDebit - trialCredit, compareNet: trialCompareNet, total: true }]}
       />
