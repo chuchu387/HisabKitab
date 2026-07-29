@@ -354,7 +354,7 @@ function TaskDetailDialog({ task, assignees, currentRole, onClose, onLocalUpdate
   return (
     <div className="fixed inset-0 z-[9999] grid place-items-center bg-foreground/45 p-3 backdrop-blur-sm">
       <button type="button" className="absolute inset-0 cursor-default" aria-label="Close task details" onClick={onClose} />
-      <div role="dialog" aria-modal="true" className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-lg border bg-card shadow-2xl">
+      <div role="dialog" aria-modal="true" className="relative max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-lg border bg-card shadow-2xl">
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b bg-card p-4 sm:p-5">
           <div className="min-w-0">
             <div className="mb-2 h-1.5 w-24 rounded-full" style={{ backgroundColor: color }} />
@@ -369,7 +369,7 @@ function TaskDetailDialog({ task, assignees, currentRole, onClose, onLocalUpdate
           </Button>
         </div>
 
-        <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[1fr_220px]">
+        <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <form action={formAction} encType="multipart/form-data" className="space-y-4">
             <Field name="title" label="Task" defaultValue={task.title} />
             <div className="grid gap-4 sm:grid-cols-2">
