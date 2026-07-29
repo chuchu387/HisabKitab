@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
-import { AlertTriangle, CalendarDays, CheckCircle2, Clock, Flag, ImageIcon, ListChecks, MessageSquare, Pause, Play, Plus, TimerReset, UsersRound, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock, Download, Flag, ImageIcon, ListChecks, MessageSquare, Pause, Play, Plus, TimerReset, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { addProjectTaskComment, bulkStartProjectTasks, createGlobalProjectTask, createProjectTask, deleteProjectTask, moveProjectTask, updateProjectTask, updateProjectTaskTimer } from "@/actions/project-tasks";
 import { ActionMessage } from "@/components/action-message";
@@ -46,6 +46,7 @@ export function TaskKanban({
   const [draggingId, setDraggingId] = useState("");
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
   const [view, setView] = useState<"kanban" | "calendar" | "milestones" | "time" | "sla">("kanban");
+  const [queryString, setQueryString] = useState("");
   const [isMoving, startMove] = useTransition();
   const [isBulkStarting, startBulkStart] = useTransition();
   const totalHours = items.reduce((sum, task) => sum + (Number(task.estimatedHours) || 0), 0);
@@ -54,6 +55,7 @@ export function TaskKanban({
   const canBulkStart = currentRole === "owner" || currentRole === "admin";
 
   useEffect(() => setItems(tasks), [tasks]);
+  useEffect(() => setQueryString(window.location.search), []);
 
   function onDrop(status: string) {
     const task = items.find((item) => item._id === draggingId);
@@ -189,8 +191,8 @@ export function TaskKanban({
 
       {view === "calendar" && <CalendarView tasks={items} onOpen={setSelected} />}
       {view === "milestones" && <MilestoneView tasks={items} onOpen={setSelected} />}
-      {view === "time" && <TimeReportView tasks={items} />}
-      {view === "sla" && <SlaReportView tasks={items} onOpen={setSelected} />}
+      {view === "time" && <TimeReportView tasks={items} queryString={queryString} />}
+      {view === "sla" && <SlaReportView tasks={items} queryString={queryString} onOpen={setSelected} />}
 
       {selected && (
         <TaskDetailDialog
@@ -597,16 +599,33 @@ function TaskActivity({ task }: { task: ProjectTaskLike }) {
 
 function CalendarView({ tasks, onOpen }: { tasks: ProjectTaskLike[]; onOpen: (task: ProjectTaskLike) => void }) {
   const groups = groupBy(tasks, (task) => task.dueDate ? dateInputValue(task.dueDate) : "No due date");
+  const sortedEntries = Object.entries(groups).sort(([a], [b]) => {
+    if (a === "No due date") return 1;
+    if (b === "No due date") return -1;
+    return new Date(a).getTime() - new Date(b).getTime();
+  });
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      {Object.entries(groups).map(([date, groupedTasks]) => (
-        <div key={date} className="rounded-lg border bg-card p-4">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold"><CalendarDays className="h-4 w-4" /> {date === "No due date" ? date : dateLabel(date)}</h3>
-          <div className="space-y-2">
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <MetricTile label="Due Today" value={tasks.filter((task) => dueBucket(task) === "today").length} />
+        <MetricTile label="Overdue" value={tasks.filter((task) => isOverdue(task)).length} tone="danger" />
+        <MetricTile label="No Due Date" value={tasks.filter((task) => !task.dueDate).length} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {sortedEntries.map(([date, groupedTasks]) => (
+          <div key={date} className="flex max-h-[440px] flex-col overflow-hidden rounded-lg border bg-card">
+            <div className="border-b p-4" style={{ backgroundColor: date === "No due date" ? "rgba(107,114,128,.08)" : isPastDate(date) ? "rgba(220,38,38,.08)" : "rgba(8,145,178,.08)" }}>
+              <h3 className="flex items-center justify-between gap-2 text-sm font-semibold">
+                <span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4" /> {date === "No due date" ? date : dateLabel(date)}</span>
+                <span className="rounded bg-background/80 px-2 py-0.5 text-xs text-muted-foreground">{groupedTasks.length}</span>
+              </h3>
+            </div>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 overscroll-contain">
             {groupedTasks.map((task) => <MiniTaskRow key={task._id} task={task} onOpen={() => onOpen(task)} />)}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -614,18 +633,29 @@ function CalendarView({ tasks, onOpen }: { tasks: ProjectTaskLike[]; onOpen: (ta
 function MilestoneView({ tasks, onOpen }: { tasks: ProjectTaskLike[]; onOpen: (task: ProjectTaskLike) => void }) {
   const groups = groupBy(tasks, (task) => task.milestone || "Unplanned");
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-4 xl:grid-cols-2">
       {Object.entries(groups).map(([milestone, groupedTasks]) => {
         const done = groupedTasks.filter((task) => task.status === "complete").length;
+        const running = groupedTasks.filter((task) => task.status === "in_progress").length;
+        const review = groupedTasks.filter((task) => task.status === "in_review").length;
+        const extra = groupedTasks.reduce((sum, task) => sum + overrunSeconds(task), 0);
         const percent = groupedTasks.length ? Math.round((done / groupedTasks.length) * 100) : 0;
         return (
-          <div key={milestone} className="rounded-lg border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="flex items-center gap-2 text-sm font-semibold"><Flag className="h-4 w-4" /> {milestone}</h3>
-              <span className="text-xs text-muted-foreground">{percent}% complete</span>
+          <div key={milestone} className="overflow-hidden rounded-lg border bg-card">
+            <div className="border-b p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold"><Flag className="h-4 w-4 shrink-0 text-primary" /> <span className="truncate">{milestone}</span></h3>
+                <span className="text-xs font-medium text-muted-foreground">{percent}% complete</span>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-muted"><div className="h-2 rounded-full bg-primary" style={{ width: `${percent}%` }} /></div>
+              <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
+                <div className="rounded bg-muted p-2"><p className="font-semibold">{groupedTasks.length}</p><p className="text-muted-foreground">Tasks</p></div>
+                <div className="rounded bg-orange-500/10 p-2"><p className="font-semibold">{running}</p><p className="text-muted-foreground">Active</p></div>
+                <div className="rounded bg-purple-500/10 p-2"><p className="font-semibold">{review}</p><p className="text-muted-foreground">Review</p></div>
+                <div className={extra > 0 ? "rounded bg-destructive/10 p-2 text-destructive" : "rounded bg-muted p-2"}><p className="font-semibold">{formatDuration(extra)}</p><p className="text-muted-foreground">Extra</p></div>
+              </div>
             </div>
-            <div className="mb-3 h-2 rounded-full bg-muted"><div className="h-2 rounded-full bg-primary" style={{ width: `${percent}%` }} /></div>
-            <div className="space-y-2">
+            <div className="max-h-[360px] space-y-2 overflow-y-auto p-3 overscroll-contain">
               {groupedTasks.map((task) => <MiniTaskRow key={task._id} task={task} onOpen={() => onOpen(task)} />)}
             </div>
           </div>
@@ -635,7 +665,7 @@ function MilestoneView({ tasks, onOpen }: { tasks: ProjectTaskLike[]; onOpen: (t
   );
 }
 
-function TimeReportView({ tasks }: { tasks: ProjectTaskLike[] }) {
+function TimeReportView({ tasks, queryString }: { tasks: ProjectTaskLike[]; queryString: string }) {
   const byAssignee = new Map<string, { name: string; seconds: number; extraSeconds: number; tasks: number }>();
   const byProject = new Map<string, { name: string; seconds: number; extraSeconds: number; tasks: number }>();
   for (const task of tasks) {
@@ -659,14 +689,22 @@ function TimeReportView({ tasks }: { tasks: ProjectTaskLike[] }) {
     byProject.set(projectKey, projectCurrent);
   }
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <ReportTable title="Time By Staff" rows={[...byAssignee.values()]} />
-      <ReportTable title="Time By Project" rows={[...byProject.values()]} />
+    <div className="space-y-4">
+      <ReportHeader title="Task Time Report" description="Tracked task time grouped by staff and project." exportType="time" queryString={queryString} />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <MetricTile label="Tracked Time" value={formatDuration(tasks.reduce((sum, task) => sum + elapsedForTask(task), 0))} />
+        <MetricTile label="Extra Time" value={formatDuration(tasks.reduce((sum, task) => sum + overrunSeconds(task), 0))} tone="danger" />
+        <MetricTile label="Running Timers" value={tasks.filter((task) => task.timerStatus === "running").length} />
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <ReportTable title="Time By Staff" rows={[...byAssignee.values()]} />
+        <ReportTable title="Time By Project" rows={[...byProject.values()]} />
+      </div>
     </div>
   );
 }
 
-function SlaReportView({ tasks, onOpen }: { tasks: ProjectTaskLike[]; onOpen: (task: ProjectTaskLike) => void }) {
+function SlaReportView({ tasks, queryString, onOpen }: { tasks: ProjectTaskLike[]; queryString: string; onOpen: (task: ProjectTaskLike) => void }) {
   const estimatedTasks = tasks.filter((task) => Number(task.estimatedHours ?? 0) > 0);
   const overrunTasks = estimatedTasks
     .map((task) => ({ task, extraSeconds: overrunSeconds(task), elapsed: elapsedForTask(task) }))
@@ -679,6 +717,7 @@ function SlaReportView({ tasks, onOpen }: { tasks: ProjectTaskLike[]; onOpen: (t
 
   return (
     <div className="space-y-4">
+      <ReportHeader title="Task SLA Report" description="Estimated versus actual task timing and overrun exceptions." exportType="sla" queryString={queryString} />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SlaCard label="Estimated Tasks" value={estimatedTasks.length} />
         <SlaCard label="On Time" value={onTime} />
@@ -718,6 +757,34 @@ function SlaReportView({ tasks, onOpen }: { tasks: ProjectTaskLike[]; onOpen: (t
 }
 
 function SlaCard({ label, value, tone = "normal" }: { label: string; value: string | number; tone?: "normal" | "danger" }) {
+  return (
+    <div className={tone === "danger" ? "rounded-lg border border-destructive/30 bg-destructive/5 p-4" : "rounded-lg border bg-card p-4"}>
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className={tone === "danger" ? "mt-1 text-2xl font-semibold text-destructive" : "mt-1 text-2xl font-semibold"}>{value}</p>
+    </div>
+  );
+}
+
+function ReportHeader({ title, description, exportType, queryString }: { title: string; description: string; exportType: "time" | "sla"; queryString: string }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h3 className="text-base font-semibold">{title}</h3>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline" size="sm">
+          <a href={taskExportHref(exportType, "csv", queryString)}><Download className="h-4 w-4" /> CSV</a>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <a href={taskExportHref(exportType, "pdf", queryString)}><Download className="h-4 w-4" /> PDF</a>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function MetricTile({ label, value, tone = "normal" }: { label: string; value: string | number; tone?: "normal" | "danger" }) {
   return (
     <div className={tone === "danger" ? "rounded-lg border border-destructive/30 bg-destructive/5 p-4" : "rounded-lg border bg-card p-4"}>
       <p className="text-sm text-muted-foreground">{label}</p>
@@ -832,6 +899,31 @@ function isOverdue(task: ProjectTaskLike) {
   if (!task.dueDate || task.status === "complete") return false;
   const due = new Date(task.dueDate).getTime();
   return !Number.isNaN(due) && due < Date.now();
+}
+
+function isPastDate(value: string) {
+  if (value === "No due date") return false;
+  const date = new Date(value).getTime();
+  return !Number.isNaN(date) && date < new Date(new Date().toDateString()).getTime();
+}
+
+function dueBucket(task: ProjectTaskLike) {
+  if (!task.dueDate) return "none";
+  const date = new Date(task.dueDate);
+  if (Number.isNaN(date.getTime())) return "none";
+  const start = new Date(new Date().toDateString()).getTime();
+  const end = start + 24 * 60 * 60 * 1000 - 1;
+  const time = date.getTime();
+  if (time < start) return "overdue";
+  if (time <= end) return "today";
+  return "upcoming";
+}
+
+function taskExportHref(type: "time" | "sla", format: "csv" | "pdf", queryString: string) {
+  const params = new URLSearchParams(queryString.startsWith("?") ? queryString.slice(1) : queryString);
+  params.set("type", type);
+  params.set("format", format);
+  return `/api/tasks/export?${params.toString()}`;
 }
 
 function formatHours(hours: number | string | null | undefined) {
