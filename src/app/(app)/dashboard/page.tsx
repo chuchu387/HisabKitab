@@ -1,22 +1,44 @@
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { BudgetExpenseChart, DonutChart, SimpleBarChart, TrendChart } from "@/components/charts";
+import { FilterForm } from "@/components/filter-form";
 import { connectToDatabase } from "@/lib/db";
 import { requireSession } from "@/lib/permissions";
+import { dateInput } from "@/lib/utils";
 import { money } from "@/lib/utils";
+import { FiscalYear } from "@/models/FiscalYear";
 import { Organization } from "@/models/Organization";
 import { getAccountingSummary, getDashboardCharts } from "@/services/accounting";
+import { getFinancialStatements } from "@/services/financial-statements";
+import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter } from "@/services/fiscal-year-filter";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: any) {
   const session = await requireSession();
   await connectToDatabase();
+  const params = await searchParams;
   const organizationCount = session.user.role === "super_admin" ? await Organization.countDocuments() : 0;
-  const summary = session.user.organizationId
-    ? await getAccountingSummary(session.user.organizationId)
+  const savedFiscalYears = session.user.organizationId ? await FiscalYear.find({ organizationId: session.user.organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean() : [];
+  const fiscalYearOptions = buildFiscalYearFilterOptions(savedFiscalYears as any[]);
+  const selectedFY = typeof params?.fy === "string" ? params.fy : (fiscalYearOptions[0]?.value ?? "all");
+  const fyRange = dateRangeForFiscalYearFilter(fiscalYearOptions, selectedFY, params?.from, params?.to);
+  const filters = {
+    from: fyRange.from ? dateInput(fyRange.from) : undefined,
+    to: fyRange.to ? dateInput(fyRange.to) : undefined
+  };
+  const baseSummary = session.user.organizationId
+    ? await getAccountingSummary(session.user.organizationId, filters)
     : { totalProjects: 0, activeProjects: 0, totalBudget: 0, totalReceived: 0, generalBudget: 0, projectExpenses: 0, clientProjectExpenses: 0, internalProjectExpenses: 0, generalExpenses: 0, totalExpenses: 0, dueAmount: 0, remainingBudget: 0, generalBudgetBalance: 0, organizationCashBalance: 0 };
-  const charts = session.user.organizationId ? await getDashboardCharts(session.user.organizationId) : { byCategory: [], byProject: [], monthly: [], budgetVsExpense: [] };
+  const statements = session.user.organizationId ? await getFinancialStatements({ organizationId: session.user.organizationId, from: filters.from, to: filters.to }) : null;
+  const charts = session.user.organizationId ? await getDashboardCharts(session.user.organizationId, filters) : { byCategory: [], byProject: [], monthly: [], budgetVsExpense: [] };
+  const summary = statements ? {
+    ...baseSummary,
+    dueAmount: statements.summary.accountsReceivable,
+    organizationCashBalance: statements.summary.cashAtBank
+  } : baseSummary;
   const typedSummary = summary as any;
+  const periodLabel = statements?.period.label ?? "All time";
   const collectionRate = typedSummary.totalBudget > 0 ? Math.round((typedSummary.totalReceived / typedSummary.totalBudget) * 100) : 0;
   const spendRate = typedSummary.totalFunding > 0 ? Math.round((typedSummary.totalExpenses / typedSummary.totalFunding) * 100) : 0;
   const projectExpenseRate = typedSummary.totalReceived > 0 ? Math.round((typedSummary.projectExpenses / typedSummary.totalReceived) * 100) : 0;
@@ -30,13 +52,28 @@ export default async function DashboardPage() {
     { name: "General", amount: typedSummary.generalExpenses ?? 0 }
   ].filter((row) => row.amount > 0);
   return (
-    <PageShell title="Dashboard" description="Live accounting totals and expense trends.">
+    <PageShell title="Dashboard" description={`Live accounting totals and expense trends for ${periodLabel}.`}>
+      <FilterForm className="filter-bar">
+        <select className="native-control" name="fy" defaultValue={selectedFY}>
+          {fiscalYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          <option value="all">All fiscal years</option>
+          <option value="custom">Custom date range</option>
+        </select>
+        <input className="native-control" type="date" name="from" defaultValue={filters.from ?? ""} />
+        <input className="native-control" type="date" name="to" defaultValue={filters.to ?? ""} />
+        <Button variant="outline">Filter</Button>
+      </FilterForm>
+      <Card className="border-primary/20 bg-primary/5">
+        <CardContent className="p-4 text-sm">
+          <span className="font-semibold">Showing:</span> {selectedFY === "all" ? "All fiscal years" : periodLabel}
+        </CardContent>
+      </Card>
       <Card className="overflow-hidden border-primary/25 bg-foreground text-primary-foreground shadow-sm">
         <CardContent className="grid gap-5 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
           <div>
             <p className="text-sm font-medium text-white/65">Company Cash Balance</p>
             <p className="mt-2 text-4xl font-semibold text-white">{money(typedSummary.organizationCashBalance ?? 0)}</p>
-            <p className="mt-3 max-w-2xl text-sm text-white/70">Calculated from all client project payments and owner/other funds minus approved project and general expenses.</p>
+            <p className="mt-3 max-w-2xl text-sm text-white/70">Calculated for the selected fiscal-year filter. Balance sheet-style cash can include carry-forward receivables/equity in Accounts.</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
             <RatioPill label="Collection" value={collectionRate} />

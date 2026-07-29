@@ -60,30 +60,34 @@ function currency(value: number) {
   return Number(value.toFixed(2));
 }
 
-export async function getAccountingSummary(organizationId: string) {
+export async function getAccountingSummary(organizationId: string, filters: { from?: string; to?: string } = {}) {
   const oid = new Types.ObjectId(organizationId);
+  const range = dateRange(filters.from, filters.to);
+  const paymentDateMatch = range ? { paymentDate: range } : {};
+  const fundDateMatch = range ? { fundDate: range } : {};
+  const expenseDateMatch = range ? { expenseDate: range } : {};
   const [organization, projectTotals, fundAgg, projectExpenseAgg, projectExpenseByType, generalExpenseAgg, pendingExpenses, activeProjects, totalProjects] = await Promise.all([
     Organization.findById(organizationId).lean(),
     Project.aggregate([
       { $match: { organizationId: oid } },
-      { $lookup: { from: ProjectPayment.collection.name, localField: "_id", foreignField: "projectId", as: "payments" } },
+      { $lookup: { from: ProjectPayment.collection.name, let: { projectId: "$_id" }, pipeline: [{ $match: { $expr: { $eq: ["$projectId", "$$projectId"] }, ...paymentDateMatch } }], as: "payments" } },
       {
         $project: {
           totalBudget: 1,
-          received: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] }
+          received: { $sum: "$payments.amount" }
         }
       },
       { $group: { _id: null, totalBudget: { $sum: "$totalBudget" }, totalReceived: { $sum: "$received" } } }
     ]),
-    GeneralFund.aggregate([{ $match: { organizationId: oid } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
-    Expense.aggregate([{ $match: { organizationId: oid, projectId: { $ne: null }, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
+    GeneralFund.aggregate([{ $match: { organizationId: oid, ...fundDateMatch } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
+    Expense.aggregate([{ $match: { organizationId: oid, projectId: { $ne: null }, ...expenseDateMatch, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Expense.aggregate([
-      { $match: { organizationId: oid, projectId: { $ne: null }, ...approvedExpenseCondition() } },
+      { $match: { organizationId: oid, projectId: { $ne: null }, ...expenseDateMatch, ...approvedExpenseCondition() } },
       { $lookup: { from: Project.collection.name, localField: "projectId", foreignField: "_id", as: "project" } },
       { $project: { amount: 1, projectType: { $ifNull: [{ $first: "$project.projectType" }, "client"] } } },
       { $group: { _id: "$projectType", total: { $sum: "$amount" } } }
     ]),
-    Expense.aggregate([{ $match: { organizationId: oid, projectId: null, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
+    Expense.aggregate([{ $match: { organizationId: oid, projectId: null, ...expenseDateMatch, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Expense.countDocuments({ organizationId, ...pendingExpenseCondition() }),
     Project.countDocuments({ organizationId, status: "active" }),
     Project.countDocuments({ organizationId })
@@ -94,7 +98,7 @@ export async function getAccountingSummary(organizationId: string) {
   const clientProjectExpenses = currency(projectExpenseByType.find((row: any) => row._id === "client")?.total ?? 0);
   const internalProjectExpenses = currency(projectExpenseByType.find((row: any) => row._id === "internal")?.total ?? 0);
   const generalExpenses = currency(generalExpenseAgg[0]?.total ?? 0);
-  const generalBudget = currency(fundAgg[0]?.count ? fundAgg[0].total : ((organization as any)?.generalBudget ?? 0));
+  const generalBudget = currency(fundAgg[0]?.count ? fundAgg[0].total : (!range ? ((organization as any)?.generalBudget ?? 0) : 0));
   return {
     totalProjects,
     activeProjects,
@@ -159,32 +163,35 @@ export async function getProjectFinancials(organizationId: string, projectId: st
   };
 }
 
-export async function getDashboardCharts(organizationId: string) {
+export async function getDashboardCharts(organizationId: string, filters: { from?: string; to?: string } = {}) {
   const oid = new Types.ObjectId(organizationId);
+  const range = dateRange(filters.from, filters.to);
+  const expenseDateMatch = range ? { expenseDate: range } : {};
+  const paymentDateMatch = range ? { paymentDate: range } : {};
   const [byCategory, byProject, monthly, budgetVsExpense] = await Promise.all([
     Expense.aggregate([
-      { $match: { organizationId: oid, ...approvedExpenseCondition() } },
+      { $match: { organizationId: oid, ...expenseDateMatch, ...approvedExpenseCondition() } },
       { $group: { _id: "$categoryId", amount: { $sum: "$amount" } } },
       { $lookup: { from: ExpenseCategory.collection.name, localField: "_id", foreignField: "_id", as: "category" } },
       { $project: { name: { $ifNull: [{ $first: "$category.name" }, "Uncategorized"] }, amount: 1, _id: 0 } }
     ]),
     Expense.aggregate([
-      { $match: { organizationId: oid, projectId: { $ne: null }, ...approvedExpenseCondition() } },
+      { $match: { organizationId: oid, projectId: { $ne: null }, ...expenseDateMatch, ...approvedExpenseCondition() } },
       { $group: { _id: "$projectId", amount: { $sum: "$amount" } } },
       { $lookup: { from: Project.collection.name, localField: "_id", foreignField: "_id", as: "project" } },
       { $project: { name: { $ifNull: [{ $first: "$project.name" }, "Unknown"] }, amount: 1, _id: 0 } }
     ]),
     Expense.aggregate([
-      { $match: { organizationId: oid, ...approvedExpenseCondition() } },
+      { $match: { organizationId: oid, ...expenseDateMatch, ...approvedExpenseCondition() } },
       { $group: { _id: { $dateToString: { format: "%Y-%m", date: "$expenseDate" } }, amount: { $sum: "$amount" } } },
       { $project: { month: "$_id", amount: 1, _id: 0 } },
       { $sort: { month: 1 } }
     ]),
     Project.aggregate([
       { $match: { organizationId: oid } },
-      { $lookup: { from: ProjectPayment.collection.name, localField: "_id", foreignField: "projectId", as: "payments" } },
-      { $lookup: { from: Expense.collection.name, localField: "_id", foreignField: "projectId", as: "expenses" } },
-      { $project: { name: 1, budget: "$totalBudget", received: { $cond: [{ $gt: [{ $ifNull: ["$receivedAmount", 0] }, 0] }, { $ifNull: ["$receivedAmount", 0] }, { $sum: "$payments.amount" }] }, expense: { $sum: { $map: { input: { $filter: { input: "$expenses", as: "expense", cond: { $eq: ["$$expense.approvalStatus", "approved"] } } }, as: "expense", in: "$$expense.amount" } } }, _id: 0 } },
+      { $lookup: { from: ProjectPayment.collection.name, let: { projectId: "$_id" }, pipeline: [{ $match: { $expr: { $eq: ["$projectId", "$$projectId"] }, ...paymentDateMatch } }], as: "payments" } },
+      { $lookup: { from: Expense.collection.name, let: { projectId: "$_id" }, pipeline: [{ $match: { $expr: { $eq: ["$projectId", "$$projectId"] }, ...expenseDateMatch } }], as: "expenses" } },
+      { $project: { name: 1, budget: "$totalBudget", received: { $sum: "$payments.amount" }, expense: { $sum: { $map: { input: { $filter: { input: "$expenses", as: "expense", cond: { $eq: ["$$expense.approvalStatus", "approved"] } } }, as: "expense", in: "$$expense.amount" } } }, _id: 0 } },
       { $limit: 10 }
     ])
   ]);
