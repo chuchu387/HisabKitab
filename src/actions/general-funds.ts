@@ -9,6 +9,7 @@ import { generalFundSchema } from "@/validations/schemas";
 import { deleteReceipt, saveReceipt } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
 import { assertFiscalYearOpen } from "@/services/fiscal-years";
+import { nextVoucherNumber } from "@/services/vouchers";
 import type { ActionState } from "@/types";
 
 export async function createGeneralFund(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -20,8 +21,9 @@ export async function createGeneralFund(_: ActionState, formData: FormData): Pro
     await assertFiscalYearOpen(organizationId, data.fundDate);
     const receipt = formData.get("receipt");
     const receiptImageId = receipt instanceof File && receipt.size > 0 ? await saveReceipt(receipt, { organizationId, entityType: "GeneralFund" }) : null;
-    const fund = await GeneralFund.create({ ...data, bankAccountId: data.bankAccountId || null, organizationId, receiptImageId, createdBy: session.user.userId });
-    await writeAuditLog({ organizationId, userId: session.user.userId, action: "General Fund Created", entityType: "GeneralFund", entityId: fund._id.toString(), metadata: { amount: data.amount } });
+    const voucherNumber = await nextVoucherNumber(GeneralFund, organizationId, "generalFund", data.fundDate);
+    const fund = await GeneralFund.create({ ...data, voucherNumber, bankAccountId: data.bankAccountId || null, organizationId, receiptImageId, createdBy: session.user.userId });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "General Fund Created", entityType: "GeneralFund", entityId: fund._id.toString(), metadata: { amount: data.amount, voucherNumber } });
     revalidatePath("/general-funds");
     revalidatePath("/dashboard");
     return { ok: true, message: "General fund added" };

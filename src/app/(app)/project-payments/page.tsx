@@ -5,6 +5,7 @@ import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { ProjectPaymentForm } from "@/features/forms/project-payment-form";
+import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
 import { deleteProjectPayment } from "@/actions/project-payments";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
@@ -63,6 +64,7 @@ export default async function ProjectPaymentsPage({ searchParams }: any) {
   });
   return (
     <PageShell title="Project Payments" description="Track client payments by project. These records automatically update each project's received total.">
+      <FiscalYearLockWarning organizationId={organizationId} />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Payment Received Till Now" value={totalReceived} currency />
         <StatCard label="Payment Records" value={payments.length} />
@@ -93,6 +95,7 @@ export default async function ProjectPaymentsPage({ searchParams }: any) {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Payment History</h2>
       <DataTable data={payments} pagination={{ basePath: "/project-payments", searchParams: params, pageParam: "historyPage", pageSizeParam: "historyPageSize" }} columns={[
+        { header: "Voucher", cell: (p: any) => p.voucherNumber || "-" },
         { header: "Date", cell: (p: any) => formatDate(p.paymentDate) },
         { header: "FY", cell: (p: any) => fiscalYearLabelForDate(p.paymentDate) },
         { header: "Project", cell: (p: any) => p.projectId?.name ?? "-" },

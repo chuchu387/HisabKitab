@@ -14,6 +14,7 @@ import { writeAuditLog } from "@/services/audit";
 import { assertFiscalYearOpen } from "@/services/fiscal-years";
 import { appUrl } from "@/services/email";
 import { notifyProjectPayment } from "@/services/notifications";
+import { nextVoucherNumber } from "@/services/vouchers";
 import { User } from "@/models/User";
 import type { ActionState } from "@/types";
 
@@ -36,12 +37,13 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
       const invoice = await Invoice.exists({ _id: data.invoiceId, organizationId, projectId: data.projectId });
       if (!invoice) throw new Error("Invoice not found for this project");
     }
-    const payment = await ProjectPayment.create({ ...data, invoiceId: data.invoiceId || null, bankAccountId: data.bankAccountId || null, organizationId, receiptImageId, createdBy: session.user.userId });
+    const voucherNumber = await nextVoucherNumber(ProjectPayment, organizationId, "projectPayment", data.paymentDate);
+    const payment = await ProjectPayment.create({ ...data, voucherNumber, invoiceId: data.invoiceId || null, bankAccountId: data.bankAccountId || null, organizationId, receiptImageId, createdBy: session.user.userId });
     const existingReceived = project.receivedAmount ?? 0;
     const nextReceived = existingReceived > 0 ? existingReceived + data.amount : (existingPaymentAgg[0]?.total ?? 0) + data.amount;
     await Project.updateOne({ _id: data.projectId, organizationId }, { $set: { receivedAmount: nextReceived } });
     if (data.invoiceId) await refreshInvoicePaymentStatus(data.invoiceId, organizationId);
-    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Payment Created", entityType: "ProjectPayment", entityId: payment._id.toString(), metadata: { projectId: data.projectId, amount: data.amount } });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Payment Created", entityType: "ProjectPayment", entityId: payment._id.toString(), metadata: { projectId: data.projectId, amount: data.amount, voucherNumber } });
     const recipients = await User.find({ organizationId, active: true, role: { $in: ["owner", "admin"] } }).select("name email").lean();
     await notifyProjectPayment((recipients as any[]).map((recipient) => ({ ...recipient, organizationId })), { projectName: project.name, amount: data.amount, paymentUrl: appUrl("/project-payments") }).catch(() => undefined);
     revalidatePath("/project-payments");

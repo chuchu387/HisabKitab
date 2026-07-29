@@ -3,6 +3,7 @@ import { model, models, Schema, type InferSchemaType, type Model } from "mongoos
 const projectPaymentSchema = new Schema(
   {
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
+    voucherNumber: { type: String, default: "", trim: true, index: true },
     projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true, index: true },
     invoiceId: { type: Schema.Types.ObjectId, ref: "Invoice", default: null, index: true },
     bankAccountId: { type: Schema.Types.ObjectId, ref: "BankAccount", default: null, index: true },
@@ -16,6 +17,7 @@ const projectPaymentSchema = new Schema(
 );
 
 projectPaymentSchema.index({ organizationId: 1, paymentDate: -1 });
+projectPaymentSchema.index({ organizationId: 1, voucherNumber: 1 });
 projectPaymentSchema.index({ organizationId: 1, projectId: 1, paymentDate: -1 });
 projectPaymentSchema.index({ organizationId: 1, invoiceId: 1, paymentDate: -1 });
 export type ProjectPaymentDocument = InferSchemaType<typeof projectPaymentSchema> & { _id: string };

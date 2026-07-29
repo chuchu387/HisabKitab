@@ -9,6 +9,7 @@ import { SearchBar } from "@/components/search-bar";
 import { StatCard } from "@/components/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BulkLinkExpensesForm } from "@/features/expenses/bulk-link-expenses-form";
+import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
 import { money, safeObjectId } from "@/lib/utils";
@@ -95,6 +96,7 @@ export default async function ExpensesPage({ searchParams }: any) {
   }));
   return (
     <PageShell title="Expenses" action={<Button asChild><Link href="/expenses/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
+      <FiscalYearLockWarning organizationId={organizationId} />
       <form className="filter-bar">
         <SearchBar placeholder="Search description" defaultValue={q} />
         <select className="native-control" name="fy" defaultValue={selectedFY}>

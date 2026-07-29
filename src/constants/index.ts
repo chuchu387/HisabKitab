@@ -1,4 +1,4 @@
-import { Banknote, Bell, BookOpenCheck, Building2, CalendarRange, CheckSquare, FileText, FolderKanban, Gauge, HandCoins, Handshake, Landmark, ListChecks, MailCheck, ReceiptText, ScrollText, Send, Settings, Tags, UserCircle, UserRoundCheck, Users } from "lucide-react";
+import { Banknote, Bell, BookOpenCheck, Building2, CalendarRange, CheckSquare, FileArchive, FileText, FolderKanban, Gauge, HandCoins, Handshake, Landmark, ListChecks, MailCheck, ReceiptText, ScrollText, Send, Settings, Tags, UserCircle, UserRoundCheck, Users } from "lucide-react";
 
 export const roles = ["super_admin", "owner", "admin", "staff"] as const;
 export type Role = (typeof roles)[number];
@@ -39,6 +39,7 @@ export const navItems = [
   { href: "/project-payments", label: "Payments", icon: Banknote, roles: ["owner", "admin"] },
   { href: "/payment-reminders", label: "Reminders", icon: Send, roles: ["owner", "admin"] },
   { href: "/general-funds", label: "Funds", icon: Landmark, roles: ["owner", "admin"] },
+  { href: "/vendors", label: "Vendors", icon: FileArchive, roles: ["owner", "admin"] },
   { href: "/tasks", label: "Tasks", icon: CheckSquare, roles: ["owner", "admin", "staff"] },
   { href: "/categories", label: "Categories", icon: Tags, roles: ["owner", "admin"] },
   { href: "/expenses", label: "Expenses", icon: ReceiptText, roles: ["owner", "admin", "staff"] },
@@ -47,6 +48,7 @@ export const navItems = [
   { href: "/chart-of-accounts", label: "Chart", icon: ListChecks, roles: ["owner", "admin"] },
   { href: "/ledger", label: "Ledger", icon: ScrollText, roles: ["owner", "admin"] },
   { href: "/bank-accounts", label: "Bank Accounts", icon: Banknote, roles: ["owner", "admin"] },
+  { href: "/reconciliation", label: "Reconciliation", icon: Landmark, roles: ["owner", "admin"] },
   { href: "/opening-balances", label: "Opening", icon: HandCoins, roles: ["owner"] },
   { href: "/journal-entries", label: "Journals", icon: BookOpenCheck, roles: ["owner"] },
   { href: "/invoices", label: "Invoices", icon: FileText, roles: ["owner", "admin"] },

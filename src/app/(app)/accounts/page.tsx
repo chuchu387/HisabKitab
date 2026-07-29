@@ -178,6 +178,12 @@ export default async function AccountsPage({ searchParams }: any) {
           <ProfitCard label="Comparison" amount={0} detail="Select a fiscal year to compare." muted />
         )}
       </div>
+      <section className="rounded-lg border bg-card p-4 text-sm shadow-sm">
+        <h2 className="font-semibold">Accounting Basis</h2>
+        <p className="mt-1 text-muted-foreground">
+          Client income is recognized from project payments received. Expenses are recognized from approved expense records. Invoices track receivables, while payments track real cash movement.
+        </p>
+      </section>
 
       <StatementReport title="Balance Sheet" company={organization?.name ?? "No company name"} period={statements.period.label} comparisonPeriod={compareStatements?.period.label} columns={["Balance"]} rows={balanceRows} />
       <StatementReport title="Profit and Loss" company={organization?.name ?? "No company name"} period={statements.period.label} comparisonPeriod={compareStatements?.period.label} columns={["Amount"]} rows={profitRows} />

@@ -72,6 +72,7 @@ export function BulkLinkExpensesForm({
               <tr>
                 <th className="w-12 px-4 py-3 font-medium">Pick</th>
                 <th className="px-4 py-3 font-medium">Date</th>
+                <th className="px-4 py-3 font-medium">Voucher</th>
                 <th className="px-4 py-3 font-medium">FY</th>
                 <th className="px-4 py-3 font-medium">Category</th>
                 <th className="px-4 py-3 font-medium">Project</th>
@@ -94,6 +95,7 @@ export function BulkLinkExpensesForm({
                     />
                   </td>
                   <td className="px-4 py-3">{formatDate(expense.expenseDate)}</td>
+                  <td className="px-4 py-3">{expense.voucherNumber || "-"}</td>
                   <td className="px-4 py-3">{expense.fiscalYearLabel ?? "-"}</td>
                   <td className="px-4 py-3">{expense.categoryId?.name ?? "-"}</td>
                   <td className="px-4 py-3">{expense.projectId?.name ?? "General"}</td>

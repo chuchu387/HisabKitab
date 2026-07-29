@@ -13,6 +13,7 @@ import { writeAuditLog } from "@/services/audit";
 import { assertFiscalYearOpen } from "@/services/fiscal-years";
 import { appUrl } from "@/services/email";
 import { notifyExpenseApproval, notifyExpenseSubmitted } from "@/services/notifications";
+import { nextVoucherNumber } from "@/services/vouchers";
 import { User } from "@/models/User";
 import { ExpenseApprovalHistory } from "@/models/ExpenseApprovalHistory";
 import type { ActionState } from "@/types";
@@ -42,9 +43,11 @@ export async function createExpense(_: ActionState, formData: FormData): Promise
     await assertFiscalYearOpen(organizationId, data.expenseDate);
     const receipt = formData.get("receipt");
     const receiptImageId = receipt instanceof File && receipt.size > 0 ? await saveReceipt(receipt, { organizationId, userId: session.user.userId }) : null;
+    const voucherNumber = await nextVoucherNumber(Expense, organizationId, "expense", data.expenseDate);
     const expense = await Expense.create({
       ...data,
       organizationId,
+      voucherNumber,
       projectId: data.projectId || null,
       bankAccountId: data.bankAccountId || null,
       approvalStatus: session.user.role === "staff" ? "pending" : "approved",
@@ -53,7 +56,7 @@ export async function createExpense(_: ActionState, formData: FormData): Promise
       receiptImageId,
       createdBy: session.user.userId
     });
-    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Created", entityType: "Expense", entityId: expense._id.toString(), metadata: { amount: data.amount } });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Expense Created", entityType: "Expense", entityId: expense._id.toString(), metadata: { amount: data.amount, voucherNumber } });
     if (session.user.role === "staff") {
       const recipients = await User.find({ organizationId, active: true, role: { $in: ["owner", "admin"] } }).select("name email").lean();
       await notifyExpenseSubmitted((recipients as any[]).map((recipient) => ({ ...recipient, organizationId })), {

@@ -4,6 +4,7 @@ import { expenseApprovalStatuses } from "@/constants";
 const expenseSchema = new Schema(
   {
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
+    voucherNumber: { type: String, default: "", trim: true, index: true },
     bankAccountId: { type: Schema.Types.ObjectId, ref: "BankAccount", default: null, index: true },
     projectId: { type: Schema.Types.ObjectId, ref: "Project", default: null, index: true },
     categoryId: { type: Schema.Types.ObjectId, ref: "ExpenseCategory", required: true, index: true },
@@ -26,6 +27,7 @@ const expenseSchema = new Schema(
 );
 
 expenseSchema.index({ organizationId: 1, expenseDate: -1 });
+expenseSchema.index({ organizationId: 1, voucherNumber: 1 });
 expenseSchema.index({ organizationId: 1, projectId: 1 });
 expenseSchema.index({ organizationId: 1, approvalStatus: 1, expenseDate: -1 });
 expenseSchema.index({ organizationId: 1, categoryId: 1, expenseDate: -1 });

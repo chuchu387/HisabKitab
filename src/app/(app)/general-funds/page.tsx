@@ -4,6 +4,7 @@ import { ConfirmButton } from "@/components/ui/confirm-button";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { GeneralFundForm } from "@/features/forms/general-fund-form";
+import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
 import { deleteGeneralFund } from "@/actions/general-funds";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
@@ -41,6 +42,7 @@ export default async function GeneralFundsPage({ searchParams }: any) {
   ]);
   return (
     <PageShell title="Owner/Other Funds" description="Track extra company cash added outside client project payments.">
+      <FiscalYearLockWarning organizationId={organizationId} />
       <GeneralFundForm bankAccounts={JSON.parse(JSON.stringify(bankAccounts))} />
       <form className="filter-bar">
         <select className="native-control" name="fy" defaultValue={selectedFY}>
@@ -53,6 +55,7 @@ export default async function GeneralFundsPage({ searchParams }: any) {
         <Button variant="outline">Filter</Button>
       </form>
       <DataTable data={funds} pagination={{ basePath: "/general-funds", searchParams: params }} columns={[
+        { header: "Voucher", cell: (f: any) => f.voucherNumber || "-" },
         { header: "Date", cell: (f: any) => formatDate(f.fundDate) },
         { header: "FY", cell: (f: any) => fiscalYearLabelForDate(f.fundDate) },
         { header: "Amount", cell: (f: any) => money(f.amount) },

@@ -7,6 +7,7 @@ import { ManualJournalEntry } from "@/models/ManualJournalEntry";
 import { manualJournalSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
 import { assertFiscalYearOpen } from "@/services/fiscal-years";
+import { nextVoucherNumber } from "@/services/vouchers";
 import type { ActionState } from "@/types";
 
 export async function createManualJournal(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -16,8 +17,10 @@ export async function createManualJournal(_: ActionState, formData: FormData): P
     await connectToDatabase();
     const data = parseForm(manualJournalSchema, formData);
     await assertFiscalYearOpen(organizationId, data.entryDate);
+    const voucherNumber = await nextVoucherNumber(ManualJournalEntry, organizationId, "journal", data.entryDate);
     await ManualJournalEntry.create({
       organizationId,
+      voucherNumber,
       entryDate: data.entryDate,
       memo: data.memo,
       lines: [

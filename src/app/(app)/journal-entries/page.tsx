@@ -1,4 +1,5 @@
 import { DataTable } from "@/components/data-table";
+import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { ManualJournalForm } from "@/features/forms/manual-journal-form";
@@ -29,9 +30,10 @@ export default async function JournalEntriesPage({ searchParams }: any) {
     }
   }
   const journals = await ManualJournalEntry.find(query).sort({ entryDate: -1 }).lean();
-  const lines = journals.flatMap((journal: any) => (journal.lines ?? []).map((line: any) => ({ ...line, entryDate: journal.entryDate, fiscalYearLabel: fiscalYearLabelForDate(journal.entryDate), memo: journal.memo, id: journal._id.toString() })));
+  const lines = journals.flatMap((journal: any) => (journal.lines ?? []).map((line: any) => ({ ...line, voucherNumber: journal.voucherNumber, entryDate: journal.entryDate, fiscalYearLabel: fiscalYearLabelForDate(journal.entryDate), memo: journal.memo, id: journal._id.toString() })));
   return (
     <PageShell title="Manual Journal Entries" description="Owner-only accounting adjustments for depreciation, accruals, corrections, and tax adjustments.">
+      <FiscalYearLockWarning organizationId={organizationId} />
       <ManualJournalForm />
       <form className="filter-bar">
         <select className="native-control" name="fy" defaultValue={selectedFY}>
@@ -45,6 +47,7 @@ export default async function JournalEntriesPage({ searchParams }: any) {
       </form>
       <DataTable data={lines} pagination={{ basePath: "/journal-entries", searchParams: params }} columns={[
         { header: "Date", cell: (line: any) => formatDate(line.entryDate) },
+        { header: "Voucher", cell: (line: any) => line.voucherNumber || "-" },
         { header: "FY", cell: (line: any) => line.fiscalYearLabel },
         { header: "Memo", cell: (line: any) => line.memo },
         { header: "Account", cell: (line: any) => `${line.accountCode} ${line.accountName}` },
