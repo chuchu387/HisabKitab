@@ -15,7 +15,7 @@ import { getFinancialStatements } from "@/services/financial-statements";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter } from "@/services/fiscal-year-filter";
 import { Attendance } from "@/models/Attendance";
 import { User } from "@/models/User";
-import { nepalDateString } from "@/lib/timezone";
+import { nepalDateString, formatNepalTime } from "@/lib/timezone";
 import { getSalesStats } from "@/services/sales-stats";
 
 export default async function DashboardPage({ searchParams }: any) {
@@ -128,8 +128,8 @@ export default async function DashboardPage({ searchParams }: any) {
               {myAttendance && (
                 <p className="text-xs text-muted-foreground">
                   {myAttendance.checkOutTime
-                    ? `${new Date(myAttendance.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} - ${new Date(myAttendance.checkOutTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
-                    : `In since ${new Date(myAttendance.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`}
+                    ? `${formatNepalTime(myAttendance.checkInTime)} - ${formatNepalTime(myAttendance.checkOutTime)}`
+                    : `In since ${formatNepalTime(myAttendance.checkInTime)}`}
                 </p>
               )}
             </CardContent>

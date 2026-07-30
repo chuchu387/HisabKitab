@@ -8,7 +8,7 @@ import { AttendanceHistory } from "@/features/attendance/attendance-history";
 import { AttendanceCalendar } from "@/features/attendance/attendance-calendar";
 import { AttendanceTeam } from "@/features/attendance/attendance-team";
 import { AdminOverride } from "@/features/attendance/admin-override";
-import { nepalDateString } from "@/lib/timezone";
+import { nepalDateString, formatNepalTime, formatNepalDate } from "@/lib/timezone";
 
 async function getAttendanceRecords(organizationId: string, userId: string) {
   await connectToDatabase();
@@ -52,10 +52,10 @@ export default async function AttendancePage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {records.length > 0 ? new Date(records[0].checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"}
+              {records.length > 0 ? formatNepalTime(records[0].checkInTime) : "—"}
             </p>
             <p className="text-xs text-muted-foreground">
-              {records.length > 0 ? new Date(records[0].date + "T00:00:00").toLocaleDateString() : "Never"}
+              {records.length > 0 ? formatNepalDate(new Date(records[0].date + "T00:00:00")) : "Never"}
             </p>
           </CardContent>
         </Card>

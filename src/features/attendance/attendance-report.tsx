@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { ChevronLeft, ChevronRight, Clock, XCircle } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatNepalTime } from "@/lib/timezone";
 
 const LATE_THRESHOLD = 10; // 10 AM
 
@@ -19,13 +20,14 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
       if (!byUser.has(uid)) byUser.set(uid, new Set());
       byUser.get(uid)!.add(r.date);
       if (!lateByUser.has(uid)) lateByUser.set(uid, 0);
-      const h = new Date(r.checkInTime).getHours();
-      const m = new Date(r.checkInTime).getMinutes();
+      const [hStr, mStr] = new Date(r.checkInTime).toLocaleString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kathmandu" }).split(":");
+      const h = parseInt(hStr, 10);
+      const m = parseInt(mStr, 10);
       if (h > LATE_THRESHOLD || (h === LATE_THRESHOLD && m > 0)) {
         lateByUser.set(uid, (lateByUser.get(uid) ?? 0) + 1);
       }
       if (!checkInTimesByUser.has(uid)) checkInTimesByUser.set(uid, []);
-      checkInTimesByUser.get(uid)!.push(new Date(r.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }));
+      checkInTimesByUser.get(uid)!.push(formatNepalTime(r.checkInTime));
     });
     return users.map((u: any) => ({
       ...u,

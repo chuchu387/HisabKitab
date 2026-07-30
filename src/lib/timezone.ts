@@ -16,3 +16,19 @@ export function isCheckInOpen(): boolean {
   const h = nepalHour();
   return h >= 8;
 }
+
+export function formatNepalTime(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kathmandu" });
+}
+
+export function formatNepalDate(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return d.toLocaleDateString("en-US", { timeZone: "Asia/Kathmandu" });
+}
+
+export function formatNepalRange(checkIn: Date | string, checkOut: Date | string | null): string {
+  const start = formatNepalTime(checkIn);
+  if (!checkOut) return start;
+  return `${start} - ${formatNepalTime(checkOut)}`;
+}

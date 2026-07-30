@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
+import { formatNepalTime, formatNepalDate } from "@/lib/timezone";
 import { Camera, CheckCircle, XCircle } from "lucide-react";
 
 export function AttendanceHistory({ records }: { records: any[] }) {
@@ -20,11 +20,11 @@ export function AttendanceHistory({ records }: { records: any[] }) {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">{format(new Date(record.date + "T00:00:00"), "PPP")}</p>
+            <p className="text-sm font-medium">{formatNepalDate(new Date(record.date + "T00:00:00"))}</p>
             <p className="text-xs text-muted-foreground">
               {record.checkOutTime
-                ? `${format(new Date(record.checkInTime), "hh:mm a")} - ${format(new Date(record.checkOutTime), "hh:mm a")}`
-                : `Checked in at ${format(new Date(record.checkInTime), "hh:mm a")}`}
+                ? `${formatNepalTime(record.checkInTime)} - ${formatNepalTime(record.checkOutTime)}`
+                : `Checked in at ${formatNepalTime(record.checkInTime)}`}
             </p>
           </div>
           {record.note && <p className="text-xs text-muted-foreground">{record.note}</p>}

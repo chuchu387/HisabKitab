@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Camera, CircleCheck, CircleMinus, LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatNepalTime } from "@/lib/timezone";
 
 export function AttendanceTeam({ members, teamToday }: { members: { _id: string; name: string; role?: string }[]; teamToday: any[] }) {
   const recordMap = new Map(teamToday.map((a: any) => [a.userId?._id?.toString(), a]));
@@ -34,7 +35,7 @@ export function AttendanceTeam({ members, teamToday }: { members: { _id: string;
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {checkedIn
-                      ? `${new Date(record.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} ${checkedOut ? `- ${new Date(record.checkOutTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : "(active)"}`
+                      ? `${formatNepalTime(record.checkInTime)} ${checkedOut ? `- ${formatNepalTime(record.checkOutTime)}` : "(active)"}`
                       : "Not checked in"}
                   </p>
                 </div>

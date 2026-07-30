@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Camera, XCircle } from "lucide-react";
+import { formatNepalTime, formatNepalDate } from "@/lib/timezone";
 
 export function SelfieGallery({ records }: { records: any[] }) {
   const [viewing, setViewing] = useState<string | null>(null);
@@ -32,11 +33,11 @@ export function SelfieGallery({ records }: { records: any[] }) {
                       {role}
                     </span>
                   )}
-                  <span>{new Date(record.date + "T00:00:00").toLocaleDateString()}</span>
+                  <span>{formatNepalDate(new Date(record.date + "T00:00:00"))}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(record.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-                  {record.checkOutTime && ` - ${new Date(record.checkOutTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`}
+                  {formatNepalTime(record.checkInTime)}
+                  {record.checkOutTime && ` - ${formatNepalTime(record.checkOutTime)}`}
                 </p>
               </div>
             </div>
