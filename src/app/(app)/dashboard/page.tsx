@@ -1,6 +1,6 @@
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BudgetExpenseChart, DonutChart, SimpleBarChart, TrendChart } from "@/components/charts";
 import { FilterForm } from "@/components/filter-form";
@@ -13,6 +13,8 @@ import { Organization } from "@/models/Organization";
 import { getAccountingSummary, getDashboardCharts } from "@/services/accounting";
 import { getFinancialStatements } from "@/services/financial-statements";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter } from "@/services/fiscal-year-filter";
+import { Attendance } from "@/models/Attendance";
+import { User } from "@/models/User";
 import { getSalesStats } from "@/services/sales-stats";
 
 export default async function DashboardPage({ searchParams }: any) {
@@ -32,6 +34,10 @@ export default async function DashboardPage({ searchParams }: any) {
     ? await getAccountingSummary(session.user.organizationId, filters)
     : { totalProjects: 0, activeProjects: 0, totalBudget: 0, totalReceived: 0, generalBudget: 0, projectExpenses: 0, clientProjectExpenses: 0, internalProjectExpenses: 0, generalExpenses: 0, totalExpenses: 0, dueAmount: 0, remainingBudget: 0, generalBudgetBalance: 0, organizationCashBalance: 0 };
   const salesStats = session.user.organizationId && session.user.role !== "super_admin" ? await getSalesStats(session.user.organizationId) : null;
+  const myAttendance: any = session.user.organizationId ? await Attendance.findOne({ organizationId: session.user.organizationId, userId: session.user.userId, date: new Date().toISOString().slice(0, 10) }).lean() : null;
+  const teamToday = session.user.organizationId && ["owner", "admin"].includes(session.user.role)
+    ? await Attendance.find({ organizationId: session.user.organizationId, date: new Date().toISOString().slice(0, 10) }).populate("userId", "name").lean()
+    : [];
   const statements = session.user.organizationId ? await getFinancialStatements({ organizationId: session.user.organizationId, from: filters.from, to: filters.to }) : null;
   const charts = session.user.organizationId ? await getDashboardCharts(session.user.organizationId, filters) : { byCategory: [], byProject: [], monthly: [], budgetVsExpense: [] };
   const summary = statements ? {
@@ -107,6 +113,29 @@ export default async function DashboardPage({ searchParams }: any) {
         <StatCard label="Due" value={(summary as any).dueAmount ?? 0} currency />
         <StatCard label="Project Service Balance" value={summary.remainingBudget} currency />
       </DashboardSection>
+      {session.user.organizationId && (
+        <DashboardSection title="Attendance">
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b-0 bg-transparent pb-2">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">My Status</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="break-words text-xl font-semibold text-foreground sm:text-2xl">{myAttendance ? "Checked In" : "Not Yet"}</p>
+              {myAttendance && <p className="text-xs text-muted-foreground">{new Date(myAttendance.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>}
+            </CardContent>
+          </Card>
+          {["owner", "admin"].includes(session.user.role) && (
+            <Card className="overflow-hidden">
+              <CardHeader className="border-b-0 bg-transparent pb-2">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Team Today</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="break-words text-xl font-semibold text-foreground sm:text-2xl">{teamToday.length}</p>
+              </CardContent>
+            </Card>
+          )}
+        </DashboardSection>
+      )}
       {salesStats && (
         <DashboardSection title="Sales">
           <StatCard label="New Leads (7d)" value={salesStats.newThisWeek} />
