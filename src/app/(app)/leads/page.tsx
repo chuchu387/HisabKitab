@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { Types } from "mongoose";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,7 +72,13 @@ export default async function LeadsPage({ searchParams }: any) {
         </select>
         <Button variant="outline">Filter</Button>
       </FilterForm>
-      <LeadImportForm />
+      <div className="flex items-start gap-3">
+        <LeadImportForm className="flex-1" />
+        <a href="/leads-sample.csv" download className="shrink-0 rounded-lg border bg-card p-4 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-secondary hover:text-foreground">
+          <Download className="mb-1 h-5 w-5" />
+          Download<br />Sample CSV
+        </a>
+      </div>
       <DataTable data={leads} pagination={{ basePath: "/leads", searchParams: params }} columns={[
         { header: "Name", cell: (lead: any) => <Link className="font-medium hover:text-primary" href={`/leads/${lead._id}`}>{lead.name}</Link> },
         { header: "Company", cell: (lead: any) => lead.company || "-" },

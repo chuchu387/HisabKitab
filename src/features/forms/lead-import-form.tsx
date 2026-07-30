@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
-export function LeadImportForm() {
+export function LeadImportForm({ className }: { className?: string }) {
   const [pending, setPending] = useState(false);
   const router = useRouter();
 
@@ -27,7 +28,7 @@ export function LeadImportForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-3 rounded-lg border bg-card/95 p-4 shadow-sm sm:p-5">
+    <form onSubmit={onSubmit} className={cn("grid gap-3 rounded-lg border bg-card/95 p-4 shadow-sm sm:p-5", className)}>
       <div className="space-y-2">
         <Label htmlFor="file">Upload CSV</Label>
         <input
