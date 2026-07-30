@@ -1,5 +1,7 @@
 name,email,phone,company,source,estimatedValue,notes
 Ram Sharma,ram@example.com,9801234567,Sharma Traders,referral,50000,Met at trade show
-Sita Poudel,sita@example.com,9812345678,Poudel Enterprises,website,75000,Website inquiry about software
-Hari Thapa,hari@example.com,9823456789,Thapa Group,facebook,30000,Facebook ad response
-Gita Gurung,gita@example.com,9834567890,Gurung Associates,linkedin,100000,LinkedIn connection
+Sita Poudel,sita@example.com,9812345678,Poudel Enterprises,website,75000,Website inquiry
+Hari Thapa,,9823456789,Thapa Group,facebook,,Facebook ad response — phone only
+Gita Gurung,gita@example.com,,,linkedin,100000,LinkedIn connection — no company
+,,,,
+Only name column above will be skipped because other fields are optional

@@ -264,19 +264,26 @@ export async function importLeadsCsv(formData: FormData): Promise<{ ok: boolean;
     if (parsed.errors.length) throw new Error(`CSV parse error: ${parsed.errors[0].message}`);
     if (!parsed.data.length) throw new Error("CSV file is empty");
     const rows = parsed.data as Record<string, string>[];
+    function cell(row: Record<string, string>, ...variants: string[]) {
+      for (const v of variants) {
+        const val = row[v];
+        if (val != null) return String(val);
+      }
+      return "";
+    }
     let created = 0;
     let skipped = 0;
     for (const row of rows) {
-      const name = (row.name || row.Name || row["Lead Name"] || "").trim();
+      const name = cell(row, "name", "Name", "Lead Name").trim();
       if (!name) { skipped += 1; continue; }
-      const email = (row.email || row.Email || "").toLowerCase().trim();
-      const phone = row.phone || row.Phone || "";
-      const company = row.company || row.Company || "";
-      const source = (row.source || row.Source || "referral").toLowerCase().trim();
-      const validSources = ["website", "referral", "facebook", "instagram", "linkedin", "cold_call", "existing_client", "walk_in", "other"];
-      const finalSource = validSources.includes(source) ? source : "referral";
+      const email = cell(row, "email", "Email").toLowerCase().trim();
+      const phone = cell(row, "phone", "Phone");
       const dup = await checkDuplicate(organizationId, email, phone);
       if (dup) { skipped += 1; continue; }
+      const company = cell(row, "company", "Company");
+      const source = cell(row, "source", "Source").toLowerCase().trim();
+      const validSources = ["website", "referral", "facebook", "instagram", "linkedin", "cold_call", "existing_client", "walk_in", "other"];
+      const finalSource = validSources.includes(source) ? source : "referral";
       await Lead.create({
         organizationId,
         name,
@@ -284,8 +291,8 @@ export async function importLeadsCsv(formData: FormData): Promise<{ ok: boolean;
         phone,
         company,
         source: finalSource,
-        estimatedValue: parseFloat(row.estimatedValue || row["Estimated Value"] || "0") || 0,
-        notes: row.notes || row.Notes || "",
+        estimatedValue: parseFloat(cell(row, "estimatedValue", "Estimated Value", "estimated_value", "value")) || 0,
+        notes: cell(row, "notes", "Notes"),
         createdBy: session.user.userId
       });
       created += 1;

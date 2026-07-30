@@ -41,8 +41,8 @@ export function LeadImportForm({ className }: { className?: string }) {
         />
       </div>
       <p className="text-xs text-muted-foreground">
-        CSV columns: <code>name</code>, <code>email</code>, <code>phone</code>, <code>company</code>, <code>source</code>, <code>estimatedValue</code>, <code>notes</code>.
-        Duplicates are automatically skipped.
+        Only <code>name</code> is required. Everything else is optional.
+        Duplicates (by email/phone) are automatically skipped.
       </p>
       <Button type="submit" disabled={pending}><Upload className="h-4 w-4" />{pending ? "Importing..." : "Import Leads"}</Button>
     </form>
