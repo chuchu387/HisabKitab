@@ -28,7 +28,7 @@ export default async function AttendancePage() {
     : [];
   const checkedInIds = new Set(teamToday.map((a: any) => a.userId?._id?.toString()));
   const teamMembers = isAdmin
-    ? await User.find({ organizationId: session.user.organizationId, active: true }).sort({ name: 1 }).select("name _id").lean()
+    ? await User.find({ organizationId: session.user.organizationId, active: true }).sort({ name: 1 }).select("name _id role").lean()
     : [];
   return (
     <PageShell title="Attendance" description="Track your daily check-ins with selfie verification">

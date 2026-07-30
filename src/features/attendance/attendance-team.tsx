@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Camera, CircleCheck, CircleMinus, LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function AttendanceTeam({ members, teamToday }: { members: { _id: string; name: string }[]; teamToday: any[] }) {
+export function AttendanceTeam({ members, teamToday }: { members: { _id: string; name: string; role?: string }[]; teamToday: any[] }) {
   const recordMap = new Map(teamToday.map((a: any) => [a.userId?._id?.toString(), a]));
   const [viewing, setViewing] = useState<string | null>(null);
   return (
@@ -26,7 +26,12 @@ export function AttendanceTeam({ members, teamToday }: { members: { _id: string;
                   <CircleMinus className="h-5 w-5 shrink-0 text-muted-foreground/50" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{member.name}</p>
+                  <p className="truncate text-sm font-medium">
+                    {member.name}
+                    <span className={`ml-1.5 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-tight ${member.role === "owner" ? "bg-amber-100 text-amber-800" : member.role === "admin" ? "bg-blue-100 text-blue-800" : "bg-muted text-muted-foreground"}`}>
+                      {member.role ?? "staff"}
+                    </span>
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {checkedIn
                       ? `${new Date(record.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} ${checkedOut ? `- ${new Date(record.checkOutTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : "(active)"}`
