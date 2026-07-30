@@ -36,7 +36,7 @@ export async function markAttendance(formData: FormData): Promise<{ ok: boolean;
       { organizationId, userId: session.user.userId, date: { $ne: today }, checkOutTime: null },
       { $set: { checkOutTime: new Date(Date.now() - 60 * 1000) } }
     );
-    await Attendance.create({
+    const created = await Attendance.create({
       organizationId,
       userId: session.user.userId,
       date: today,
@@ -44,7 +44,7 @@ export async function markAttendance(formData: FormData): Promise<{ ok: boolean;
       selfieId,
       createdBy: session.user.userId
     });
-    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Attendance Marked", entityType: "Attendance", entityId: today, metadata: { date: today, hasSelfie: !!selfieId } });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Attendance Marked", entityType: "Attendance", entityId: created._id.toString(), metadata: { date: today, hasSelfie: !!selfieId } });
     revalidatePath("/");
     revalidatePath("/attendance");
     return { ok: true, message: "Attendance marked successfully" };
@@ -63,7 +63,7 @@ export async function checkOutAttendance(): Promise<{ ok: boolean; message: stri
     if (record.checkOutTime) return { ok: false, message: "Already checked out today" };
     record.checkOutTime = new Date();
     await record.save();
-    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Attendance Checked Out", entityType: "Attendance", entityId: today, metadata: { date: today } });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Attendance Checked Out", entityType: "Attendance", entityId: record._id.toString(), metadata: { date: today } });
     revalidatePath("/");
     revalidatePath("/attendance");
     return { ok: true, message: "Checked out successfully" };
