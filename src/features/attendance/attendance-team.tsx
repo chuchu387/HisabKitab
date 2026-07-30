@@ -5,7 +5,7 @@ import { Camera, CircleCheck, CircleMinus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function AttendanceTeam({ members, checkedInIds, teamToday }: { members: { _id: string; name: string }[]; checkedInIds: string[]; teamToday: any[] }) {
-  const selfieMap = new Map(teamToday.filter((a: any) => a.selfieId).map((a: any) => [a.userId?._id?.toString(), a.selfieId]));
+  const recordMap = new Map(teamToday.map((a: any) => [a.userId?._id?.toString(), a]));
   const [viewing, setViewing] = useState<string | null>(null);
   return (
     <Card>
@@ -15,14 +15,17 @@ export function AttendanceTeam({ members, checkedInIds, teamToday }: { members: 
       <CardContent>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {members.map((member) => {
-            const checkedIn = checkedInIds.includes(member._id);
-            const selfieId = selfieMap.get(member._id);
+            const record = recordMap.get(member._id);
+            const checkedIn = !!record;
             return (
               <div key={member._id} className={`flex items-center gap-3 rounded-lg border p-3 ${checkedIn ? "border-primary/30 bg-primary/5" : "bg-card"}`}>
                 {checkedIn ? <CircleCheck className="h-5 w-5 shrink-0 text-primary" /> : <CircleMinus className="h-5 w-5 shrink-0 text-muted-foreground/50" />}
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{member.name}</span>
-                {selfieId && (
-                  <button type="button" onClick={() => setViewing(selfieId)} className="shrink-0 text-muted-foreground hover:text-foreground">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{member.name}</p>
+                  {checkedIn && <p className="text-xs text-muted-foreground">{new Date(record.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>}
+                </div>
+                {record?.selfieId && (
+                  <button type="button" onClick={() => setViewing(record.selfieId)} className="shrink-0 text-muted-foreground hover:text-foreground" title="View selfie">
                     <Camera className="h-4 w-4" />
                   </button>
                 )}
