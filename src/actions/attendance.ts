@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
 import { Attendance } from "@/models/Attendance";
+import { User } from "@/models/User";
 import { getReceiptBucket } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
 import { nepalDateString, isCheckInOpen } from "@/lib/timezone";
@@ -70,6 +71,48 @@ export async function checkOutAttendance(): Promise<{ ok: boolean; message: stri
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Failed to check out" };
   }
+}
+
+export async function adminMarkAttendance(formData: FormData): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    if (!["owner", "admin"].includes(session.user.role)) return { ok: false, message: "Not authorized" };
+    await connectToDatabase();
+    const targetUserId = formData.get("userId") as string;
+    const date = formData.get("date") as string;
+    const checkInStr = formData.get("checkInTime") as string;
+    const checkOutStr = formData.get("checkOutTime") as string;
+    const note = formData.get("note") as string;
+    if (!targetUserId || !date || !checkInStr) return { ok: false, message: "userId, date, and checkInTime are required" };
+    const existing = await Attendance.findOne({ organizationId, userId: targetUserId, date });
+    if (existing) return { ok: false, message: "Attendance already exists for this user on this date" };
+    await Attendance.updateMany(
+      { organizationId, userId: targetUserId, date: { $ne: date }, checkOutTime: null },
+      { $set: { checkOutTime: new Date(checkInStr) } }
+    );
+    const created = await Attendance.create({
+      organizationId,
+      userId: targetUserId,
+      date,
+      checkInTime: new Date(checkInStr),
+      checkOutTime: checkOutStr ? new Date(checkOutStr) : null,
+      note,
+      createdBy: session.user.userId
+    });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Attendance Admin Marked", entityType: "Attendance", entityId: created._id.toString(), metadata: { targetUserId, date } });
+    revalidatePath("/attendance");
+    return { ok: true, message: "Attendance marked for user" };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Failed to mark attendance" };
+  }
+}
+
+export async function getAttendanceReport(organizationId: string, month: string) {
+  await connectToDatabase();
+  const users = await User.find({ organizationId, active: true }).sort({ name: 1 }).select("name _id role").lean();
+  const records = await Attendance.find({ organizationId, date: { $regex: `^${month}` } }).sort({ date: -1 }).lean();
+  const daysInMonth = new Date(new Date(month + "-01").getTime() + 32 * 24 * 60 * 60 * 1000).getDate();
+  return JSON.parse(JSON.stringify({ users, records, totalDays: daysInMonth }));
 }
 
 export async function getTodayAttendance(organizationId: string, userId: string) {

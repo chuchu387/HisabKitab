@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AttendanceHistory } from "@/features/attendance/attendance-history";
 import { AttendanceCalendar } from "@/features/attendance/attendance-calendar";
 import { AttendanceTeam } from "@/features/attendance/attendance-team";
+import { AdminOverride } from "@/features/attendance/admin-override";
 import { nepalDateString } from "@/lib/timezone";
 
 async function getAttendanceRecords(organizationId: string, userId: string) {
@@ -23,13 +24,8 @@ export default async function AttendancePage() {
   const thisMonthCount = records.filter((r: any) => r.date.startsWith(currentMonth)).length;
   const totalDays = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const isAdmin = ["owner", "admin"].includes(session.user.role);
-  const teamToday = isAdmin
-    ? await Attendance.find({ organizationId: session.user.organizationId, date: today }).populate("userId", "name").lean()
-    : [];
-  const checkedInIds = new Set(teamToday.map((a: any) => a.userId?._id?.toString()));
-  const teamMembers = isAdmin
-    ? await User.find({ organizationId: session.user.organizationId, active: true }).sort({ name: 1 }).select("name _id role").lean()
-    : [];
+  const teamToday = await Attendance.find({ organizationId: session.user.organizationId, date: today }).populate("userId", "name").lean();
+  const teamMembers = await User.find({ organizationId: session.user.organizationId, active: true }).sort({ name: 1 }).select("name _id role").lean();
   return (
     <PageShell title="Attendance" description="Track your daily check-ins with selfie verification">
       <div className="grid gap-4 sm:grid-cols-4">
@@ -63,19 +59,20 @@ export default async function AttendancePage() {
             </p>
           </CardContent>
         </Card>
-        {isAdmin && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Team Today</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{teamToday.length}/{teamMembers.length}</p>
-              <p className="text-xs text-muted-foreground">members checked in</p>
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Team Today</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{teamToday.length}/{teamMembers.length}</p>
+            <p className="text-xs text-muted-foreground">members checked in</p>
+          </CardContent>
+        </Card>
       </div>
-      {isAdmin && <AttendanceTeam members={JSON.parse(JSON.stringify(teamMembers))} teamToday={JSON.parse(JSON.stringify(teamToday))} />}
+      <div className="space-y-4">
+        <AttendanceTeam members={JSON.parse(JSON.stringify(teamMembers))} teamToday={JSON.parse(JSON.stringify(teamToday))} />
+        {isAdmin && <AdminOverride members={JSON.parse(JSON.stringify(teamMembers))} />}
+      </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>

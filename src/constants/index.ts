@@ -91,6 +91,7 @@ export const navItems = [
   { href: "/users", label: "Users", icon: Users, roles: ["owner"] },
   { href: "/attendance", label: "Attendance", icon: UserRoundCheck, roles: ["owner", "admin", "staff"] },
   { href: "/attendance/selfies", label: "Selfies", icon: Camera, roles: ["owner", "admin"] },
+  { href: "/attendance/reports", label: "Attendance Reports", icon: ListChecks, roles: ["owner", "admin"] },
   { href: "/leads", label: "Leads", icon: Target, roles: ["owner", "admin", "staff"] },
   { href: "/sales/pipeline", label: "Pipeline", icon: TrendingUp, roles: ["owner", "admin"] },
   { href: "/sales/proposals", label: "Proposals", icon: FileText, roles: ["owner", "admin"] },
