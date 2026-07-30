@@ -1,6 +1,4 @@
 import { Types } from "mongoose";
-import { redirect } from "next/navigation";
-import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
 import { ChatGroup } from "@/models/ChatGroup";
@@ -41,16 +39,14 @@ export default async function ChatPage({ searchParams }: any) {
   const currentUser = staff.find((u: any) => u._id.toString() === userId);
 
   return (
-    <PageShell title="Chat" description="Team group chats" hideTitle>
-      <ChatShell
-        groups={JSON.parse(JSON.stringify(groups))}
-        messages={JSON.parse(JSON.stringify(messages))}
-        activeGroupId={activeGroupId}
-        showCreate={showCreate}
-        currentUser={JSON.parse(JSON.stringify({ ...currentUser, userId }))}
-        staff={JSON.parse(JSON.stringify(staff))}
-        isAdmin={["owner", "admin"].includes(session.user.role)}
-      />
-    </PageShell>
+    <ChatShell
+      groups={JSON.parse(JSON.stringify(groups))}
+      messages={JSON.parse(JSON.stringify(messages))}
+      activeGroupId={activeGroupId}
+      showCreate={showCreate}
+      currentUser={JSON.parse(JSON.stringify({ ...currentUser, userId }))}
+      staff={JSON.parse(JSON.stringify(staff))}
+      isAdmin={["owner", "admin"].includes(session.user.role)}
+    />
   );
 }

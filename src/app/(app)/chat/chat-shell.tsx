@@ -2,13 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageSquare, Plus, Send, Smile, Paperclip, Phone, Video, Reply, X, Trash2, ChevronLeft, Loader2, Image as ImageIcon, FileText, Download, Check, UserPlus, AtSign, LogOut } from "lucide-react";
-import { cn, formatDate, timeAgo } from "@/lib/utils";
+import { MessageSquare, Plus, Send, Smile, Paperclip, Phone, Video, Reply, X, Trash2, ChevronLeft, Loader2, FileText, Download, UserPlus, AtSign, LogOut } from "lucide-react";
+import { cn, timeAgo } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { createGroup, sendMessage, toggleReaction, deleteMessage, leaveGroup, addMembers, markRead } from "@/actions/chat";
 import { toast } from "sonner";
 
@@ -181,7 +179,7 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] gap-4">
+    <div className="flex h-full gap-4 overflow-hidden">
       {/* Groups Sidebar */}
       <Card className={cn("flex w-72 shrink-0 flex-col overflow-hidden transition-all", showSidebar ? "max-md:flex" : "max-md:hidden max-md:w-0 max-md:overflow-hidden")}>
         <div className="flex items-center justify-between border-b p-3">
