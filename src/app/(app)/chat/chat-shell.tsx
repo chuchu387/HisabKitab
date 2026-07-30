@@ -6,6 +6,7 @@ import { MessageSquare, Plus, Send, Smile, Paperclip, Phone, Video, Reply, X, Tr
 import { cn, timeAgo } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createGroup, sendMessage, toggleReaction, deleteMessage, leaveGroup, addMembers, markRead } from "@/actions/chat";
 import { toast } from "sonner";
@@ -179,7 +180,7 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
   }
 
   return (
-    <div className="flex h-full gap-4 overflow-hidden">
+    <div className="fixed inset-x-0 lg:left-64 top-14 sm:top-16 bottom-0 flex gap-4 overflow-hidden bg-background p-3 sm:p-4 lg:p-6">
       {/* Groups Sidebar */}
       <Card className={cn("flex w-72 shrink-0 flex-col overflow-hidden transition-all", showSidebar ? "max-md:flex" : "max-md:hidden max-md:w-0 max-md:overflow-hidden")}>
         <div className="flex items-center justify-between border-b p-3">
