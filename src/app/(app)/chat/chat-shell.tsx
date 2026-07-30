@@ -31,6 +31,7 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
   const [replyTo, setReplyTo] = useState<any>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [reactingToMsg, setReactingToMsg] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
@@ -72,6 +73,7 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
     setReplyTo(null);
     setSelectedFiles([]);
     setShowEmoji(false);
+    setReactingToMsg(null);
   }, [activeGroup]);
 
   function navigate(gid: string | null) {
@@ -328,14 +330,21 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
                       }, [] as { emoji: string; users: string[] }[]).map((r: any) => {
                         const reacted = r.users.includes(currentUser?.userId);
                         return (
-                          <button key={r.emoji} onClick={() => toggleReaction(msg._id, r.emoji)} className={cn("flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition-colors", reacted ? "bg-primary/15 border-primary/30" : "hover:bg-secondary/40")}>
+                          <button key={r.emoji} onClick={async () => { await toggleReaction(msg._id, r.emoji); pollMessages(); }} className={cn("flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition-colors", reacted ? "bg-primary/15 border-primary/30" : "hover:bg-secondary/40")}>
                             {r.emoji} <span className="text-[10px]">{r.users.length}</span>
                           </button>
                         );
                       })}
                       <button onClick={() => setReplyTo(msg)} className="hidden rounded-full border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-secondary/40 group-hover:inline-flex"><Reply className="h-3 w-3" /></button>
                       <div className="relative">
-                        <button onClick={() => { setShowEmoji((s) => s ? msg._id : null); }} className="rounded-full border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-secondary/40"><Smile className="h-3 w-3" /></button>
+                        <button onClick={() => setReactingToMsg(reactingToMsg === msg._id ? null : msg._id)} className="rounded-full border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-secondary/40"><Smile className="h-3 w-3" /></button>
+                        {reactingToMsg === msg._id && (
+                          <div className="absolute bottom-full left-0 z-20 mb-1 grid w-56 grid-cols-5 gap-0.5 rounded-lg border bg-card p-1.5 shadow-lg">
+                            {EMOJIS.map((e) => (
+                              <button key={e} type="button" onMouseDown={async () => { await toggleReaction(msg._id, e); setReactingToMsg(null); pollMessages(); }} className="rounded p-1 text-base hover:bg-secondary/60">{e}</button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
