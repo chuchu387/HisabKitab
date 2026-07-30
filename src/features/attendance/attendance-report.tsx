@@ -13,7 +13,7 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
   const report = useMemo(() => {
     const byUser = new Map<string, Set<string>>();
     const lateByUser = new Map<string, number>();
-    const checkInTimesByUser = new Map<string, string[]>();
+    const hoursByUser = new Map<string, number>();
     records.forEach((r: any) => {
       const uid = r.userId?.toString();
       if (!uid) return;
@@ -26,16 +26,25 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
       if (h > LATE_THRESHOLD || (h === LATE_THRESHOLD && m > 0)) {
         lateByUser.set(uid, (lateByUser.get(uid) ?? 0) + 1);
       }
-      if (!checkInTimesByUser.has(uid)) checkInTimesByUser.set(uid, []);
-      checkInTimesByUser.get(uid)!.push(formatNepalTime(r.checkInTime));
+      if (r.checkOutTime) {
+        const ms = new Date(r.checkOutTime).getTime() - new Date(r.checkInTime).getTime();
+        if (ms > 0) {
+          hoursByUser.set(uid, (hoursByUser.get(uid) ?? 0) + ms);
+        }
+      }
     });
-    return users.map((u: any) => ({
-      ...u,
-      present: byUser.get(u._id)?.size ?? 0,
-      absent: totalDays - (byUser.get(u._id)?.size ?? 0),
-      late: lateByUser.get(u._id) ?? 0,
-      times: checkInTimesByUser.get(u._id) ?? []
-    }));
+    return users.map((u: any) => {
+      const totalMs = hoursByUser.get(u._id) ?? 0;
+      const totalH = Math.floor(totalMs / 3600000);
+      const totalM = Math.round((totalMs % 3600000) / 60000);
+      return {
+        ...u,
+        present: byUser.get(u._id)?.size ?? 0,
+        absent: totalDays - (byUser.get(u._id)?.size ?? 0),
+        late: lateByUser.get(u._id) ?? 0,
+        totalHours: `${totalH}h ${totalM}m`
+      };
+    });
   }, [users, records, totalDays]);
   const [prev, next] = useMemo(() => {
     const [y, m] = month.split("-").map(Number);
@@ -45,6 +54,9 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
   }, [month]);
   const overallPresent = report.reduce((s: number, r: any) => s + r.present, 0);
   const overallLate = report.reduce((s: number, r: any) => s + r.late, 0);
+  const totalHoursMs = records.reduce((s: number, r: any) => s + (r.checkOutTime ? Math.max(0, new Date(r.checkOutTime).getTime() - new Date(r.checkInTime).getTime()) : 0), 0);
+  const totalH = Math.floor(totalHoursMs / 3600000);
+  const totalM = Math.round((totalHoursMs % 3600000) / 60000);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -56,7 +68,7 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
           Next <ChevronRight className="h-4 w-4" />
         </Link>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Total Present</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold">{overallPresent}</p></CardContent>
@@ -68,6 +80,10 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Late Check-ins</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold">{overallLate}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Total Hours</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{totalH}h {totalM}m</p></CardContent>
         </Card>
       </div>
       <Card>
@@ -81,34 +97,20 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
                 <th className="pb-2 pr-4 font-medium text-right">Present</th>
                 <th className="pb-2 pr-4 font-medium text-right">Absent</th>
                 <th className="pb-2 pr-4 font-medium text-right">Late</th>
-                <th className="pb-2 font-medium">Avg Check-in</th>
+                <th className="pb-2 font-medium text-right">Total Hours</th>
               </tr>
             </thead>
             <tbody>
-              {report.map((u: any) => {
-                const avgTime = u.times.length
-                  ? u.times
-                      .map((t: string) => {
-                        const [h, m] = t.match(/\d+/g)!.map(Number);
-                        const isPM = t.includes("PM");
-                        return (isPM ? (h % 12) + 12 : h % 12) * 60 + m;
-                      })
-                      .reduce((a: number, b: number) => a + b, 0) / u.times.length
-                  : 0;
-                const avgStr = avgTime
-                  ? `${String(Math.floor(avgTime / 60)).padStart(2, "0")}:${String(Math.round(avgTime % 60)).padStart(2, "0")}`
-                  : "—";
-                return (
-                  <tr key={u._id} className="border-b last:border-0">
-                    <td className="py-2 pr-4 font-medium">{u.name}</td>
-                    <td className="py-2 pr-4 text-xs text-muted-foreground">{u.role ?? "staff"}</td>
-                    <td className="py-2 pr-4 text-right">{u.present}</td>
-                    <td className={`py-2 pr-4 text-right ${u.absent > 0 ? "text-destructive" : ""}`}>{u.absent}</td>
-                    <td className={`py-2 pr-4 text-right ${u.late > 0 ? "text-accent" : ""}`}>{u.late}</td>
-                    <td className="py-2 text-muted-foreground">{avgStr}</td>
-                  </tr>
-                );
-              })}
+              {report.map((u: any) => (
+                <tr key={u._id} className="border-b last:border-0">
+                  <td className="py-2 pr-4 font-medium">{u.name}</td>
+                  <td className="py-2 pr-4 text-xs text-muted-foreground">{u.role ?? "staff"}</td>
+                  <td className="py-2 pr-4 text-right">{u.present}</td>
+                  <td className={`py-2 pr-4 text-right ${u.absent > 0 ? "text-destructive" : ""}`}>{u.absent}</td>
+                  <td className={`py-2 pr-4 text-right ${u.late > 0 ? "text-accent" : ""}`}>{u.late}</td>
+                  <td className="py-2 text-right text-muted-foreground">{u.totalHours}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
           {!report.length && (
