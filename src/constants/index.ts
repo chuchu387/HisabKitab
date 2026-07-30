@@ -1,4 +1,4 @@
-import { ActivitySquare, Banknote, Bell, BookOpenCheck, Building2, CalendarRange, Camera, CheckSquare, FileArchive, FileText, FolderKanban, Gauge, HandCoins, Handshake, Landmark, ListChecks, MailCheck, ReceiptText, ScrollText, Send, Settings, Tags, Target, TrendingUp, UserCircle, UserRoundCheck, Users } from "lucide-react";
+import { ActivitySquare, Banknote, Bell, BookOpenCheck, Building2, CalendarRange, Camera, CheckSquare, FileArchive, FileText, FolderKanban, Gauge, HandCoins, Handshake, Landmark, ListChecks, MailCheck, MessageSquare, ReceiptText, ScrollText, Send, Settings, Tags, Target, TrendingUp, UserCircle, UserRoundCheck, Users } from "lucide-react";
 
 export const roles = ["super_admin", "owner", "admin", "staff"] as const;
 export type Role = (typeof roles)[number];
@@ -121,6 +121,7 @@ export const navItems = [
   { href: "/sales/targets", label: "Targets", icon: Target, roles: ["owner", "admin"] },
   { href: "/sales/commissions", label: "Commissions", icon: HandCoins, roles: ["owner", "admin"] },
   { href: "/sales/reports", label: "Sales Reports", icon: ListChecks, roles: ["owner", "admin"] },
+  { href: "/chat", label: "Chat", icon: MessageSquare, roles: ["owner", "admin", "staff"] },
   { href: "/clients", label: "Clients", icon: Handshake, roles: ["owner", "admin"] },
   { href: "/projects", label: "Projects", icon: FolderKanban, roles: ["owner", "admin", "staff"] },
   { href: "/project-payments", label: "Payments", icon: Banknote, roles: ["owner", "admin"] },

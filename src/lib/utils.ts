@@ -49,3 +49,19 @@ export function dateInput(value: Date | string | null | undefined) {
   const date = value ? new Date(value) : null;
   return date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : "";
 }
+
+export function timeAgo(value: Date | string | null | undefined) {
+  if (!value) return "";
+  const now = Date.now();
+  const date = new Date(value).getTime();
+  if (Number.isNaN(date)) return "";
+  const diff = now - date;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return format(new Date(value), "MMM d");
+}
