@@ -1,4 +1,4 @@
-import { ActivitySquare, Banknote, Bell, BookOpenCheck, Building2, CalendarRange, CheckSquare, FileArchive, FileText, FolderKanban, Gauge, HandCoins, Handshake, Landmark, ListChecks, MailCheck, ReceiptText, ScrollText, Send, Settings, Tags, UserCircle, UserRoundCheck, Users } from "lucide-react";
+import { ActivitySquare, Banknote, Bell, BookOpenCheck, Building2, CalendarRange, CheckSquare, FileArchive, FileText, FolderKanban, Gauge, HandCoins, Handshake, Landmark, ListChecks, MailCheck, ReceiptText, ScrollText, Send, Settings, Tags, Target, TrendingUp, UserCircle, UserRoundCheck, Users } from "lucide-react";
 
 export const roles = ["super_admin", "owner", "admin", "staff"] as const;
 export type Role = (typeof roles)[number];
@@ -15,6 +15,61 @@ export const projectTypes = ["client", "internal"] as const;
 export const projectTaskStatuses = ["to_do", "in_progress", "in_review", "complete"] as const;
 export const expenseApprovalStatuses = ["pending", "approved", "rejected"] as const;
 export const organizationStatuses = ["active", "inactive"] as const;
+
+export const leadStatuses = ["new", "contacted", "meeting_scheduled", "proposal_sent", "negotiation", "won", "lost"] as const;
+export type LeadStatus = (typeof leadStatuses)[number];
+
+export const leadStatusLabels: Record<LeadStatus, string> = {
+  new: "New Lead",
+  contacted: "Contacted",
+  meeting_scheduled: "Meeting Scheduled",
+  proposal_sent: "Proposal Sent",
+  negotiation: "Negotiation",
+  won: "Won",
+  lost: "Lost"
+};
+
+export const leadStatusColors: Record<LeadStatus, string> = {
+  new: "info",
+  contacted: "warning",
+  meeting_scheduled: "info",
+  proposal_sent: "warning",
+  negotiation: "warning",
+  won: "success",
+  lost: "muted"
+} as const;
+
+export const leadSources = ["website", "referral", "facebook", "instagram", "linkedin", "cold_call", "existing_client", "walk_in", "other"] as const;
+export type LeadSource = (typeof leadSources)[number];
+
+export const leadSourceLabels: Record<LeadSource, string> = {
+  website: "Website",
+  referral: "Referral",
+  facebook: "Facebook",
+  instagram: "Instagram",
+  linkedin: "LinkedIn",
+  cold_call: "Cold Call",
+  existing_client: "Existing Client",
+  walk_in: "Walk-in",
+  other: "Other"
+};
+
+export const leadActivityTypes = ["call", "email", "meeting", "note", "proposal_sent", "status_changed", "follow_up", "converted"] as const;
+export type LeadActivityType = (typeof leadActivityTypes)[number];
+
+export const proposalStatuses = ["draft", "sent", "accepted", "rejected", "withdrawn"] as const;
+export type ProposalStatus = (typeof proposalStatuses)[number];
+
+export const proposalStatusLabels: Record<ProposalStatus, string> = {
+  draft: "Draft",
+  sent: "Sent",
+  accepted: "Accepted",
+  rejected: "Rejected",
+  withdrawn: "Withdrawn"
+};
+
+export const leadTaskStatuses = ["pending", "in_progress", "completed"] as const;
+export type LeadTaskStatus = (typeof leadTaskStatuses)[number];
 
 export const defaultCategories = [
   "Salary",
@@ -34,6 +89,12 @@ export const navItems = [
   { href: "/account", label: "Account", icon: UserCircle, roles },
   { href: "/organizations", label: "Organizations", icon: Building2, roles: ["super_admin"] },
   { href: "/users", label: "Users", icon: Users, roles: ["owner"] },
+  { href: "/leads", label: "Leads", icon: Target, roles: ["owner", "admin", "staff"] },
+  { href: "/sales/pipeline", label: "Pipeline", icon: TrendingUp, roles: ["owner", "admin"] },
+  { href: "/sales/proposals", label: "Proposals", icon: FileText, roles: ["owner", "admin"] },
+  { href: "/sales/activities", label: "Activities", icon: ActivitySquare, roles: ["owner", "admin", "staff"] },
+  { href: "/sales/tasks", label: "Sales Tasks", icon: CheckSquare, roles: ["owner", "admin", "staff"] },
+  { href: "/sales/reports", label: "Sales Reports", icon: ListChecks, roles: ["owner", "admin"] },
   { href: "/clients", label: "Clients", icon: Handshake, roles: ["owner", "admin"] },
   { href: "/projects", label: "Projects", icon: FolderKanban, roles: ["owner", "admin", "staff"] },
   { href: "/project-payments", label: "Payments", icon: Banknote, roles: ["owner", "admin"] },

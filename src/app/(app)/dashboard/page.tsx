@@ -13,6 +13,7 @@ import { Organization } from "@/models/Organization";
 import { getAccountingSummary, getDashboardCharts } from "@/services/accounting";
 import { getFinancialStatements } from "@/services/financial-statements";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter } from "@/services/fiscal-year-filter";
+import { getSalesStats } from "@/services/sales-stats";
 
 export default async function DashboardPage({ searchParams }: any) {
   const session = await requireSession();
@@ -30,6 +31,7 @@ export default async function DashboardPage({ searchParams }: any) {
   const baseSummary = session.user.organizationId
     ? await getAccountingSummary(session.user.organizationId, filters)
     : { totalProjects: 0, activeProjects: 0, totalBudget: 0, totalReceived: 0, generalBudget: 0, projectExpenses: 0, clientProjectExpenses: 0, internalProjectExpenses: 0, generalExpenses: 0, totalExpenses: 0, dueAmount: 0, remainingBudget: 0, generalBudgetBalance: 0, organizationCashBalance: 0 };
+  const salesStats = session.user.organizationId && session.user.role !== "super_admin" ? await getSalesStats(session.user.organizationId) : null;
   const statements = session.user.organizationId ? await getFinancialStatements({ organizationId: session.user.organizationId, from: filters.from, to: filters.to }) : null;
   const charts = session.user.organizationId ? await getDashboardCharts(session.user.organizationId, filters) : { byCategory: [], byProject: [], monthly: [], budgetVsExpense: [] };
   const summary = statements ? {
@@ -105,6 +107,14 @@ export default async function DashboardPage({ searchParams }: any) {
         <StatCard label="Due" value={(summary as any).dueAmount ?? 0} currency />
         <StatCard label="Project Service Balance" value={summary.remainingBudget} currency />
       </DashboardSection>
+      {salesStats && (
+        <DashboardSection title="Sales">
+          <StatCard label="New Leads (7d)" value={salesStats.newThisWeek} />
+          <StatCard label="Follow-ups Today" value={salesStats.followUpsToday} />
+          <StatCard label="Won (7d)" value={salesStats.wonThisWeek} />
+          <StatCard label="Pending Tasks" value={salesStats.pendingTasks} />
+        </DashboardSection>
+      )}
       <div className="grid gap-3 md:grid-cols-3">
         {((summary as any).pendingExpenses ?? 0) > 0 && <AlertCard text={`${(summary as any).pendingExpenses} expenses pending approval`} />}
         {((summary as any).projectPaidBalance ?? 0) < 0 && <AlertCard text="Project and internal expenses are higher than project receipts" />}

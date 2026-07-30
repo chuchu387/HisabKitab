@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { expenseApprovalStatuses, organizationStatuses, projectStatuses, projectTaskStatuses, projectTypes, roles } from "@/constants";
+import { expenseApprovalStatuses, leadSources, leadStatuses, leadTaskStatuses, organizationStatuses, projectStatuses, projectTaskStatuses, projectTypes, proposalStatuses, roles, leadActivityTypes } from "@/constants";
 
 export const objectIdSchema = z.string().min(12);
 
@@ -233,4 +233,44 @@ export const clientSchema = z.object({
   address: z.string().max(300).optional().default(""),
   notes: z.string().max(1000).optional().default(""),
   active: z.coerce.boolean().default(true)
+});
+
+export const leadSchema = z.object({
+  name: z.string().min(2).max(120),
+  company: z.string().max(120).optional().default(""),
+  email: z.string().email().optional().or(z.literal("")).default(""),
+  phone: z.string().max(40).optional().default(""),
+  source: z.enum(leadSources).default("referral"),
+  status: z.enum(leadStatuses).default("new"),
+  estimatedValue: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0).default(0)),
+  assignedTo: z.string().optional().nullable(),
+  notes: z.string().max(2000).optional().default(""),
+  followUpDate: z.preprocess((value) => value === "" ? null : value, z.coerce.date().nullable().optional()).default(null)
+});
+
+export const leadStatusUpdateSchema = z.object({
+  status: z.enum(leadStatuses)
+});
+
+export const leadActivitySchema = z.object({
+  leadId: z.string().min(12),
+  type: z.enum(leadActivityTypes),
+  description: z.string().max(500).optional().default("")
+});
+
+export const proposalSchema = z.object({
+  leadId: z.string().optional().nullable(),
+  title: z.string().min(2).max(160),
+  description: z.string().max(2000).optional().default(""),
+  amount: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0)),
+  status: z.enum(proposalStatuses).default("draft")
+});
+
+export const leadTaskSchema = z.object({
+  leadId: z.string().optional().nullable(),
+  title: z.string().min(2).max(160),
+  description: z.string().max(1000).optional().default(""),
+  status: z.enum(leadTaskStatuses).default("pending"),
+  dueDate: z.preprocess((value) => value === "" ? null : value, z.coerce.date().nullable().optional()).default(null),
+  assigneeId: z.string().optional().nullable()
 });
