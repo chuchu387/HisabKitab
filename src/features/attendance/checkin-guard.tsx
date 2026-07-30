@@ -8,15 +8,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { markAttendance, checkOutAttendance } from "@/actions/attendance";
 
+const MIN_WORK_MS = 3 * 60 * 60 * 1000;
+
 export function CheckInGuard({
   alreadyMarked,
   checkedOut,
   withinWindow,
+  checkInTime,
   children
 }: {
   alreadyMarked: boolean;
   checkedOut: boolean;
   withinWindow: boolean;
+  checkInTime: string | null;
   children: React.ReactNode;
 }) {
   const [view, setView] = useState<"idle" | "checkin" | "checkout" | "blocked">(
@@ -29,6 +33,22 @@ export function CheckInGuard({
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(alreadyMarked);
   const router = useRouter();
+  const [remaining, setRemaining] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!checkInTime) return;
+    function tick() {
+      const elapsed = Date.now() - new Date(checkInTime!).getTime();
+      if (elapsed >= MIN_WORK_MS) { setRemaining(null); return; }
+      const mins = Math.ceil((MIN_WORK_MS - elapsed) / 60000);
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      setRemaining(h > 0 ? `${h}h ${m}m` : `${m}m`);
+    }
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => clearInterval(id);
+  }, [checkInTime]);
 
   useEffect(() => {
     if (view === "checkin" && stream && videoRef.current) {
@@ -166,12 +186,14 @@ export function CheckInGuard({
             <CheckCircle className="h-6 w-6 shrink-0 text-primary" />
             <div>
               <p className="font-semibold">You&apos;re checked in</p>
-              <p className="text-sm text-muted-foreground">Don&apos;t forget to check out at the end of your shift.</p>
+              <p className="text-sm text-muted-foreground">
+                {remaining ? `Checkout available in ${remaining}` : "Don&apos;t forget to check out at the end of your shift."}
+              </p>
             </div>
           </div>
-          <Button onClick={submitCheckOut} disabled={pending} variant="outline" className="shrink-0">
+          <Button onClick={submitCheckOut} disabled={pending || !!remaining} variant="outline" className="shrink-0">
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-            {pending ? "Checking out..." : "Check Out"}
+            {pending ? "Checking out..." : remaining ? remaining : "Check Out"}
           </Button>
         </CardContent>
       </Card>

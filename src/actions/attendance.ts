@@ -54,6 +54,8 @@ export async function markAttendance(formData: FormData): Promise<{ ok: boolean;
   }
 }
 
+const MIN_WORK_MS = 3 * 60 * 60 * 1000;
+
 export async function checkOutAttendance(): Promise<{ ok: boolean; message: string }> {
   try {
     const { session, organizationId } = await requireTenant();
@@ -62,6 +64,11 @@ export async function checkOutAttendance(): Promise<{ ok: boolean; message: stri
     const record = await Attendance.findOne({ organizationId, userId: session.user.userId, date: today });
     if (!record) return { ok: false, message: "No check-in found for today" };
     if (record.checkOutTime) return { ok: false, message: "Already checked out today" };
+    const elapsed = Date.now() - new Date(record.checkInTime).getTime();
+    if (elapsed < MIN_WORK_MS) {
+      const remaining = Math.ceil((MIN_WORK_MS - elapsed) / 60000);
+      return { ok: false, message: `Must work at least 3 hours. You can check out in ${remaining} minutes.` };
+    }
     record.checkOutTime = new Date();
     await record.save();
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Attendance Checked Out", entityType: "Attendance", entityId: record._id.toString(), metadata: { date: today } });
