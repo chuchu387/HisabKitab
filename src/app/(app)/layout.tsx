@@ -16,6 +16,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]) : [[], 0];
   const today = nepalDateString();
   const withinWindow = isCheckInOpen();
+  if (session.user.organizationId) {
+    await Attendance.updateMany(
+      { organizationId: session.user.organizationId, userId: session.user.userId, date: { $lt: today }, checkOutTime: null },
+      { $set: { checkOutTime: new Date(new Date(today + "T00:00:00").getTime() - 60000) } }
+    );
+  }
   const attendanceRecord: any = session.user.organizationId
     ? await Attendance.findOne({ organizationId: session.user.organizationId, userId: session.user.userId, date: today }).lean()
     : null;
