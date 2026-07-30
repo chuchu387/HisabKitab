@@ -272,7 +272,7 @@ export const leadTaskSchema = z.object({
   leadId: z.string().optional().nullable(),
   title: z.string().min(2).max(160),
   description: z.string().max(1000).optional().default(""),
-  status: z.enum(leadTaskStatuses).default("pending"),
+  status: z.enum(leadTaskStatuses).default("to_contact"),
   dueDate: z.preprocess((value) => value === "" ? null : value, z.coerce.date().nullable().optional()).default(null),
   assigneeId: z.string().optional().nullable()
 });

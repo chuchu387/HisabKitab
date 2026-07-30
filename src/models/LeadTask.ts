@@ -7,7 +7,7 @@ const leadTaskSchema = new Schema(
     leadId: { type: Schema.Types.ObjectId, ref: "Lead", default: null, index: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
-    status: { type: String, enum: leadTaskStatuses, default: "pending", index: true },
+    status: { type: String, enum: leadTaskStatuses, default: "to_contact", index: true },
     dueDate: { type: Date, default: null, index: true },
     assigneeId: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
     completedAt: { type: Date, default: null },

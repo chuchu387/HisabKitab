@@ -58,18 +58,14 @@ export async function updateLeadTask(id: string, _: ActionState, formData: FormD
   }
 }
 
-export async function completeLeadTask(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
+export async function updateLeadTaskStatus(id: string, status: string) {
+  const { organizationId } = await requireTenant();
   await requireRole(["owner", "admin", "staff"]);
   await connectToDatabase();
-  const id = String(formData.get("id"));
-  const task = await LeadTask.findOneAndUpdate(
-    { _id: id, organizationId },
-    { status: "completed", completedAt: new Date() },
-    { runValidators: true }
-  );
+  const update: any = { status };
+  if (status === "closed") update.completedAt = new Date();
+  const task = await LeadTask.findOneAndUpdate({ _id: id, organizationId }, update, { runValidators: true });
   if (!task) throw new Error("Task not found");
-  await writeAuditLog({ organizationId, userId: session.user.userId, action: "Lead Task Completed", entityType: "LeadTask", entityId: id });
   revalidatePath("/sales/tasks");
   if (task.leadId) revalidatePath(`/leads/${task.leadId}`);
 }

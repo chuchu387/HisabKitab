@@ -68,8 +68,26 @@ export const proposalStatusLabels: Record<ProposalStatus, string> = {
   withdrawn: "Withdrawn"
 };
 
-export const leadTaskStatuses = ["pending", "in_progress", "completed"] as const;
+export const leadTaskStatuses = ["to_contact", "contacted", "follow_up", "proposal", "converted", "closed"] as const;
 export type LeadTaskStatus = (typeof leadTaskStatuses)[number];
+
+export const leadTaskStatusLabels: Record<LeadTaskStatus, string> = {
+  to_contact: "To Contact",
+  contacted: "Contacted",
+  follow_up: "Follow Up",
+  proposal: "Proposal",
+  converted: "Converted",
+  closed: "Closed"
+};
+
+export const leadTaskStatusColors: Record<LeadTaskStatus, string> = {
+  to_contact: "muted",
+  contacted: "info",
+  follow_up: "warning",
+  proposal: "info",
+  converted: "success",
+  closed: "muted"
+};
 
 export const defaultCategories = [
   "Salary",

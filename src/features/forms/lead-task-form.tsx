@@ -22,7 +22,7 @@ export function LeadTaskForm({ task, leads = [], users = [] }: { task?: any; lea
       <Field name="title" label="Task Title" defaultValue={task?.title} error={state.fieldErrors?.title?.[0]} />
       <div className="space-y-2">
         <Label htmlFor="status">Status</Label>
-        <Select id="status" name="status" defaultValue={task?.status ?? "pending"}>
+        <Select id="status" name="status" defaultValue={task?.status ?? "to_contact"}>
           {leadTaskStatuses.map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
         </Select>
       </div>
