@@ -111,8 +111,11 @@ export async function getAttendanceReport(organizationId: string, month: string)
   await connectToDatabase();
   const users = await User.find({ organizationId, active: true }).sort({ name: 1 }).select("name _id role").lean();
   const records = await Attendance.find({ organizationId, date: { $regex: `^${month}` } }).sort({ date: -1 }).lean();
-  const daysInMonth = new Date(new Date(month + "-01").getTime() + 32 * 24 * 60 * 60 * 1000).getDate();
-  return JSON.parse(JSON.stringify({ users, records, totalDays: daysInMonth }));
+  const [y, m] = month.split("-").map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const today = nepalDateString();
+  const totalDays = month === today.slice(0, 7) ? Math.min(daysInMonth, parseInt(today.slice(8))) : daysInMonth;
+  return JSON.parse(JSON.stringify({ users, records, totalDays }));
 }
 
 export async function getTodayAttendance(organizationId: string, userId: string) {
