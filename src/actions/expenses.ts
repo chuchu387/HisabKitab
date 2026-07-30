@@ -120,7 +120,8 @@ export async function bulkLinkExpensesToProject(_: ActionState, formData: FormDa
       const project = await Project.exists({ _id: projectId, organizationId });
       if (!project) throw new Error("Project not found");
     }
-    const previousExpenses = await Expense.find({ _id: { $in: ids }, organizationId }).select("projectId").lean();
+    const previousExpenses = await Expense.find({ _id: { $in: ids }, organizationId }).select("projectId expenseDate").lean();
+    await Promise.all(previousExpenses.map((expense: any) => assertFiscalYearOpen(organizationId, expense.expenseDate)));
     const result = await Expense.updateMany({ _id: { $in: ids }, organizationId }, { $set: { projectId: projectId || null } });
     await writeAuditLog({
       organizationId,
@@ -145,8 +146,9 @@ export async function bulkUpdateExpenseApproval(_: ActionState, formData: FormDa
     const ids = formData.getAll("expenseIds").map(String).filter(Boolean);
     if (!ids.length) throw new Error("Select at least one expense");
     const data = expenseApprovalSchema.parse({ approvalStatus: formData.get("approvalStatus") });
-    const expenses = await Expense.find({ _id: { $in: ids }, organizationId }).select("projectId createdBy description amount").lean();
+    const expenses = await Expense.find({ _id: { $in: ids }, organizationId }).select("projectId createdBy description amount expenseDate").lean();
     if (!expenses.length) throw new Error("No matching expenses found");
+    await Promise.all(expenses.map((expense: any) => assertFiscalYearOpen(organizationId, expense.expenseDate)));
     const approvalFields = {
       approvalStatus: data.approvalStatus,
       approvedBy: data.approvalStatus === "approved" ? session.user.userId : null,
@@ -183,6 +185,9 @@ export async function updateExpenseApproval(_: ActionState, formData: FormData):
     await connectToDatabase();
     const id = String(formData.get("id"));
     const data = expenseApprovalSchema.parse({ approvalStatus: formData.get("approvalStatus") });
+    const existing = await Expense.findOne({ _id: id, organizationId }).select("expenseDate").lean() as any;
+    if (!existing) throw new Error("Expense not found");
+    await assertFiscalYearOpen(organizationId, existing.expenseDate);
     const expense = (await Expense.findOneAndUpdate(
       { _id: id, organizationId },
       { approvalStatus: data.approvalStatus, approvedBy: data.approvalStatus === "approved" ? session.user.userId : null, approvedAt: data.approvalStatus === "approved" ? new Date() : null },

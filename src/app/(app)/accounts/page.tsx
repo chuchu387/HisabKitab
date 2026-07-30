@@ -182,6 +182,7 @@ async function AccountsContent({ searchParams }: any) {
         <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=trial_balance&${qs}`}><Download className="h-4 w-4" />Trial CSV</Link></Button>
         <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=closing&${qs}`}><Download className="h-4 w-4" />Closing CSV</Link></Button>
         <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=pdf&statement=closing&${qs}`}><Download className="h-4 w-4" />Closing PDF</Link></Button>
+        <Button asChild variant="secondary"><Link href={`/api/accounts/audit-bundle?${qs}`}><Download className="h-4 w-4" />Audit Bundle</Link></Button>
       </FilterForm>
 
       <div className="grid gap-4 md:grid-cols-3">

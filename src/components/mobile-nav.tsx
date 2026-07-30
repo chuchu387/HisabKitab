@@ -12,7 +12,7 @@ const navGroups = [
   { title: "Overview", hrefs: ["/dashboard", "/notifications", "/account"] },
   { title: "Accounting", hrefs: ["/expenses", "/project-payments", "/payment-reminders", "/general-funds", "/vendors", "/expense-contributors"] },
   { title: "Work", hrefs: ["/clients", "/projects", "/tasks", "/categories"] },
-  { title: "Accounts", hrefs: ["/accounts", "/chart-of-accounts", "/ledger", "/bank-accounts", "/reconciliation", "/opening-balances", "/journal-entries", "/invoices", "/tax", "/fiscal-years"] },
+  { title: "Accounts", hrefs: ["/accounts", "/data-health", "/chart-of-accounts", "/ledger", "/bank-accounts", "/reconciliation", "/opening-balances", "/journal-entries", "/invoices", "/tax", "/fiscal-years"] },
   { title: "Reports", hrefs: ["/reports", "/email-logs", "/audit-logs"] },
   { title: "Admin", hrefs: ["/organizations", "/users", "/settings"] }
 ];

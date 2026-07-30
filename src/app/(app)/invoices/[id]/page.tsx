@@ -6,10 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
+import { InvoicePaymentForm } from "@/features/forms/invoice-payment-form";
 import { connectToDatabase } from "@/lib/db";
 import { requireRole, requireTenant } from "@/lib/permissions";
 import { formatDate, isObjectId, money } from "@/lib/utils";
 import { Client } from "@/models/Client";
+import { BankAccount } from "@/models/BankAccount";
 import { Invoice } from "@/models/Invoice";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
@@ -27,7 +29,10 @@ export default async function InvoiceDetailPage({ params, searchParams }: any) {
   if (!isObjectId(routeParams.id)) notFound();
   const invoice = await Invoice.findOne({ _id: routeParams.id, organizationId }).populate("clientId projectId").lean() as any;
   if (!invoice) notFound();
-  const payments = await ProjectPayment.find({ organizationId, invoiceId: invoice._id }).populate("projectId createdBy bankAccountId invoiceId").sort({ paymentDate: -1 }).lean();
+  const [payments, bankAccounts] = await Promise.all([
+    ProjectPayment.find({ organizationId, invoiceId: invoice._id }).populate("projectId createdBy bankAccountId invoiceId").sort({ paymentDate: -1 }).lean(),
+    BankAccount.find({ organizationId, active: true }).sort({ name: 1 }).lean()
+  ]);
   const paymentRows = (payments as any[]).map((payment) => ({ ...payment, accounting: paymentBreakdown(payment) }));
   const paidCash = paymentRows.reduce((sum, payment) => sum + payment.accounting.cashAmount, 0);
   const paidService = paymentRows.reduce((sum, payment) => sum + payment.accounting.serviceAmount, 0);
@@ -60,6 +65,10 @@ export default async function InvoiceDetailPage({ params, searchParams }: any) {
           <Info label="Notes" value={invoice.notes || "-"} />
         </CardContent>
       </Card>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Record Payment</h2>
+        <InvoicePaymentForm invoice={JSON.parse(JSON.stringify(invoice))} bankAccounts={JSON.parse(JSON.stringify(bankAccounts))} dueAmount={dueCash} />
+      </section>
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Payment Allocation</h2>
         <DataTable data={paymentRows} pagination={{ basePath: `/invoices/${invoice._id}`, searchParams: queryParams }} columns={[

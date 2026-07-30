@@ -58,6 +58,7 @@ export default async function FiscalYearClosingPage({ params }: any) {
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=csv&statement=closing&from=${from}&to=${to}&fiscalYearId=${routeParams.id}`}>Closing CSV</Link></Button>
             <Button asChild variant="secondary"><Link href={`/api/accounts/export?format=pdf&statement=closing&from=${from}&to=${to}&fiscalYearId=${routeParams.id}`}>Closing PDF</Link></Button>
+            <Button asChild variant="secondary"><Link href={`/api/accounts/audit-bundle?from=${from}&to=${to}`}>Audit Bundle CSV</Link></Button>
             <form action={toggleFiscalYearStatus}>
               <input type="hidden" name="id" value={(year as any)._id.toString()} />
               <input type="hidden" name="status" value={isClosed ? "open" : "closed"} />
