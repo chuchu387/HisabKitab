@@ -7,7 +7,7 @@ import { ChatGroup } from "@/models/ChatGroup";
 import { ChatMessage } from "@/models/ChatMessage";
 import { User } from "@/models/User";
 import { getReceiptBucket } from "@/services/gridfs";
-import { sendEmail, emailLayout, actionButton, appUrl } from "@/services/email";
+import { sendEmail, emailLayout, actionButton, appUrl, escapeHtml } from "@/services/email";
 import { actionError } from "@/actions/helpers";
 import { writeAuditLog } from "@/services/audit";
 import { mongo } from "mongoose";
@@ -123,6 +123,28 @@ export async function sendMessage(formData: FormData) {
       { _id: groupId, "members.userId": session.user.userId },
       { $set: { "members.$.lastReadAt": new Date() } }
     );
+
+    const sender = await User.findById(session.user.userId).select("name").lean() as any;
+    const group = await ChatGroup.findById(groupId).lean() as any;
+    if (group) {
+      const memberIds = group.members.map((m: any) => m.userId.toString()).filter((id: string) => id !== session.user.userId);
+      const members = await User.find({ _id: { $in: memberIds }, organizationId }).lean() as any[];
+      const groupUrl = appUrl(`/chat?g=${groupId}`);
+      const preview = content ? (content.length > 100 ? content.slice(0, 100) + "..." : content) : (attachments.length ? `${attachments.length} file(s)` : "");
+      for (const member of members) {
+        sendEmail({
+          to: [{ email: member.email, name: member.name }],
+          subject: `[${group.name}] ${sender?.name || "Someone"}: ${preview}`,
+          html: emailLayout(`New message in ${group.name}`,
+            `<p><strong>${sender?.name || "Someone"}</strong> wrote in <strong>${group.name}</strong>:</p>
+             ${content ? `<div style="margin:12px 0;padding:12px;background:#f3f4f6;border-radius:8px;font-size:14px">${escapeHtml(content)}</div>` : ""}
+             ${attachments.length ? `<p style="color:#6b7280">📎 ${attachments.length} attachment(s)</p>` : ""}
+             ${actionButton("View in Chat", groupUrl)}`
+          ),
+          organizationId
+        }).catch(() => {});
+      }
+    }
 
     revalidatePath("/chat");
     return { ok: true, data: { id: message._id.toString() }, message: "Sent" };
