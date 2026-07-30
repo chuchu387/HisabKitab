@@ -35,6 +35,7 @@ export default async function DashboardPage({ searchParams }: any) {
   const summary = statements ? {
     ...baseSummary,
     dueAmount: statements.summary.accountsReceivable,
+    bankOpeningBalance: statements.summary.bankOpeningBalance,
     organizationCashBalance: statements.summary.cashAtBank
   } : baseSummary;
   const typedSummary = summary as any;
@@ -43,6 +44,7 @@ export default async function DashboardPage({ searchParams }: any) {
   const spendRate = typedSummary.totalFunding > 0 ? Math.round((typedSummary.totalExpenses / typedSummary.totalFunding) * 100) : 0;
   const projectExpenseRate = typedSummary.totalReceived > 0 ? Math.round((typedSummary.projectExpenses / typedSummary.totalReceived) * 100) : 0;
   const fundingMix = [
+    { name: "Bank opening", amount: typedSummary.bankOpeningBalance ?? 0 },
     { name: "Project cash", amount: typedSummary.totalCashReceived ?? typedSummary.totalReceived ?? 0 },
     { name: "Owner/other funds", amount: typedSummary.generalBudget ?? 0 }
   ].filter((row) => row.amount > 0);
@@ -83,6 +85,7 @@ export default async function DashboardPage({ searchParams }: any) {
         </CardContent>
       </Card>
       <DashboardSection title="Money In">
+        <StatCard label="Bank Opening Balance" value={(summary as any).bankOpeningBalance ?? 0} currency />
         <StatCard label="Project Service Received" value={(summary as any).totalReceived ?? 0} currency />
         <StatCard label="Project Cash Received" value={(summary as any).totalCashReceived ?? (summary as any).totalReceived ?? 0} currency />
         <StatCard label="Owner/Other Funds" value={(summary as any).generalBudget ?? 0} currency />
@@ -137,6 +140,7 @@ function DashboardSection({ title, children }: { title: string; children: React.
 function CompanyCashBreakdown({ summary }: { summary: any }) {
   const projectReceived = summary.totalReceived ?? 0;
   const projectCashReceived = summary.totalCashReceived ?? projectReceived;
+  const bankOpeningBalance = summary.bankOpeningBalance ?? 0;
   const ownerOtherFunds = summary.generalBudget ?? 0;
   const projectExpenses = summary.projectExpenses ?? 0;
   const generalExpenses = summary.generalExpenses ?? 0;
@@ -148,6 +152,7 @@ function CompanyCashBreakdown({ summary }: { summary: any }) {
           <h2 className="text-base font-semibold">Company Cash Breakdown</h2>
           <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <BreakdownItem label="Project service received" value={projectReceived} positive />
+            <BreakdownItem label="Bank opening balance" value={bankOpeningBalance} positive />
             <BreakdownItem label="Project cash received" value={projectCashReceived} positive />
             <BreakdownItem label="Owner/other funds" value={ownerOtherFunds} positive />
             <BreakdownItem label="All project expenses" value={projectExpenses} />
@@ -156,7 +161,7 @@ function CompanyCashBreakdown({ summary }: { summary: any }) {
         </div>
         <div className="rounded-md border bg-muted/40 p-4 text-sm">
           <p className="text-muted-foreground">
-            {money(projectCashReceived)} + {money(ownerOtherFunds)} - {money(projectExpenses)} - {money(generalExpenses)}
+            {money(bankOpeningBalance)} + {money(projectCashReceived)} + {money(ownerOtherFunds)} - {money(projectExpenses)} - {money(generalExpenses)}
           </p>
           <p className="mt-1 text-2xl font-semibold">{money(companyCashBalance)}</p>
         </div>
@@ -179,6 +184,7 @@ function FinancialHealthPanel({ summary, collectionRate, spendRate }: { summary:
         <div className="rounded-lg border bg-muted/35 p-4 lg:col-span-4">
           <p className="text-sm font-medium text-muted-foreground">Cash equation</p>
           <p className="mt-2 text-sm">
+            <span className="font-semibold text-primary">{money(summary.bankOpeningBalance ?? 0)}</span> bank opening +{" "}
             <span className="font-semibold text-primary">{money(summary.totalCashReceived ?? summary.totalReceived ?? 0)}</span> project cash +{" "}
             <span className="font-semibold text-primary">{money(summary.generalBudget ?? 0)}</span> other funds -{" "}
             <span className="font-semibold text-destructive">{money(summary.projectExpenses ?? 0)}</span> project expenses -{" "}

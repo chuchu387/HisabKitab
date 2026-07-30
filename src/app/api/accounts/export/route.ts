@@ -62,7 +62,7 @@ function statementRows(statement: string, statements: any) {
   const trialRows = (statements.trialBalance ?? []).map((row: any) => ({ section: "Closing Trial Balance", account: `${row.accountCode} - ${row.accountName}`, debit: row.debit, credit: row.credit, amount: (row.debit ?? 0) - (row.credit ?? 0) }));
   const cashRows = statements.cashFlow.map((row: any) => ({ section: "Cash Flow", account: row.account, debit: "", credit: "", amount: row.amount }));
   const receivableRows = statements.receivables.map((row: any) => ({ section: "Accounts Receivable", account: `${row.projectName} (${row.projectCode})`, debit: row.due, credit: "", amount: row.due }));
-  if (statement === "balance_sheet") return [...summaryRows.filter((row) => ["totalAssets", "totalLiabilities", "ownerEquity", "cashAtBank", "accountsReceivable"].includes(row.account)), ...balanceRows, ...receivableRows];
+  if (statement === "balance_sheet") return [...summaryRows.filter((row) => ["totalAssets", "totalLiabilities", "ownerEquity", "bankOpeningBalance", "cashAtBank", "accountsReceivable"].includes(row.account)), ...balanceRows, ...receivableRows];
   if (statement === "profit_loss") return profitRows;
   if (statement === "trial_balance") return trialRows;
   if (statement === "cash_flow") return cashRows;
@@ -115,6 +115,7 @@ function closingSummaryRows(statements: any) {
     ["Revenue", formatAmount(statements.summary.revenue)],
     ["Total Expenses", formatAmount(statements.summary.totalExpenses)],
     ["Net Profit / Loss After Tax", formatAmount(statements.summary.netProfitAfterTax)],
+    ["Bank Opening Balance", formatAmount(statements.summary.bankOpeningBalance ?? 0)],
     ["Cash / Bank At Close", formatAmount(statements.summary.cashAtBank)],
     ["Accounts Receivable At Close", formatAmount(statements.summary.accountsReceivable)]
   ];

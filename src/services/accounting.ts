@@ -5,6 +5,7 @@ import { Organization } from "@/models/Organization";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { GeneralFund } from "@/models/GeneralFund";
+import { BankAccount } from "@/models/BankAccount";
 import { User } from "@/models/User";
 import { Client } from "@/models/Client";
 import { safeDate } from "@/lib/utils";
@@ -67,7 +68,7 @@ export async function getAccountingSummary(organizationId: string, filters: { fr
   const paymentDateMatch = range ? { paymentDate: range } : {};
   const fundDateMatch = range ? { fundDate: range } : {};
   const expenseDateMatch = range ? { expenseDate: range } : {};
-  const [organization, projectTotals, fundAgg, projectExpenseAgg, projectExpenseByType, generalExpenseAgg, pendingExpenses, activeProjects, totalProjects] = await Promise.all([
+  const [organization, projectTotals, fundAgg, bankAccounts, projectExpenseAgg, projectExpenseByType, generalExpenseAgg, pendingExpenses, activeProjects, totalProjects] = await Promise.all([
     Organization.findById(organizationId).lean(),
     Project.aggregate([
       { $match: { organizationId: oid } },
@@ -83,6 +84,7 @@ export async function getAccountingSummary(organizationId: string, filters: { fr
       { $group: { _id: null, totalBudget: { $sum: "$totalBudget" }, totalReceived: { $sum: "$received" }, totalCashReceived: { $sum: "$cashReceived" }, outputVatCollected: { $sum: "$outputVatCollected" } } }
     ]),
     GeneralFund.aggregate([{ $match: { organizationId: oid, ...fundDateMatch } }, { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }]),
+    BankAccount.find({ organizationId: oid }).select("openingBalance").lean(),
     Expense.aggregate([{ $match: { organizationId: oid, projectId: { $ne: null }, ...expenseDateMatch, ...approvedExpenseCondition() } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Expense.aggregate([
       { $match: { organizationId: oid, projectId: { $ne: null }, ...expenseDateMatch, ...approvedExpenseCondition() } },
@@ -104,6 +106,7 @@ export async function getAccountingSummary(organizationId: string, filters: { fr
   const internalProjectExpenses = currency(projectExpenseByType.find((row: any) => row._id === "internal")?.total ?? 0);
   const generalExpenses = currency(generalExpenseAgg[0]?.total ?? 0);
   const generalBudget = currency(fundAgg[0]?.count ? fundAgg[0].total : (!range ? ((organization as any)?.generalBudget ?? 0) : 0));
+  const bankOpeningBalance = currency((bankAccounts as any[]).reduce((sum, account) => sum + (account.openingBalance ?? 0), 0));
   return {
     totalProjects,
     activeProjects,
@@ -111,7 +114,8 @@ export async function getAccountingSummary(organizationId: string, filters: { fr
     totalReceived,
     totalCashReceived,
     outputVatCollected,
-    totalFunding: currency(totalCashReceived + generalBudget),
+    bankOpeningBalance,
+    totalFunding: currency(bankOpeningBalance + totalCashReceived + generalBudget),
     generalBudget,
     projectExpenses,
     clientProjectExpenses,
@@ -125,7 +129,7 @@ export async function getAccountingSummary(organizationId: string, filters: { fr
     generalBudgetBalance: currency(generalBudget - generalExpenses),
     receivableRemaining: currency(totalBudget - totalReceived),
     cashAfterExpenses: currency(totalReceived - projectExpenses),
-    organizationCashBalance: currency(totalCashReceived + generalBudget - projectExpenses - generalExpenses)
+    organizationCashBalance: currency(bankOpeningBalance + totalCashReceived + generalBudget - projectExpenses - generalExpenses)
   };
 }
 
@@ -224,6 +228,7 @@ export async function getReports(filters: ReportFilters) {
     projectDocs,
     paymentAgg,
     fundAgg,
+    bankAccounts,
     totalFundDocs,
     projectExpenseAgg,
     generalExpenseAgg,
@@ -237,6 +242,7 @@ export async function getReports(filters: ReportFilters) {
     Project.find(projectScope).populate({ path: "clientId", model: Client, select: "name code" }).sort({ name: 1 }).lean(),
     ProjectPayment.aggregate([{ $match: paymentMatch }, ...paymentAccountingStages(), { $group: { _id: "$projectId", total: { $sum: "$serviceAmountForAccounting" }, cash: { $sum: "$amount" } } }]),
     GeneralFund.aggregate([{ $match: fundMatch }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
+    BankAccount.find({ organizationId: oid }).select("openingBalance").lean(),
     GeneralFund.countDocuments({ organizationId: filters.organizationId }),
     Expense.aggregate([{ $match: expenseProjectMatch }, { $group: { _id: "$projectId", total: { $sum: "$amount" } } }]),
     Expense.aggregate([{ $match: { ...match, projectId: null } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
@@ -305,13 +311,15 @@ export async function getReports(filters: ReportFilters) {
   const internalProjectExpenses = currency(projects.filter((project: any) => project.projectType === "internal").reduce((sum: number, project: any) => sum + project.expense, 0));
   const generalExpenses = currency(filters.projectId ? 0 : (generalExpenseAgg[0]?.total ?? 0));
   const generalBudget = currency(filters.projectId ? 0 : (totalFundDocs === 0 && !range ? ((organization as any)?.generalBudget ?? 0) : (fundAgg[0]?.total ?? 0)));
+  const bankOpeningBalance = currency(filters.projectId ? 0 : (bankAccounts as any[]).reduce((sum, account) => sum + (account.openingBalance ?? 0), 0));
   const summary = {
     totalProjects: projects.length,
     activeProjects: projectDocs.filter((project: any) => project.status === "active").length,
     totalBudget,
     totalReceived,
     totalCashReceived,
-    totalFunding: currency(totalCashReceived + generalBudget),
+    bankOpeningBalance,
+    totalFunding: currency(bankOpeningBalance + totalCashReceived + generalBudget),
     generalBudget,
     projectExpenses,
     clientProjectExpenses,
@@ -325,7 +333,7 @@ export async function getReports(filters: ReportFilters) {
     generalBudgetBalance: currency(generalBudget - generalExpenses),
     receivableRemaining: currency(totalBudget - totalReceived),
     cashAfterExpenses: currency(totalReceived - projectExpenses),
-    organizationCashBalance: currency(totalCashReceived + generalBudget - projectExpenses - generalExpenses)
+    organizationCashBalance: currency(bankOpeningBalance + totalCashReceived + generalBudget - projectExpenses - generalExpenses)
   };
   return { summary, projects, expenses, categorySummary, monthlySummary, expenseTypeSummary };
 }

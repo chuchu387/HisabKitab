@@ -3,6 +3,7 @@ import { Expense } from "@/models/Expense";
 import { GeneralFund } from "@/models/GeneralFund";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
+import { BankAccount } from "@/models/BankAccount";
 import { nepalFiscalYearForDate, nepalFiscalYearOptions, nepalFiscalYearRange } from "@/services/nepal-fiscal-year";
 import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
@@ -43,6 +44,7 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
     allProjectPaymentsToDate,
     allGeneralFundsToDate,
     allExpensesToDate,
+    bankAccounts,
     clientProjects
   ] = await Promise.all([
     ProjectPayment.aggregate([
@@ -89,6 +91,7 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
     ]),
     GeneralFund.aggregate([{ $match: { organizationId: oid, fundDate: throughEnd } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Expense.aggregate([{ $match: { organizationId: oid, expenseDate: throughEnd, approvalStatus: "approved" } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
+    BankAccount.find({ organizationId: oid }).select("openingBalance").lean(),
     Project.find({ organizationId: oid, projectType: "client", totalBudget: { $gt: 0 } }).select("name code totalBudget receivedAmount").lean()
   ]);
 
@@ -122,7 +125,8 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
   const outputVatCollectedToDate = round(allProjectPaymentsToDate.reduce((sum: number, row: any) => sum + (row.vat ?? 0), 0));
   const allGeneralFundsTotal = round(allGeneralFundsToDate[0]?.total ?? 0);
   const allExpensesTotal = round(allExpensesToDate[0]?.total ?? 0);
-  const cashAtBank = round(allPaymentsTotal + allGeneralFundsTotal - allExpensesTotal);
+  const bankOpeningBalance = round((bankAccounts as any[]).reduce((sum, account) => sum + (account.openingBalance ?? 0), 0));
+  const cashAtBank = round(bankOpeningBalance + allPaymentsTotal + allGeneralFundsTotal - allExpensesTotal);
   const accountsReceivable = round(receivableRows.reduce((sum, project) => sum + project.due, 0));
   const totalAssets = round(cashAtBank + accountsReceivable);
   const totalLiabilities = round(estimatedTaxPayable + outputVatCollectedToDate);
@@ -148,6 +152,7 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
       outputVatCollected,
       outputVatCollectedToDate,
       netProfitAfterTax,
+      bankOpeningBalance,
       cashAtBank,
       accountsReceivable,
       totalAssets,
@@ -180,6 +185,7 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
       { account: "Net Profit After Tax", amount: netProfitAfterTax }
     ],
     cashFlow: [
+      { account: "Opening Cash / Bank Balance", amount: bankOpeningBalance },
       { account: "Client Payments Received", amount: cashReceived },
       { account: "Owner/Other Funds Received", amount: ownerFunds },
       { account: "Approved Expenses Paid", amount: -totalExpenses },

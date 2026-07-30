@@ -16,6 +16,7 @@ export function emptyFinancialStatements(from?: string, to?: string) {
     outputVatCollected: 0,
     outputVatCollectedToDate: 0,
     netProfitAfterTax: 0,
+    bankOpeningBalance: 0,
     cashAtBank: 0,
     accountsReceivable: 0,
     totalAssets: 0,
@@ -50,6 +51,7 @@ export function emptyFinancialStatements(from?: string, to?: string) {
       { account: "Net Profit After Tax", amount: 0 }
     ],
     cashFlow: [
+      { account: "Opening Cash / Bank Balance", amount: 0 },
       { account: "Client Payments Received", amount: 0 },
       { account: "Owner/Other Funds Received", amount: 0 },
       { account: "Approved Expenses Paid", amount: 0 },

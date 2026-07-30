@@ -106,6 +106,7 @@ export default async function ReportsPage({ searchParams }: any) {
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total Budget" value={reports.summary.totalBudget} currency />
+        <StatCard label="Bank Opening Balance" value={(reports.summary as any).bankOpeningBalance ?? 0} currency />
         <StatCard label="Project Service Received" value={(reports.summary as any).totalReceived ?? 0} currency />
         <StatCard label="Project Cash Received" value={(reports.summary as any).totalCashReceived ?? (reports.summary as any).totalReceived ?? 0} currency />
         <StatCard label="Due" value={(reports.summary as any).dueAmount ?? 0} currency />
@@ -128,6 +129,7 @@ export default async function ReportsPage({ searchParams }: any) {
       <Card>
         <CardContent className="grid gap-4 p-5 lg:grid-cols-3">
           <ReportSummaryBlock title="Money In" rows={[
+            ["Bank opening balance", (reports.summary as any).bankOpeningBalance ?? 0],
             ["Project service received", (reports.summary as any).totalReceived ?? 0],
             ["Project cash received", (reports.summary as any).totalCashReceived ?? (reports.summary as any).totalReceived ?? 0],
             ["Owner/other funds", (reports.summary as any).generalBudget ?? 0]

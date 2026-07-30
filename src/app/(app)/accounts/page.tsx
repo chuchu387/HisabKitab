@@ -75,13 +75,14 @@ async function AccountsContent({ searchParams }: any) {
   const compareBaseLedger = compareQs ? `/ledger?${compareQs}` : baseLedger;
   const compareExpenseBase = compareFilters ? `/expenses?from=${compareFilters.from}&to=${compareFilters.to}&approvalStatus=approved` : expenseBase;
   const summary = statements.summary;
-  const netCashMovementAfterFunds = (summary.cashReceived ?? summary.revenue) + summary.ownerFunds - summary.totalExpenses;
+  const netCashMovementAfterFunds = (summary.bankOpeningBalance ?? 0) + (summary.cashReceived ?? summary.revenue) + summary.ownerFunds - summary.totalExpenses;
   const liabilitiesAndEquity = summary.totalLiabilities + summary.ownerEquity;
   const balanceDifference = summary.totalAssets - liabilitiesAndEquity;
   const balanceRows = withComparison([
     { label: "Assets", section: true },
     { label: "Current Assets", level: 1 },
     { label: "Cash / Bank Balance", amount: summary.cashAtBank, level: 2, href: `${baseLedger}&accountCode=1000` },
+    { label: "Bank Opening Balances", amount: summary.bankOpeningBalance ?? 0, level: 3, href: "/bank-accounts" },
     { label: "Accounts Receivable", amount: summary.accountsReceivable, level: 2, href: "#accounts-receivable" },
     ...statements.receivables.map((row: any) => ({ label: `${row.projectName} (${row.projectCode})`, amount: row.due, level: 3, href: `/projects/${row.projectId}` })),
     { label: "Total Assets", amount: summary.totalAssets, total: true },
@@ -100,6 +101,7 @@ async function AccountsContent({ searchParams }: any) {
     { label: "Assets", section: true },
     { label: "Current Assets", level: 1 },
     { label: "Cash / Bank Balance", amount: compareStatements.summary.cashAtBank, level: 2, href: `${compareBaseLedger}&accountCode=1000` },
+    { label: "Bank Opening Balances", amount: compareStatements.summary.bankOpeningBalance ?? 0, level: 3, href: "/bank-accounts" },
     { label: "Accounts Receivable", amount: compareStatements.summary.accountsReceivable, level: 2, href: "#accounts-receivable" },
     ...compareStatements.receivables.map((row: any) => ({ label: `${row.projectName} (${row.projectCode})`, amount: row.due, level: 3, href: `/projects/${row.projectId}` })),
     { label: "Total Assets", amount: compareStatements.summary.totalAssets, total: true },
@@ -196,9 +198,10 @@ async function AccountsContent({ searchParams }: any) {
         <p className="mt-1 text-muted-foreground">
           Client income is recognized from project payments received. Expenses are recognized from approved expense records. Invoices track receivables, while payments track real cash movement.
         </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <div className="mt-3 grid gap-3 md:grid-cols-4">
           <BasisMetric label={summary.netProfitBeforeTax >= 0 ? "Operating Profit Before Tax" : "Operating Loss Before Tax"} value={summary.netProfitBeforeTax} />
           <BasisMetric label="Founder/Company Funds Added" value={summary.ownerFunds} />
+          <BasisMetric label="Bank Opening Balances" value={summary.bankOpeningBalance ?? 0} />
           <BasisMetric label="Cash Movement After Funds" value={netCashMovementAfterFunds} />
         </div>
       </section>
