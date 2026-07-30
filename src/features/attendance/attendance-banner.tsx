@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { Camera, CameraOff, CheckCircle, Loader2 } from "lucide-react";
 import { markAttendance } from "@/actions/attendance";
@@ -18,12 +18,17 @@ export function AttendanceBanner({ alreadyMarked }: { alreadyMarked: boolean }) 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const router = useRouter();
 
+  useEffect(() => {
+    if (showCamera && stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [showCamera, stream]);
+
   const startCamera = useCallback(async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } });
       setStream(mediaStream);
       setShowCamera(true);
-      if (videoRef.current) videoRef.current.srcObject = mediaStream;
     } catch {
       toast.error("Camera access denied. Check your browser permissions.");
     }
@@ -88,32 +93,30 @@ export function AttendanceBanner({ alreadyMarked }: { alreadyMarked: boolean }) 
           </Button>
         )}
 
-        {showCamera && (
-          <div className="w-full space-y-3">
-            <div className="relative overflow-hidden rounded-lg bg-black">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full max-h-64 object-contain" />
-              <canvas ref={canvasRef} className="hidden" />
-              {captured && (
-                <img src={URL.createObjectURL(captured)} alt="Captured" className="absolute inset-0 w-full h-full object-contain" />
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {!captured ? (
-                <Button onClick={capturePhoto}><Camera className="h-4 w-4" /> Capture</Button>
-              ) : (
-                <>
-                  <Button onClick={() => setCaptured(null)} variant="outline">Retake</Button>
-                  <Button onClick={submitAttendance} disabled={pending}>
-                    {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                    {pending ? "Submitting..." : "Confirm & Check In"}
-                  </Button>
-                </>
-              )}
-              <Button onClick={stopCamera} variant="ghost" size="sm"><CameraOff className="h-4 w-4" /> Close</Button>
-            </div>
-            {!captured && <p className="text-xs text-muted-foreground">Position your face in the frame and click Capture.</p>}
+        <div className={`w-full space-y-3 ${showCamera ? "" : "hidden"}`}>
+          <div className="relative overflow-hidden rounded-lg bg-black">
+            <video ref={videoRef} autoPlay playsInline muted className="w-full max-h-64 object-contain" />
+            <canvas ref={canvasRef} className="hidden" />
+            {captured && (
+              <img src={URL.createObjectURL(captured)} alt="Captured" className="absolute inset-0 w-full h-full object-contain" />
+            )}
           </div>
-        )}
+          <div className="flex flex-wrap gap-2">
+            {!captured ? (
+              <Button onClick={capturePhoto}><Camera className="h-4 w-4" /> Capture</Button>
+            ) : (
+              <>
+                <Button onClick={() => setCaptured(null)} variant="outline">Retake</Button>
+                <Button onClick={submitAttendance} disabled={pending}>
+                  {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                  {pending ? "Submitting..." : "Confirm & Check In"}
+                </Button>
+              </>
+            )}
+            <Button onClick={stopCamera} variant="ghost" size="sm"><CameraOff className="h-4 w-4" /> Close</Button>
+          </div>
+          {!captured && <p className="text-xs text-muted-foreground">Position your face in the frame and click Capture.</p>}
+        </div>
       </CardContent>
     </Card>
   );
