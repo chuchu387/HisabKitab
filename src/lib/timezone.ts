@@ -17,6 +17,11 @@ export function isCheckInOpen(): boolean {
   return h >= 8;
 }
 
+export function isSaturday(): boolean {
+  const d = new Date(Date.now() + NEPAL_OFFSET_MS);
+  return d.getUTCDay() === 6;
+}
+
 export function formatNepalTime(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kathmandu" });

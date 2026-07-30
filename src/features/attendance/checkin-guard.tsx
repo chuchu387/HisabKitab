@@ -15,14 +15,17 @@ export function CheckInGuard({
   checkedOut,
   withinWindow,
   checkInTime,
+  skip,
   children
 }: {
   alreadyMarked: boolean;
   checkedOut: boolean;
   withinWindow: boolean;
   checkInTime: string | null;
+  skip?: boolean;
   children: React.ReactNode;
 }) {
+  if (skip) return <>{children}</>;
   const [view, setView] = useState<"idle" | "checkin" | "checkout" | "blocked">(
     !alreadyMarked ? (withinWindow ? "checkin" : "blocked") : !checkedOut ? "checkout" : "idle"
   );

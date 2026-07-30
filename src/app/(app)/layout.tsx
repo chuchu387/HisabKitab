@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/permissions";
 import { Notification } from "@/models/Notification";
 import { Attendance } from "@/models/Attendance";
 import { CheckInGuard } from "@/features/attendance/checkin-guard";
-import { nepalDateString, isCheckInOpen } from "@/lib/timezone";
+import { nepalDateString, isCheckInOpen, isSaturday } from "@/lib/timezone";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
@@ -16,6 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]) : [[], 0];
   const today = nepalDateString();
   const withinWindow = isCheckInOpen();
+  const weekend = isSaturday();
   if (session.user.organizationId) {
     await Attendance.updateMany(
       { organizationId: session.user.organizationId, userId: session.user.userId, date: { $lt: today }, checkOutTime: null },
@@ -34,7 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <Header name={session.user.name ?? ""} email={session.user.email ?? ""} role={session.user.role} notifications={JSON.parse(JSON.stringify(notifications))} unreadCount={unreadCount} />
         <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 lg:p-6">
-          <CheckInGuard alreadyMarked={alreadyMarked} checkedOut={checkedOut} withinWindow={withinWindow} checkInTime={checkInTime}>
+          <CheckInGuard alreadyMarked={alreadyMarked} checkedOut={checkedOut} withinWindow={withinWindow} checkInTime={checkInTime} skip={weekend}>
             {children}
           </CheckInGuard>
         </main>
