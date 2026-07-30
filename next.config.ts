@@ -3,9 +3,10 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname),
+  serverExternalPackages: ["mongoose", "mongodb", "bcryptjs"],
   experimental: {
     serverActions: {
-      bodySizeLimit: "6mb"
+      bodySizeLimit: "12mb"
     }
   }
 };
