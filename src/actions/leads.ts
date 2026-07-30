@@ -13,6 +13,17 @@ import { actionError, parseForm } from "@/actions/helpers";
 import { writeAuditLog } from "@/services/audit";
 import type { ActionState } from "@/types";
 
+function computeLeadScore(data: any) {
+  let score = 0;
+  if (data.email) score += 25;
+  if (data.phone) score += 20;
+  if (data.company) score += 10;
+  if (data.estimatedValue && data.estimatedValue > 0) score += 15;
+  if (data.source && data.source !== "referral") score += 10;
+  if (data.notes && data.notes.length > 20) score += 5;
+  return score;
+}
+
 async function checkDuplicate(organizationId: string, email: string, phone: string, excludeId?: string) {
   const or: Record<string, unknown>[] = [];
   if (email) or.push({ email, organizationId });
@@ -57,7 +68,9 @@ export async function createLead(_: ActionState, formData: FormData): Promise<Ac
     const lead = await Lead.create({
       ...data,
       assignedTo: data.assignedTo || null,
+      campaignId: data.campaignId || null,
       followUpDate: data.followUpDate || null,
+      score: computeLeadScore(data),
       organizationId,
       createdBy: session.user.userId
     });

@@ -14,7 +14,7 @@ import type { ActionState } from "@/types";
 
 const initialState: ActionState = { ok: false, message: "" };
 
-export function LeadForm({ lead, users = [] }: { lead?: any; users?: any[] }) {
+export function LeadForm({ lead, users = [], campaigns }: { lead?: any; users?: any[]; campaigns?: { _id: string; name: string }[] }) {
   const action = lead ? updateLead.bind(null, lead._id.toString()) : createLead;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
@@ -43,6 +43,15 @@ export function LeadForm({ lead, users = [] }: { lead?: any; users?: any[] }) {
           {users.map((user) => <option key={user._id} value={user._id}>{user.name}</option>)}
         </Select>
       </div>
+      {campaigns && (
+        <div className="space-y-2">
+          <Label htmlFor="campaignId">Campaign</Label>
+          <Select id="campaignId" name="campaignId" defaultValue={lead?.campaignId ?? ""}>
+            <option value="">No campaign</option>
+            {campaigns.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+          </Select>
+        </div>
+      )}
       <Field name="followUpDate" label="Follow-up Date" type="date" defaultValue={formatDate(lead?.followUpDate)} error={state.fieldErrors?.followUpDate?.[0]} />
       <div className="space-y-2 md:col-span-2">
         <Label htmlFor="notes">Notes</Label>

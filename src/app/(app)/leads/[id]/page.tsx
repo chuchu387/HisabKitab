@@ -12,11 +12,13 @@ import { Lead } from "@/models/Lead";
 import { LeadActivity } from "@/models/LeadActivity";
 import { LeadTask } from "@/models/LeadTask";
 import { Proposal } from "@/models/Proposal";
+import { Campaign } from "@/models/Campaign";
 import { addLeadActivity, convertLeadToClient, updateLeadFollowUp, updateLeadStatus } from "@/actions/leads";
 import { leadStatusLabels, leadStatusColors, leadSourceLabels, leadActivityTypes, leadTaskStatuses } from "@/constants";
 import { ActivityForm } from "./activity-form";
 import { ConvertForm } from "./convert-form";
 import { FollowUpForm } from "./followup-form";
+import { LogEmail } from "@/features/leads/log-email";
 
 export default async function LeadDetailPage({ params }: any) {
   const { organizationId, session } = await requireTenant();
@@ -32,6 +34,7 @@ export default async function LeadDetailPage({ params }: any) {
     LeadTask.find({ leadId: lead._id, organizationId }).sort({ createdAt: -1 }).populate("assigneeId", "name").lean(),
     Proposal.find({ leadId: lead._id, organizationId }).sort({ createdAt: -1 }).lean()
   ]);
+  const campaign: any = lead.campaignId ? await Campaign.findOne({ _id: lead.campaignId, organizationId }).lean() : null;
   const canManage = ["owner", "admin"].includes(session.user.role);
   const isConverted = lead.convertedToClientId || lead.status === "won" || lead.status === "lost";
   return (
@@ -41,10 +44,12 @@ export default async function LeadDetailPage({ params }: any) {
         <InfoCard label="Source" value={leadSourceLabels[lead.source as keyof typeof leadSourceLabels] || lead.source} />
         <InfoCard label="Estimated Value" value={lead.estimatedValue ? money(lead.estimatedValue) : "-"} />
         <InfoCard label="Assigned To" value={lead.assignedTo?.name || "-"} />
-        <InfoCard label="Email" value={lead.email ? <a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a> : "-"} />
+        <InfoCard label="Email" value={lead.email ? <div className="flex items-center gap-2"><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a><LogEmail leadId={lead._id.toString()} email={lead.email} /></div> : "-"} />
         <InfoCard label="Phone" value={lead.phone ? <a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a> : "-"} />
         <InfoCard label="Follow-up Date" value={lead.followUpDate ? formatDate(lead.followUpDate) : "-"} />
         <InfoCard label="Created" value={formatDate(lead.createdAt)} />
+        <InfoCard label="Score" value={<span className={lead.score >= 60 ? "text-primary font-semibold" : lead.score >= 30 ? "text-accent" : "text-muted-foreground"}>{lead.score}/100</span>} />
+        {campaign && <InfoCard label="Campaign" value={campaign.name} />}
       </div>
 
       {lead.notes && (

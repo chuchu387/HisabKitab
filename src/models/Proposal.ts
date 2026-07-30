@@ -8,6 +8,7 @@ const proposalSchema = new Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
     amount: { type: Number, required: true, min: 0 },
+    lineItems: { type: [{ productId: { type: Schema.Types.ObjectId, ref: "Product" }, name: String, description: String, quantity: { type: Number, min: 0 }, unitPrice: { type: Number, min: 0 }, total: { type: Number, min: 0 } }], default: [] },
     status: { type: String, enum: proposalStatuses, default: "draft", index: true },
     sentAt: { type: Date, default: null },
     acceptedAt: { type: Date, default: null },

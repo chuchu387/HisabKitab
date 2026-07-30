@@ -242,6 +242,8 @@ export const leadSchema = z.object({
   phone: z.string().max(40).optional().default(""),
   source: z.enum(leadSources).default("referral"),
   status: z.enum(leadStatuses).default("new"),
+  campaignId: z.string().optional().nullable(),
+  dealValue: z.coerce.number().min(0).default(0),
   estimatedValue: z.preprocess((value) => value === "" ? 0 : value, z.coerce.number().min(0).default(0)),
   assignedTo: z.string().optional().nullable(),
   notes: z.string().max(2000).optional().default(""),

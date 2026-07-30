@@ -3,10 +3,14 @@ import { LeadForm } from "@/features/forms/lead-form";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
 import { User } from "@/models/User";
+import { Campaign } from "@/models/Campaign";
 
 export default async function NewLeadPage() {
   const { organizationId } = await requireTenant();
   await connectToDatabase();
-  const users = await User.find({ organizationId, active: true }).sort({ name: 1 }).select("name email").lean();
-  return <PageShell title="Create Lead" breadcrumb={[{ label: "Leads", href: "/leads" }, { label: "Create" }]}><LeadForm users={JSON.parse(JSON.stringify(users))} /></PageShell>;
+  const [users, campaigns] = await Promise.all([
+    User.find({ organizationId, active: true }).sort({ name: 1 }).select("name email").lean(),
+    Campaign.find({ organizationId, active: true }).sort({ name: 1 }).select("name").lean()
+  ]);
+  return <PageShell title="Create Lead" breadcrumb={[{ label: "Leads", href: "/leads" }, { label: "Create" }]}><LeadForm users={JSON.parse(JSON.stringify(users))} campaigns={JSON.parse(JSON.stringify(campaigns))} /></PageShell>;
 }
