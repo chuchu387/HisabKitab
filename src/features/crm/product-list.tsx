@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, DollarSign, Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveProduct, deleteProduct } from "@/actions/products";
+import { money } from "@/lib/utils";
 
 export function ProductList({ products }: { products: any[] }) {
   const [showForm, setShowForm] = useState(false);
@@ -37,7 +38,7 @@ export function ProductList({ products }: { products: any[] }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        {!showForm && <Button onClick={() => setShowForm(true)} variant="outline" size="sm"><Plus className="h-4 w-4" /> Add Product</Button>}
+        {!showForm && <Button onClick={() => setShowForm(true)} variant="outline" size="sm"><Package className="h-4 w-4" /> Add Product</Button>}
       </div>
 
       {showForm && (
@@ -74,37 +75,34 @@ export function ProductList({ products }: { products: any[] }) {
         </Card>
       )}
 
-      <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50 text-left">
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Unit Price</th>
-                <th className="px-4 py-3 font-medium">Unit</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 font-medium w-20" />
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p: any) => (
-                <tr key={p._id} className="border-b last:border-0">
-                  <td className="px-4 py-3 font-medium">{p.name}</td>
-                  <td className="px-4 py-3">Rs. {Number(p.unitPrice).toLocaleString()}</td>
-                  <td className="px-4 py-3">{p.unit || "-"}</td>
-                  <td className="px-4 py-3">{p.category || "-"}</td>
-                  <td className="px-4 py-3">
-                    <button type="button" onClick={() => handleDelete(p._id)} className="text-destructive hover:text-destructive/80"><Trash2 className="h-4 w-4" /></button>
-                  </td>
-                </tr>
-              ))}
-              {!products.length && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">No products yet</td></tr>
-              )}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {products.map((p: any) => (
+          <Card key={p._id} className="group hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle className="text-base">{p.name}</CardTitle>
+                  {p.category && <p className="text-xs text-muted-foreground mt-0.5">{p.category}</p>}
+                </div>
+                <button type="button" onClick={() => handleDelete(p._id)} className="shrink-0 rounded-full p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-primary" />
+                <span className="text-lg font-semibold">{money(p.unitPrice)}</span>
+                {p.unit && <span className="text-xs text-muted-foreground">/ {p.unit}</span>}
+              </div>
+              {p.description && <p className="text-xs text-muted-foreground line-clamp-2">{p.description}</p>}
+            </CardContent>
+          </Card>
+        ))}
+        {!products.length && (
+          <div className="col-span-full py-12 text-center text-sm text-muted-foreground">No products yet</div>
+        )}
+      </div>
     </div>
   );
 }

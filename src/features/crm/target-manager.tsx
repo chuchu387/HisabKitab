@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { DataTable } from "@/components/data-table";
 import { saveSalesTarget } from "@/actions/commissions";
+import { money } from "@/lib/utils";
 
 export function TargetManager({ users, targets, month }: { users: any[]; targets: any[]; month: string }) {
   const [showForm, setShowForm] = useState(false);
@@ -35,7 +37,7 @@ export function TargetManager({ users, targets, month }: { users: any[]; targets
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        {!showForm && <Button onClick={() => setShowForm(true)} variant="outline" size="sm"><Plus className="h-4 w-4" /> Set Target</Button>}
+        {!showForm && <Button onClick={() => setShowForm(true)} variant="outline" size="sm"><Target className="h-4 w-4" /> Set Target</Button>}
       </div>
 
       {showForm && (
@@ -75,33 +77,12 @@ export function TargetManager({ users, targets, month }: { users: any[]; targets
         </Card>
       )}
 
-      <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50 text-left">
-                <th className="px-4 py-3 font-medium">User</th>
-                <th className="px-4 py-3 font-medium">Target Amount</th>
-                <th className="px-4 py-3 font-medium">Commission Rate</th>
-                <th className="px-4 py-3 font-medium">Commission Fixed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {targets.map((t: any) => (
-                <tr key={t._id} className="border-b last:border-0">
-                  <td className="px-4 py-3 font-medium">{findUser(t.userId)?.name || "Unknown"}</td>
-                  <td className="px-4 py-3">Rs. {Number(t.targetAmount || 0).toLocaleString()}</td>
-                  <td className="px-4 py-3">{t.commissionRate || 0}%</td>
-                  <td className="px-4 py-3">Rs. {Number(t.commissionFixed || 0).toLocaleString()}</td>
-                </tr>
-              ))}
-              {!targets.length && (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">No targets set for this month</td></tr>
-              )}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      <DataTable data={targets.map((t: any) => ({ ...t, userName: findUser(t.userId)?.name || "Unknown" }))} columns={[
+        { header: "User", cell: (r: any) => <span className="font-medium">{r.userName}</span> },
+        { header: "Target Amount", cell: (r: any) => <span className="font-semibold">{money(r.targetAmount || 0)}</span> },
+        { header: "Commission Rate", cell: (r: any) => <span className="text-accent">{r.commissionRate || 0}%</span> },
+        { header: "Commission Fixed", cell: (r: any) => <span className="text-muted-foreground">{money(r.commissionFixed || 0)}</span> }
+      ]} />
     </div>
   );
 }

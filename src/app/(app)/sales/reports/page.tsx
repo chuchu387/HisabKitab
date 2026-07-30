@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
+import { SimpleBarChart, TrendChart, DonutChart } from "@/components/charts";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
 import { money } from "@/lib/utils";
@@ -29,8 +30,8 @@ export default async function SalesReportsPage() {
   const wonValue = allLeads.filter((l: any) => l.status === "won").reduce((sum: number, l: any) => sum + (l.estimatedValue || 0), 0);
   const proposalValue = allProposals.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
   const proposedAccepted = allProposals.filter((p: any) => p.status === "accepted").reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
-  const pendingTasks = allTasks.filter((t: any) => t.status !== "completed").length;
-  const overdueTasks = allTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "completed").length;
+  const pendingTasks = allTasks.filter((t: any) => t.status !== "closed" && t.status !== "completed").length;
+  const overdueTasks = allTasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "closed" && t.status !== "completed").length;
 
   const sourceData: Record<string, { count: number; won: number; value: number }> = allLeads.reduce((acc: Record<string, { count: number; won: number; value: number }>, lead: any) => {
     const source = lead.source || "other";
@@ -50,6 +51,26 @@ export default async function SalesReportsPage() {
       value: data.value
     };
   });
+  const donutData = Object.keys(sourceData).map((source) => ({
+    name: leadSourceLabels[source as keyof typeof leadSourceLabels] || source,
+    amount: sourceData[source].count
+  }));
+
+  const monthlyData: Record<string, { leads: number; won: number; value: number }> = {};
+  allLeads.forEach((lead: any) => {
+    if (!lead.createdAt) return;
+    const d = new Date(lead.createdAt);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (!monthlyData[key]) monthlyData[key] = { leads: 0, won: 0, value: 0 };
+    monthlyData[key].leads += 1;
+    if (lead.status === "won") monthlyData[key].won += 1;
+    monthlyData[key].value += lead.estimatedValue || 0;
+  });
+  const trendData = Object.keys(monthlyData).sort().map((key) => ({
+    month: key,
+    amount: monthlyData[key].value,
+    leads: monthlyData[key].leads
+  }));
 
   const userData = allLeads.reduce((acc: Record<string, { name: string; leads: number; won: number; value: number }>, lead: any) => {
     const userId = lead.assignedTo?._id?.toString() || "unassigned";
@@ -70,6 +91,14 @@ export default async function SalesReportsPage() {
     rate: u.leads > 0 ? Math.round((u.won / u.leads) * 100) : 0
   }));
 
+  const statusBreakdown = (["new", "contacted", "meeting_scheduled", "proposal_sent", "negotiation", "won", "lost"] as const).map((s) => ({
+    status: leadStatusLabels[s],
+    count: allLeads.filter((l: any) => l.status === s).length,
+    value: allLeads.filter((l: any) => l.status === s).reduce((sum: number, l: any) => sum + (l.estimatedValue || 0), 0)
+  }));
+
+  const staffChartData = userRows.filter((u) => u.won > 0).sort((a, b) => b.won - a.won).slice(0, 8);
+
   return (
     <PageShell title="Sales Reports" description="Lead generation, pipeline value, conversion tracking, and staff performance.">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -89,32 +118,44 @@ export default async function SalesReportsPage() {
         <StatCard label="Pending Tasks" value={pendingTasks} />
         <StatCard label="Overdue Tasks" value={overdueTasks} />
       </div>
-      <Card>
-        <CardHeader><CardTitle>Lead Status Breakdown</CardTitle></CardHeader>
-        <CardContent>
-          <DataTable data={(["new", "contacted", "meeting_scheduled", "proposal_sent", "negotiation", "won", "lost"] as const).map((s) => ({
-            status: leadStatusLabels[s],
-            count: allLeads.filter((l: any) => l.status === status).length,
-            value: allLeads.filter((l: any) => l.status === status).reduce((s: number, l: any) => s + (l.estimatedValue || 0), 0)
-          }))} columns={[
-            { header: "Status", cell: (r: any) => r.status },
-            { header: "Count", cell: (r: any) => r.count },
-            { header: "Value", cell: (r: any) => money(r.value) }
-          ]} />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader><CardTitle>Lead Source Performance</CardTitle></CardHeader>
-        <CardContent>
-          <DataTable data={sourceRows} columns={[
-            { header: "Source", cell: (r: any) => r.source },
-            { header: "Leads", cell: (r: any) => r.count },
-            { header: "Won", cell: (r: any) => r.won },
-            { header: "Conversion", cell: (r: any) => `${r.rate}%` },
-            { header: "Pipeline Value", cell: (r: any) => money(r.value) }
-          ]} />
-        </CardContent>
-      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <SimpleBarChart title="Monthly Pipeline Value (Rs)" data={trendData} xKey="month" yKey="amount" />
+        </div>
+        <DonutChart title="Leads by Source" data={donutData} nameKey="name" valueKey="amount" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {staffChartData.length > 1 && <SimpleBarChart title="Won Deals by Staff" data={staffChartData} xKey="name" yKey="won" />}
+        <TrendChart data={trendData} title="Monthly Pipeline Value" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle>Lead Status Breakdown</CardTitle></CardHeader>
+          <CardContent>
+            <DataTable data={statusBreakdown} columns={[
+              { header: "Status", cell: (r: any) => r.status },
+              { header: "Count", cell: (r: any) => r.count },
+              { header: "Value", cell: (r: any) => money(r.value) }
+            ]} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Lead Source Performance</CardTitle></CardHeader>
+          <CardContent>
+            <DataTable data={sourceRows} columns={[
+              { header: "Source", cell: (r: any) => r.source },
+              { header: "Leads", cell: (r: any) => r.count },
+              { header: "Won", cell: (r: any) => r.won },
+              { header: "Conversion", cell: (r: any) => `${r.rate}%` },
+              { header: "Pipeline Value", cell: (r: any) => money(r.value) }
+            ]} />
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader><CardTitle>Staff Sales Performance</CardTitle></CardHeader>
         <CardContent>

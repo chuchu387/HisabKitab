@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/data-table";
 import { payCommission } from "@/actions/commissions";
+import { money } from "@/lib/utils";
 
 export function CommissionList({ commissions, users }: { commissions: any[]; users: any[] }) {
   const router = useRouter();
@@ -26,59 +28,28 @@ export function CommissionList({ commissions, users }: { commissions: any[]; use
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Pending Amount</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold text-destructive">Rs. {pendingTotal.toLocaleString()}</p>
-          </CardContent>
+        <Card className="border-destructive/20">
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold uppercase tracking-wide text-destructive">Pending Amount</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-semibold text-destructive">{money(pendingTotal)}</p></CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>Paid Amount</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold text-primary">Rs. {paidTotal.toLocaleString()}</p>
-          </CardContent>
+        <Card className="border-primary/20">
+          <CardHeader className="pb-2"><CardTitle className="text-xs font-semibold uppercase tracking-wide text-primary">Paid Amount</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-semibold text-primary">{money(paidTotal)}</p></CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50 text-left">
-                <th className="px-4 py-3 font-medium">User</th>
-                <th className="px-4 py-3 font-medium">Lead</th>
-                <th className="px-4 py-3 font-medium">Deal Value</th>
-                <th className="px-4 py-3 font-medium">Commission</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium w-28" />
-              </tr>
-            </thead>
-            <tbody>
-              {commissions.map((c: any) => (
-                <tr key={c._id} className="border-b last:border-0">
-                  <td className="px-4 py-3 font-medium">{findUser(c.userId)?.name || "Unknown"}</td>
-                  <td className="px-4 py-3">{c.leadId?.name || "-"}</td>
-                  <td className="px-4 py-3">Rs. {Number(c.dealValue || 0).toLocaleString()}</td>
-                  <td className="px-4 py-3">Rs. {Number(c.commissionAmount || 0).toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    <span className={`rounded px-2 py-0.5 text-xs font-medium ${c.status === "paid" ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"}`}>
-                      {c.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    {c.status === "pending" && (
-                      <Button onClick={() => handlePay(c._id)} variant="outline" size="sm">Mark Paid</Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {!commissions.length && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">No commissions yet</td></tr>
-              )}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      <DataTable data={commissions.map((c: any) => ({ ...c, userName: findUser(c.userId)?.name || "Unknown" }))} columns={[
+        { header: "User", cell: (r: any) => <span className="font-medium">{r.userName}</span> },
+        { header: "Lead", cell: (r: any) => r.leadId?.name || "-" },
+        { header: "Deal Value", cell: (r: any) => money(r.dealValue) },
+        { header: "Commission", cell: (r: any) => <span className="font-semibold">{money(r.commissionAmount)}</span> },
+        { header: "Status", cell: (r: any) => (
+          <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${r.status === "paid" ? "bg-primary/15 text-primary" : "bg-accent/15 text-accent"}`}>
+            {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+          </span>
+        )},
+        { header: "Actions", cell: (r: any) => r.status === "pending" ? <Button onClick={() => handlePay(r._id)} variant="outline" size="sm" className="text-xs">Mark Paid</Button> : null }
+      ]} />
     </div>
   );
 }

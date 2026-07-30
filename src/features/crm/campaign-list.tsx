@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Target, TrendingUp, Users, DollarSign } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveCampaign } from "@/actions/campaigns";
+import { money } from "@/lib/utils";
 
 export function CampaignList({ campaigns }: { campaigns: any[] }) {
   const [showForm, setShowForm] = useState(false);
@@ -64,21 +65,63 @@ export function CampaignList({ campaigns }: { campaigns: any[] }) {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {campaigns.map((c: any) => (
-          <Card key={c._id}>
-            <CardHeader>
-              <CardTitle>{c.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              {c.source && <p><span className="text-muted-foreground">Source:</span> {c.source}</p>}
-              <p><span className="text-muted-foreground">Budget:</span> Rs. {Number(c.budget || 0).toLocaleString()}</p>
-              <p><span className="text-muted-foreground">Total Leads:</span> {c.totalLeads}</p>
-              <p><span className="text-muted-foreground">Won:</span> {c.wonLeads}</p>
-              <p><span className="text-muted-foreground">Conversion:</span> {c.conversionRate}%</p>
-              <p><span className="text-muted-foreground">Total Value:</span> Rs. {Number(c.totalValue || 0).toLocaleString()}</p>
-            </CardContent>
-          </Card>
-        ))}
+        {campaigns.map((c: any) => {
+          const conversionPct = c.conversionRate || 0;
+          const budgetUsed = c.budget > 0 ? Math.min(100, Math.round(((c.totalValue || 0) / c.budget) * 100)) : 0;
+          const leadsPerWon = c.wonLeads > 0 ? Math.round((c.totalLeads || 0) / c.wonLeads) : 0;
+          return (
+            <Card key={c._id} className="group hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">{c.name}</CardTitle>
+                  <span className={`h-2 w-2 rounded-full ${c.active !== false ? "bg-primary" : "bg-muted-foreground"}`} title={c.active !== false ? "Active" : "Inactive"} />
+                </div>
+                {c.source && <p className="text-xs text-muted-foreground">{c.source}</p>}
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg bg-muted/30 p-2.5">
+                    <Users className="mb-1 h-3.5 w-3.5 text-muted-foreground" />
+                    <p className="text-lg font-semibold">{c.totalLeads}</p>
+                    <p className="text-[10px] text-muted-foreground">Leads</p>
+                  </div>
+                  <div className="rounded-lg bg-muted/30 p-2.5">
+                    <TrendingUp className="mb-1 h-3.5 w-3.5 text-primary" />
+                    <p className="text-lg font-semibold">{c.wonLeads}</p>
+                    <p className="text-[10px] text-muted-foreground">Won</p>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Conversion</span>
+                    <span className="font-medium text-primary">{conversionPct}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(conversionPct, 100)}%` }} />
+                  </div>
+                </div>
+
+                {c.budget > 0 && (
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Budget Used</span>
+                      <span className="font-medium text-accent">{budgetUsed}%</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${budgetUsed}%` }} />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
+                  <span>Budget: {money(c.budget || 0)}</span>
+                  {leadsPerWon > 0 && <span>~{leadsPerWon} leads/won</span>}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
         {!campaigns.length && (
           <div className="col-span-full py-12 text-center text-sm text-muted-foreground">No campaigns yet</div>
         )}

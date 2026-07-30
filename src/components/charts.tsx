@@ -29,10 +29,10 @@ export function SimpleBarChart({ title, data, xKey = "name", yKey = "amount" }: 
   );
 }
 
-export function TrendChart({ data }: { data: Record<string, unknown>[] }) {
+export function TrendChart({ data, title = "Monthly Trend" }: { data: Record<string, unknown>[]; title?: string }) {
   return (
     <Card className="shadow-sm">
-      <CardHeader><CardTitle>Monthly Expense Trend</CardTitle></CardHeader>
+      <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
       <CardContent className="h-64 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
