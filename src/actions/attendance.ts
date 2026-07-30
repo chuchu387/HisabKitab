@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
 import { Attendance } from "@/models/Attendance";
+import { Leave } from "@/models/Leave";
 import { User } from "@/models/User";
 import { getReceiptBucket } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
@@ -33,6 +35,8 @@ export async function markAttendance(formData: FormData): Promise<{ ok: boolean;
       });
       selfieId = upload.id.toString();
     }
+    const hdrs = await headers();
+    const ip = hdrs.get("x-forwarded-for") ?? hdrs.get("x-real-ip") ?? "";
     await Attendance.updateMany(
       { organizationId, userId: session.user.userId, date: { $ne: today }, checkOutTime: null },
       { $set: { checkOutTime: new Date(Date.now() - 60 * 1000) } }
@@ -43,6 +47,7 @@ export async function markAttendance(formData: FormData): Promise<{ ok: boolean;
       date: today,
       checkInTime: new Date(),
       selfieId,
+      ipAddress: ip,
       createdBy: session.user.userId
     });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Attendance Marked", entityType: "Attendance", entityId: created._id.toString(), metadata: { date: today, hasSelfie: !!selfieId } });
@@ -118,11 +123,12 @@ export async function getAttendanceReport(organizationId: string, month: string)
   await connectToDatabase();
   const users = await User.find({ organizationId, active: true }).sort({ name: 1 }).select("name _id role").lean();
   const records = await Attendance.find({ organizationId, date: { $regex: `^${month}` } }).sort({ date: -1 }).lean();
+  const leaves = await Leave.find({ organizationId, date: { $regex: `^${month}` }, status: "approved" }).lean();
   const [y, m] = month.split("-").map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const today = nepalDateString();
   const totalDays = month === today.slice(0, 7) ? Math.min(daysInMonth, parseInt(today.slice(8))) : daysInMonth;
-  return JSON.parse(JSON.stringify({ users, records, totalDays }));
+  return JSON.parse(JSON.stringify({ users, records, leaves, totalDays }));
 }
 
 export async function getTodayAttendance(organizationId: string, userId: string) {
