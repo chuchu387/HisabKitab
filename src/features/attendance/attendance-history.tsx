@@ -12,7 +12,7 @@ export function AttendanceHistory({ records }: { records: any[] }) {
         <div key={record._id} className="flex items-center gap-3 rounded-lg border bg-card p-3 shadow-sm">
           <div className="shrink-0">
             {record.selfieId ? (
-              <button type="button" onClick={() => setViewing(viewing === record._id ? null : record._id)}>
+              <button type="button" onClick={() => setViewing(viewing === record.selfieId ? null : record.selfieId)}>
                 <Camera className="h-5 w-5 text-primary" />
               </button>
             ) : (
@@ -21,7 +21,11 @@ export function AttendanceHistory({ records }: { records: any[] }) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">{format(new Date(record.date + "T00:00:00"), "PPP")}</p>
-            <p className="text-xs text-muted-foreground">Checked in at {format(new Date(record.checkInTime), "hh:mm a")}</p>
+            <p className="text-xs text-muted-foreground">
+              {record.checkOutTime
+                ? `${format(new Date(record.checkInTime), "hh:mm a")} - ${format(new Date(record.checkOutTime), "hh:mm a")}`
+                : `Checked in at ${format(new Date(record.checkInTime), "hh:mm a")}`}
+            </p>
           </div>
           {record.note && <p className="text-xs text-muted-foreground">{record.note}</p>}
         </div>

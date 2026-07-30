@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Camera, CircleCheck, CircleMinus } from "lucide-react";
+import { Camera, CircleCheck, CircleMinus, LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function AttendanceTeam({ members, checkedInIds, teamToday }: { members: { _id: string; name: string }[]; checkedInIds: string[]; teamToday: any[] }) {
+export function AttendanceTeam({ members, teamToday }: { members: { _id: string; name: string }[]; teamToday: any[] }) {
   const recordMap = new Map(teamToday.map((a: any) => [a.userId?._id?.toString(), a]));
   const [viewing, setViewing] = useState<string | null>(null);
   return (
@@ -17,12 +17,21 @@ export function AttendanceTeam({ members, checkedInIds, teamToday }: { members: 
           {members.map((member) => {
             const record = recordMap.get(member._id);
             const checkedIn = !!record;
+            const checkedOut = checkedIn && !!record.checkOutTime;
             return (
               <div key={member._id} className={`flex items-center gap-3 rounded-lg border p-3 ${checkedIn ? "border-primary/30 bg-primary/5" : "bg-card"}`}>
-                {checkedIn ? <CircleCheck className="h-5 w-5 shrink-0 text-primary" /> : <CircleMinus className="h-5 w-5 shrink-0 text-muted-foreground/50" />}
+                {checkedIn ? (
+                  checkedOut ? <LogOut className="h-5 w-5 shrink-0 text-muted-foreground" /> : <CircleCheck className="h-5 w-5 shrink-0 text-primary" />
+                ) : (
+                  <CircleMinus className="h-5 w-5 shrink-0 text-muted-foreground/50" />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{member.name}</p>
-                  {checkedIn && <p className="text-xs text-muted-foreground">{new Date(record.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</p>}
+                  <p className="text-xs text-muted-foreground">
+                    {checkedIn
+                      ? `${new Date(record.checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} ${checkedOut ? `- ${new Date(record.checkOutTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}` : "(active)"}`
+                      : "Not checked in"}
+                  </p>
                 </div>
                 {record?.selfieId && (
                   <button type="button" onClick={() => setViewing(record.selfieId)} className="shrink-0 text-muted-foreground hover:text-foreground" title="View selfie">

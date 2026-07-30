@@ -6,12 +6,14 @@ import { requireTenant } from "@/lib/permissions";
 import { Attendance } from "@/models/Attendance";
 import { getReceiptBucket } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
+import { nepalDateString, isCheckInOpen } from "@/lib/timezone";
 
 export async function markAttendance(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
     const { session, organizationId } = await requireTenant();
     await connectToDatabase();
-    const today = new Date().toISOString().slice(0, 10);
+    if (!isCheckInOpen()) return { ok: false, message: "Check-in is only available between 8AM and midnight (Nepal time)." };
+    const today = nepalDateString();
     const existing = await Attendance.findOne({ organizationId, userId: session.user.userId, date: today });
     if (existing) return { ok: false, message: "Attendance already marked today" };
     const selfieFile = formData.get("selfie") as File | null;
@@ -30,6 +32,10 @@ export async function markAttendance(formData: FormData): Promise<{ ok: boolean;
       });
       selfieId = upload.id.toString();
     }
+    await Attendance.updateMany(
+      { organizationId, userId: session.user.userId, date: { $ne: today }, checkOutTime: null },
+      { $set: { checkOutTime: new Date(Date.now() - 60 * 1000) } }
+    );
     await Attendance.create({
       organizationId,
       userId: session.user.userId,
@@ -47,8 +53,27 @@ export async function markAttendance(formData: FormData): Promise<{ ok: boolean;
   }
 }
 
+export async function checkOutAttendance(): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await connectToDatabase();
+    const today = nepalDateString();
+    const record = await Attendance.findOne({ organizationId, userId: session.user.userId, date: today });
+    if (!record) return { ok: false, message: "No check-in found for today" };
+    if (record.checkOutTime) return { ok: false, message: "Already checked out today" };
+    record.checkOutTime = new Date();
+    await record.save();
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Attendance Checked Out", entityType: "Attendance", entityId: today, metadata: { date: today } });
+    revalidatePath("/");
+    revalidatePath("/attendance");
+    return { ok: true, message: "Checked out successfully" };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Failed to check out" };
+  }
+}
+
 export async function getTodayAttendance(organizationId: string, userId: string) {
   await connectToDatabase();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = nepalDateString();
   return Attendance.findOne({ organizationId, userId, date: today }).lean();
 }

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AttendanceHistory } from "@/features/attendance/attendance-history";
 import { AttendanceCalendar } from "@/features/attendance/attendance-calendar";
 import { AttendanceTeam } from "@/features/attendance/attendance-team";
+import { nepalDateString } from "@/lib/timezone";
 
 async function getAttendanceRecords(organizationId: string, userId: string) {
   await connectToDatabase();
@@ -17,12 +18,13 @@ async function getAttendanceRecords(organizationId: string, userId: string) {
 export default async function AttendancePage() {
   const session = await requireSession();
   const records = await getAttendanceRecords(session.user.organizationId!, session.user.userId!);
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const today = nepalDateString();
+  const currentMonth = today.slice(0, 7);
   const thisMonthCount = records.filter((r: any) => r.date.startsWith(currentMonth)).length;
   const totalDays = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const isAdmin = ["owner", "admin"].includes(session.user.role);
   const teamToday = isAdmin
-    ? await Attendance.find({ organizationId: session.user.organizationId, date: new Date().toISOString().slice(0, 10) }).populate("userId", "name").lean()
+    ? await Attendance.find({ organizationId: session.user.organizationId, date: today }).populate("userId", "name").lean()
     : [];
   const checkedInIds = new Set(teamToday.map((a: any) => a.userId?._id?.toString()));
   const teamMembers = isAdmin
@@ -73,7 +75,7 @@ export default async function AttendancePage() {
           </Card>
         )}
       </div>
-      {isAdmin && <AttendanceTeam members={JSON.parse(JSON.stringify(teamMembers))} checkedInIds={Array.from(checkedInIds)} teamToday={JSON.parse(JSON.stringify(teamToday))} />}
+      {isAdmin && <AttendanceTeam members={JSON.parse(JSON.stringify(teamMembers))} teamToday={JSON.parse(JSON.stringify(teamToday))} />}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
