@@ -7,6 +7,7 @@ import { useState } from "react";
 import { BrandLogo } from "@/components/brand";
 import { navItems } from "@/constants";
 import type { Role } from "@/constants";
+import { navFeatureMap, type Permissions } from "@/constants/permissions";
 import { cn } from "@/lib/utils";
 
 const navGroups = [
@@ -17,12 +18,23 @@ const navGroups = [
   { title: "Work", hrefs: ["/clients", "/projects", "/tasks", "/categories"] },
   { title: "Accounts", hrefs: ["/accounts", "/data-health", "/chart-of-accounts", "/ledger", "/bank-accounts", "/reconciliation", "/opening-balances", "/journal-entries", "/invoices", "/tax", "/fiscal-years"] },
   { title: "Reports", hrefs: ["/reports", "/email-logs", "/audit-logs"] },
-  { title: "Admin", hrefs: ["/organizations", "/users", "/settings"] }
+  { title: "Admin", hrefs: ["/organizations", "/users", "/permissions", "/settings"] }
 ];
 
-export function Sidebar({ role }: { role: Role }) {
+function hasAccess(href: string, role: Role, permissions: Permissions | null): boolean {
+  if (role === "owner" || role === "super_admin") return true;
+  if (role === "admin" && !permissions) return true;
+  const feature = navFeatureMap[href];
+  if (!feature) return true;
+  return permissions ? permissions[feature] : false;
+}
+
+export function Sidebar({ role, permissions }: { role: Role; permissions: Permissions | null }) {
   const pathname = usePathname();
-  const visibleItems = navItems.filter((item) => (item.roles as readonly Role[]).includes(role));
+  const visibleItems = navItems.filter((item) => {
+    if (!(item.roles as readonly Role[]).includes(role)) return false;
+    return hasAccess(item.href, role, permissions);
+  });
   const accountsActive = navGroups.find((group) => group.title === "Accounts")?.hrefs.some((href) => pathname === href || pathname.startsWith(`${href}/`)) ?? false;
   const [accountsOpen, setAccountsOpen] = useState(accountsActive);
   return (

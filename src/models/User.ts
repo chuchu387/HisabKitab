@@ -1,5 +1,6 @@
 import { model, models, Schema, type InferSchemaType, type Model } from "mongoose";
 import { roles } from "@/constants";
+import { featureKeys, type PermissionOverrides } from "@/constants/permissions";
 
 const userSchema = new Schema(
   {
@@ -15,6 +16,7 @@ const userSchema = new Schema(
       canCreateFolder: { type: Boolean, default: false },
       canManageFolderProjects: { type: Boolean, default: false }
     },
+    permissions: { type: Schema.Types.Mixed, default: {} },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null }
   },
   { timestamps: true }

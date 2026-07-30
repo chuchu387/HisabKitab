@@ -72,3 +72,29 @@ export async function disableUser(formData: FormData) {
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "User Updated", entityType: "User", entityId: id, metadata: { active: false } });
   revalidatePath("/users");
 }
+
+export async function updateUserPermissions(_: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await requireRole(["owner", "admin"]);
+    await connectToDatabase();
+    const userId = String(formData.get("userId"));
+    if (userId === session.user.userId) throw new Error("Cannot edit your own permissions");
+    const user = await User.findOne({ _id: userId, organizationId });
+    if (!user) throw new Error("User not found");
+    if (user.role === "owner") throw new Error("Cannot change owner permissions");
+    const permissions: Record<string, boolean> = {};
+    for (const [key, value] of formData.entries()) {
+      if (key.startsWith("perm_")) {
+        permissions[key.replace("perm_", "")] = value === "true";
+      }
+    }
+    user.permissions = permissions;
+    await user.save();
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Permissions Updated", entityType: "User", entityId: userId });
+    revalidatePath("/permissions");
+    return { ok: true, message: "Permissions updated" };
+  } catch (error) {
+    return actionError(error);
+  }
+}
