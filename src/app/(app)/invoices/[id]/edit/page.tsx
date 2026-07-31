@@ -3,7 +3,7 @@ import { PageShell } from "@/components/page-shell";
 import { InvoiceForm } from "@/features/forms/invoice-form";
 import { updateInvoice } from "@/actions/invoices";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { isObjectId } from "@/lib/utils";
 import { Client } from "@/models/Client";
 import { Invoice } from "@/models/Invoice";
@@ -11,8 +11,7 @@ import { Organization } from "@/models/Organization";
 import { Project } from "@/models/Project";
 
 export default async function EditInvoicePage({ params }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const routeParams = await params;
   if (!isObjectId(routeParams.id)) notFound();

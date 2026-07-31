@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Project } from "@/models/Project";
 import { Client } from "@/models/Client";
 import { ProjectTask } from "@/models/ProjectTask";
@@ -14,8 +14,7 @@ import type { ActionState } from "@/types";
 
 export async function createProject(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("projectsView");
     await connectToDatabase();
     const data = parseForm(projectSchema, formData);
     await assertClientAccess(data.clientId, organizationId);
@@ -32,8 +31,7 @@ export async function createProject(_: ActionState, formData: FormData): Promise
 
 export async function updateProject(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("projectsView");
     await connectToDatabase();
     const data = parseForm(projectSchema, formData);
     await assertClientAccess(data.clientId, organizationId);
@@ -56,8 +54,7 @@ async function assertClientAccess(clientId: string | null | undefined, organizat
 }
 
 export async function deleteProject(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { session, organizationId } = await requireFeature("projectsView");
   await connectToDatabase();
   const id = String(formData.get("id"));
   await Project.findOneAndDelete({ _id: id, organizationId });

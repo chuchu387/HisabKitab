@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Types } from "mongoose";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { Invoice } from "@/models/Invoice";
@@ -22,8 +22,7 @@ import type { ActionState } from "@/types";
 
 export async function createProjectPayment(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("paymentsView");
     await connectToDatabase();
     const data = parseForm(projectPaymentSchema, formData);
     await assertFiscalYearOpen(organizationId, data.paymentDate);
@@ -103,8 +102,7 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
 
 export async function updateProjectPayment(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("paymentsView");
     await connectToDatabase();
     const data = parseForm(projectPaymentSchema, formData);
     await assertFiscalYearOpen(organizationId, data.paymentDate);
@@ -135,8 +133,7 @@ export async function updateProjectPayment(id: string, _: ActionState, formData:
 }
 
 export async function deleteProjectPayment(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { session, organizationId } = await requireFeature("paymentsView");
   await connectToDatabase();
   const id = String(formData.get("id"));
   const payment = (await ProjectPayment.findOne({ _id: id, organizationId }).populate("invoiceId").lean()) as any;

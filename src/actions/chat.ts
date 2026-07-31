@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature, requireTenant } from "@/lib/permissions";
 import { ChatGroup } from "@/models/ChatGroup";
 import { ChatMessage } from "@/models/ChatMessage";
 import { User } from "@/models/User";
@@ -14,8 +14,7 @@ import { mongo } from "mongoose";
 
 export async function createGroup(formData: FormData) {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("chatManage");
     await connectToDatabase();
     const name = String(formData.get("name") || "").trim();
     if (!name) return { ok: false, message: "Group name required" };
@@ -47,8 +46,7 @@ export async function createGroup(formData: FormData) {
 
 export async function addMembers(groupId: string, formData: FormData) {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("chatManage");
     await connectToDatabase();
     const group = await ChatGroup.findOne({ _id: groupId, organizationId });
     if (!group) throw new Error("Group not found");
@@ -80,8 +78,7 @@ export async function addMembers(groupId: string, formData: FormData) {
 
 export async function sendMessage(formData: FormData) {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
     const groupId = String(formData.get("groupId"));
     const content = String(formData.get("content") || "").trim();
@@ -155,8 +152,7 @@ export async function sendMessage(formData: FormData) {
 
 export async function toggleReaction(messageId: string, emoji: string) {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
     const message = await ChatMessage.findOne({ _id: messageId, organizationId });
     if (!message) throw new Error("Message not found");
@@ -176,8 +172,7 @@ export async function toggleReaction(messageId: string, emoji: string) {
 
 export async function deleteMessage(messageId: string) {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
     const message = await ChatMessage.findOne({ _id: messageId, organizationId });
     if (!message) throw new Error("Message not found");

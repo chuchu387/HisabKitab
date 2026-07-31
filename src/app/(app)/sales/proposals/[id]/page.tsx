@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money, safeObjectId } from "@/lib/utils";
 import { Proposal } from "@/models/Proposal";
 import { Lead } from "@/models/Lead";
@@ -14,8 +14,7 @@ import { proposalStatusLabels } from "@/constants";
 import type { ProposalStatus } from "@/constants";
 
 export default async function ProposalDetailPage({ params }: any) {
-  const { organizationId, session } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId, session } = await requireFeature("salesProposals");
   await connectToDatabase();
   const routeParams = await params;
   const objectId = safeObjectId(routeParams.id);

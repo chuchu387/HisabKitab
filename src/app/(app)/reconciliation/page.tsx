@@ -5,15 +5,14 @@ import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
 import { PageShell } from "@/components/page-shell";
 import { ReconciliationForm } from "@/features/forms/reconciliation-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { BankAccount } from "@/models/BankAccount";
 import { BankReconciliation } from "@/models/BankReconciliation";
 import { getBankSystemBalances } from "@/services/reconciliation";
 
 export default async function ReconciliationPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const params = await searchParams;
   const throughDate = params?.date ? new Date(params.date) : new Date();

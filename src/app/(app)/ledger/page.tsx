@@ -4,15 +4,14 @@ import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
 import { getDerivedLedger } from "@/services/accounts";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
 
 export default async function LedgerPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const params = await searchParams;
   const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();

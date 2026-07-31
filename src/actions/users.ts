@@ -3,7 +3,7 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { User } from "@/models/User";
 import { userSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
@@ -13,8 +13,7 @@ import type { ActionState } from "@/types";
 
 export async function createUser(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner"]);
+    const { session, organizationId } = await requireFeature("usersManage");
     await connectToDatabase();
     const data = parseForm(userSchema.required({ password: true }), formData);
     const taskPermissions = taskPermissionsFrom(data);
@@ -39,8 +38,7 @@ export async function createUser(_: ActionState, formData: FormData): Promise<Ac
 
 export async function updateUser(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner"]);
+    const { session, organizationId } = await requireFeature("usersManage");
     await connectToDatabase();
     const data = parseForm(userSchema, formData);
     const update: Record<string, unknown> = { name: data.name, email: data.email, role: data.role, active: data.active, taskPermissions: taskPermissionsFrom(data) };
@@ -64,8 +62,7 @@ function taskPermissionsFrom(data: any) {
 }
 
 export async function disableUser(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner"]);
+  const { session, organizationId } = await requireFeature("usersManage");
   await connectToDatabase();
   const id = String(formData.get("id"));
   await User.findOneAndUpdate({ _id: id, organizationId }, { active: false });
@@ -75,8 +72,7 @@ export async function disableUser(formData: FormData) {
 
 export async function updateUserPermissions(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("usersManage");
     await connectToDatabase();
     const userId = String(formData.get("userId"));
     if (userId === session.user.userId) throw new Error("Cannot edit your own permissions");

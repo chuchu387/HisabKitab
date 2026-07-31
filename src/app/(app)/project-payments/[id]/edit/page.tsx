@@ -3,7 +3,7 @@ import { PageShell } from "@/components/page-shell";
 import { ProjectPaymentForm } from "@/features/forms/project-payment-form";
 import { updateProjectPayment } from "@/actions/project-payments";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { isObjectId } from "@/lib/utils";
 import { BankAccount } from "@/models/BankAccount";
 import { Client } from "@/models/Client";
@@ -14,8 +14,7 @@ import { ProjectPayment } from "@/models/ProjectPayment";
 void Client;
 
 export default async function EditProjectPaymentPage({ params }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("paymentsView");
   await connectToDatabase();
   const routeParams = await params;
   if (!isObjectId(routeParams.id)) notFound();

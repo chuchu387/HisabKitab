@@ -3,13 +3,12 @@ import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { BankAccountForm } from "@/features/forms/bank-account-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { BankAccount } from "@/models/BankAccount";
 
 export default async function BankAccountsPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const params = await searchParams;
   const accounts = await BankAccount.find({ organizationId }).sort({ name: 1 }).lean();

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Expense } from "@/models/Expense";
 import { Project } from "@/models/Project";
 import { expenseSchema } from "@/validations/schemas";
@@ -18,7 +18,7 @@ import { User } from "@/models/User";
 import { ExpenseApprovalHistory } from "@/models/ExpenseApprovalHistory";
 import type { ActionState } from "@/types";
 
-function ownableQuery(id: string, organizationId: string, session: Awaited<ReturnType<typeof requireTenant>>["session"]) {
+function ownableQuery(id: string, organizationId: string, session: Awaited<ReturnType<typeof requireFeature>>["session"]) {
   const query: Record<string, unknown> = { _id: id, organizationId };
   if (session.user.role === "staff") query.createdBy = session.user.userId;
   return query;
@@ -36,8 +36,7 @@ function revalidateExpenseAccounting(projectIds: Array<unknown>) {
 
 export async function createExpense(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("expensesManage");
     await connectToDatabase();
     const data = parseForm(expenseSchema, formData);
     await assertFiscalYearOpen(organizationId, data.expenseDate);
@@ -75,8 +74,7 @@ export async function createExpense(_: ActionState, formData: FormData): Promise
 
 export async function updateExpense(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("expensesManage");
     await connectToDatabase();
     const data = parseForm(expenseSchema, formData);
     await assertFiscalYearOpen(organizationId, data.expenseDate);
@@ -94,8 +92,7 @@ export async function updateExpense(id: string, _: ActionState, formData: FormDa
 }
 
 export async function deleteExpense(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin", "staff"]);
+  const { session, organizationId } = await requireFeature("expensesManage");
   await connectToDatabase();
   const id = String(formData.get("id"));
   const query = ownableQuery(id, organizationId, session);
@@ -110,8 +107,7 @@ export async function deleteExpense(formData: FormData) {
 
 export async function bulkLinkExpensesToProject(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("expensesManage");
     await connectToDatabase();
     const ids = formData.getAll("expenseIds").map(String).filter(Boolean);
     const projectId = String(formData.get("projectId") ?? "");
@@ -140,8 +136,7 @@ export async function bulkLinkExpensesToProject(_: ActionState, formData: FormDa
 
 export async function bulkUpdateExpenseApproval(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("expensesManage");
     await connectToDatabase();
     const ids = formData.getAll("expenseIds").map(String).filter(Boolean);
     if (!ids.length) throw new Error("Select at least one expense");
@@ -180,8 +175,7 @@ export async function bulkUpdateExpenseApproval(_: ActionState, formData: FormDa
 
 export async function updateExpenseApproval(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("expensesManage");
     await connectToDatabase();
     const id = String(formData.get("id"));
     const data = expenseApprovalSchema.parse({ approvalStatus: formData.get("approvalStatus") });

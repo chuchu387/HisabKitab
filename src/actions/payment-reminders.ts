@@ -2,15 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { sendPaymentDueReminders } from "@/services/payment-reminders";
 import { actionError } from "@/actions/helpers";
 import type { ActionState } from "@/types";
 
 export async function runPaymentDueReminders(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { organizationId, session } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("paymentsView");
     await connectToDatabase();
     const force = formData.get("force") === "on";
     const result = await sendPaymentDueReminders({ organizationId, triggeredBy: session.user.userId, force });

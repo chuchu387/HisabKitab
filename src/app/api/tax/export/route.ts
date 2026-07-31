@@ -3,7 +3,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { Types } from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money, safeDate } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { Invoice } from "@/models/Invoice";
@@ -11,8 +11,7 @@ import { ProjectPayment } from "@/models/ProjectPayment";
 import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
 export async function GET(request: NextRequest) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const { searchParams } = new URL(request.url);
   const range = dateRange(searchParams.get("from") ?? undefined, searchParams.get("to") ?? undefined);

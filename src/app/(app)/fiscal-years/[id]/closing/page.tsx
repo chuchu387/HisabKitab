@@ -7,7 +7,7 @@ import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { toggleFiscalYearStatus } from "@/actions/fiscal-years";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { dateInput, formatDate, isObjectId, money } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
 import { getDerivedLedger } from "@/services/accounts";
@@ -15,8 +15,7 @@ import { getFinancialStatements } from "@/services/financial-statements";
 import { emptyFinancialStatements, emptyLedger } from "@/services/statement-fallback";
 
 export default async function FiscalYearClosingPage({ params }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner"]);
+  const { organizationId } = await requireFeature("fiscalYears");
   await connectToDatabase();
   const routeParams = await params;
   if (!isObjectId(routeParams.id)) notFound();

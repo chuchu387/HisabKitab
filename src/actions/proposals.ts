@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Proposal } from "@/models/Proposal";
 import { Lead } from "@/models/Lead";
 import { LeadActivity } from "@/models/LeadActivity";
@@ -17,8 +17,7 @@ import type { ActionState } from "@/types";
 
 export async function createProposal(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("salesProposals");
     await connectToDatabase();
     const data = parseForm(proposalSchema, formData);
     const proposal = await Proposal.create({
@@ -49,8 +48,7 @@ export async function createProposal(_: ActionState, formData: FormData): Promis
 
 export async function updateProposal(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("salesProposals");
     await connectToDatabase();
     const data = parseForm(proposalSchema, formData);
     const proposal = await Proposal.findOneAndUpdate(
@@ -69,8 +67,7 @@ export async function updateProposal(id: string, _: ActionState, formData: FormD
 }
 
 export async function acceptProposal(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { session, organizationId } = await requireFeature("salesProposals");
   await connectToDatabase();
   const id = String(formData.get("id"));
   const createClient = formData.get("createClient") === "on";
@@ -143,8 +140,7 @@ export async function acceptProposal(formData: FormData) {
 }
 
 export async function deleteProposal(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { session, organizationId } = await requireFeature("salesProposals");
   await connectToDatabase();
   const id = String(formData.get("id"));
   await Proposal.findOneAndDelete({ _id: id, organizationId });
@@ -153,8 +149,7 @@ export async function deleteProposal(formData: FormData) {
 }
 
 export async function sendProposal(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { session, organizationId } = await requireFeature("salesProposals");
   await connectToDatabase();
   const id = String(formData.get("id"));
   const proposal = await Proposal.findOneAndUpdate({ _id: id, organizationId }, { status: "sent", sentAt: new Date() }, { runValidators: true });

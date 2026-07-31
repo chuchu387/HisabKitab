@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { LeadTask } from "@/models/LeadTask";
 import { Lead } from "@/models/Lead";
 import { leadTaskSchema } from "@/validations/schemas";
@@ -12,8 +12,7 @@ import type { ActionState } from "@/types";
 
 export async function createLeadTask(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("salesTasks");
     await connectToDatabase();
     const data = parseForm(leadTaskSchema, formData);
     if (data.leadId) {
@@ -39,8 +38,7 @@ export async function createLeadTask(_: ActionState, formData: FormData): Promis
 
 export async function updateLeadTask(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("salesTasks");
     await connectToDatabase();
     const data = parseForm(leadTaskSchema, formData);
     const task = await LeadTask.findOneAndUpdate(
@@ -59,8 +57,7 @@ export async function updateLeadTask(id: string, _: ActionState, formData: FormD
 }
 
 export async function updateLeadTaskStatus(id: string, status: string) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin", "staff"]);
+  const { organizationId } = await requireFeature("salesTasks");
   await connectToDatabase();
   const update: any = { status };
   if (status === "closed") update.completedAt = new Date();
@@ -71,8 +68,7 @@ export async function updateLeadTaskStatus(id: string, status: string) {
 }
 
 export async function deleteLeadTask(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { session, organizationId } = await requireFeature("salesTasks");
   await connectToDatabase();
   const id = String(formData.get("id"));
   const task = await LeadTask.findOneAndDelete({ _id: id, organizationId });

@@ -1,7 +1,7 @@
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import { AuditLog } from "@/models/AuditLog";
 import { User } from "@/models/User";
@@ -9,8 +9,7 @@ import { User } from "@/models/User";
 void User;
 
 export default async function AuditLogsPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("reportsView");
   await connectToDatabase();
   const params = await searchParams;
   const logs = await AuditLog.find({ organizationId }).populate("userId").sort({ createdAt: -1 }).limit(200).lean();

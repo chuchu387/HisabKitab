@@ -8,7 +8,7 @@ import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
 import { FilterForm } from "@/components/filter-form";
 import { deleteGeneralFund } from "@/actions/general-funds";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { GeneralFund } from "@/models/GeneralFund";
 import { User } from "@/models/User";
@@ -19,8 +19,7 @@ import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearL
 void User;
 
 export default async function GeneralFundsPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("generalFunds");
   await connectToDatabase();
   const params = await searchParams;
   const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();

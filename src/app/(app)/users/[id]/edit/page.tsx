@@ -2,13 +2,12 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/page-shell";
 import { UserForm } from "@/features/forms/user-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { isObjectId } from "@/lib/utils";
 import { User } from "@/models/User";
 
 export default async function EditUserPage({ params }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner"]);
+  const { organizationId } = await requireFeature("usersManage");
   await connectToDatabase();
   const routeParams = await params;
   if (!isObjectId(routeParams.id)) notFound();

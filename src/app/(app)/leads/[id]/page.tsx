@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money, safeObjectId } from "@/lib/utils";
 import { Lead } from "@/models/Lead";
 import { LeadActivity } from "@/models/LeadActivity";
@@ -21,8 +21,7 @@ import { FollowUpForm } from "./followup-form";
 import { LogEmail } from "@/features/leads/log-email";
 
 export default async function LeadDetailPage({ params }: any) {
-  const { organizationId, session } = await requireTenant();
-  await requireRole(["owner", "admin", "staff"]);
+  const { session, organizationId } = await requireFeature("leadsView");
   await connectToDatabase();
   const routeParams = await params;
   const leadObjectId = safeObjectId(routeParams.id);

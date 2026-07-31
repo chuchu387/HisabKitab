@@ -9,7 +9,7 @@ import { StatCard } from "@/components/stat-card";
 import { InvoiceForm } from "@/features/forms/invoice-form";
 import { deleteInvoice } from "@/actions/invoices";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { Client } from "@/models/Client";
 import { Invoice } from "@/models/Invoice";
@@ -20,8 +20,7 @@ void Client;
 void Project;
 
 export default async function InvoicesPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const params = await searchParams;
   const [clients, projects, invoices, organization] = await Promise.all([

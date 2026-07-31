@@ -7,7 +7,7 @@ import { PageShell } from "@/components/page-shell";
 import { SearchBar } from "@/components/search-bar";
 import { StatCard } from "@/components/stat-card";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { FiscalYear } from "@/models/FiscalYear";
@@ -19,8 +19,7 @@ void Project;
 void ExpenseCategory;
 
 export default async function VendorsPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("vendorsManage");
   await connectToDatabase();
   const params = await searchParams;
   const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();

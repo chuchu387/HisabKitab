@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature, requireTenant } from "@/lib/permissions";
 import { Project } from "@/models/Project";
 import { TaskFolder } from "@/models/TaskFolder";
 import { User } from "@/models/User";
@@ -31,7 +31,7 @@ async function requireTaskPermission(permission: keyof typeof initialPermissions
 
 export async function createTaskFolder(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    await requireRole(["owner", "admin", "staff"]);
+    await requireFeature("salesTasks");
     const { session, organizationId } = await requireTaskPermission("canCreateFolder");
     await connectToDatabase();
     const data = parseTaskFolderForm(formData);
@@ -51,7 +51,7 @@ export async function createTaskFolder(_: ActionState, formData: FormData): Prom
 
 export async function updateTaskFolder(folderId: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    await requireRole(["owner", "admin", "staff"]);
+    await requireFeature("salesTasks");
     const { session, organizationId } = await requireTaskPermission("canManageFolderProjects");
     await connectToDatabase();
     const data = parseTaskFolderForm(formData);

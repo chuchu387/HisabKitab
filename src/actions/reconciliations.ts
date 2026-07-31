@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { BankAccount } from "@/models/BankAccount";
 import { BankReconciliation } from "@/models/BankReconciliation";
 import { actionError, parseForm } from "@/actions/helpers";
@@ -21,8 +21,7 @@ const reconciliationSchema = z.object({
 
 export async function createBankReconciliation(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { organizationId, session } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("accountingView");
     await connectToDatabase();
     const data = parseForm(reconciliationSchema, formData);
     const account = await BankAccount.findOne({ _id: data.bankAccountId, organizationId }).select("name").lean();

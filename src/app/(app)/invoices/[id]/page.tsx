@@ -8,7 +8,7 @@ import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { InvoicePaymentForm } from "@/features/forms/invoice-payment-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, isObjectId, money } from "@/lib/utils";
 import { Client } from "@/models/Client";
 import { BankAccount } from "@/models/BankAccount";
@@ -21,8 +21,7 @@ void Client;
 void Project;
 
 export default async function InvoiceDetailPage({ params, searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const routeParams = await params;
   const queryParams = await searchParams;

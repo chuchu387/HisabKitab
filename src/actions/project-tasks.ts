@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Project } from "@/models/Project";
 import { ProjectTask } from "@/models/ProjectTask";
 import { TaskFolder } from "@/models/TaskFolder";
@@ -68,7 +68,7 @@ function activity(userId: string, action: string, metadata: Record<string, unkno
   return { userId, action, metadata, createdAt: new Date() };
 }
 
-function taskManageQuery(taskId: string, projectId: string, organizationId: string, session: Awaited<ReturnType<typeof requireTenant>>["session"]) {
+function taskManageQuery(taskId: string, projectId: string, organizationId: string, session: Awaited<ReturnType<typeof requireFeature>>["session"]) {
   const query: Record<string, unknown> = { _id: taskId, projectId, organizationId };
   if (session.user.role === "staff") {
     query.$or = [{ createdBy: session.user.userId }, { assigneeId: session.user.userId }, { assigneeIds: session.user.userId }];
@@ -93,8 +93,7 @@ function secondsBetween(from: Date | string | null | undefined, to = new Date())
 
 export async function createProjectTask(projectId: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("projectsView");
     await connectToDatabase();
     const permissions = await currentTaskPermissions(organizationId, session.user.userId, session.user.role);
     if (!permissions.canCreateTask) throw new Error("You do not have permission to create tasks");
@@ -134,8 +133,7 @@ export async function createGlobalProjectTask(_: ActionState, formData: FormData
 
 export async function updateProjectTask(taskId: string, projectId: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("projectsView");
     await connectToDatabase();
     const permissions = await currentTaskPermissions(organizationId, session.user.userId, session.user.role);
     await assertProjectAccess(projectId, organizationId);
@@ -174,8 +172,7 @@ export async function updateProjectTask(taskId: string, projectId: string, _: Ac
 export async function moveProjectTask(taskId: string, projectId: string, status: string): Promise<ActionState> {
   try {
     if (!projectTaskSchema.shape.status.safeParse(status).success) throw new Error("Invalid status");
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("projectsView");
     await connectToDatabase();
     await assertProjectAccess(projectId, organizationId);
     const now = new Date();
@@ -212,8 +209,7 @@ export async function moveProjectTask(taskId: string, projectId: string, status:
 
 export async function updateProjectTaskTimer(taskId: string, projectId: string, command: "start" | "pause" | "stop"): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("projectsView");
     await connectToDatabase();
     await assertProjectAccess(projectId, organizationId);
     const now = new Date();
@@ -257,8 +253,7 @@ export async function updateProjectTaskTimer(taskId: string, projectId: string, 
 
 export async function bulkStartProjectTasks(taskIds: string[]): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("projectsView");
     await connectToDatabase();
     const ids = Array.from(new Set(taskIds.filter(Boolean)));
     if (!ids.length) throw new Error("Select at least one task");
@@ -288,8 +283,7 @@ export async function bulkStartProjectTasks(taskIds: string[]): Promise<ActionSt
 
 export async function addProjectTaskComment(taskId: string, projectId: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("projectsView");
     await connectToDatabase();
     await assertProjectAccess(projectId, organizationId);
     const message = String(formData.get("message") ?? "").trim();
@@ -333,8 +327,7 @@ async function sendTaskAssignmentEmail(organizationId: string, projectId: string
 }
 
 export async function deleteProjectTask(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin", "staff"]);
+  const { session, organizationId } = await requireFeature("projectsView");
   await connectToDatabase();
   const taskId = String(formData.get("taskId"));
   const projectId = String(formData.get("projectId"));

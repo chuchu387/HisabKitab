@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { BankAccount } from "@/models/BankAccount";
 import { OpeningBalance } from "@/models/OpeningBalance";
 import { openingBalanceSchema } from "@/validations/schemas";
@@ -11,8 +11,7 @@ import type { ActionState } from "@/types";
 
 export async function createOpeningBalance(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { organizationId, session } = await requireTenant();
-    await requireRole(["owner"]);
+    const { session, organizationId } = await requireFeature("accountingView");
     await connectToDatabase();
     const data = parseForm(openingBalanceSchema, formData);
     const looksLikeCashOpening = data.accountCode.trim() === "1000" || /cash|bank|wallet/i.test(data.accountName);

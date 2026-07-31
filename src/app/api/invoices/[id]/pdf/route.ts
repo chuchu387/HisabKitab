@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { dateInput, isObjectId, money } from "@/lib/utils";
 import { Client } from "@/models/Client";
 import { Invoice } from "@/models/Invoice";
@@ -12,8 +12,7 @@ void Client;
 void Project;
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const { id } = await params;
   if (!isObjectId(id)) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });

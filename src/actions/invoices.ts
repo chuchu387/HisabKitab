@@ -3,7 +3,7 @@
 import { Types } from "mongoose";
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Client } from "@/models/Client";
 import { Invoice } from "@/models/Invoice";
 import { Organization } from "@/models/Organization";
@@ -19,8 +19,7 @@ import type { ActionState } from "@/types";
 
 export async function createInvoice(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { organizationId, session } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("accountingView");
     await connectToDatabase();
     const data = parseForm(invoiceSchema, formData);
     await assertFiscalYearOpen(organizationId, data.invoiceDate);
@@ -67,8 +66,7 @@ export async function createInvoice(_: ActionState, formData: FormData): Promise
 
 export async function updateInvoice(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { organizationId, session } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("accountingView");
     await connectToDatabase();
     const data = parseForm(invoiceSchema, formData);
     const invoice = await Invoice.findOne({ _id: id, organizationId });
@@ -117,8 +115,7 @@ export async function updateInvoice(id: string, _: ActionState, formData: FormDa
 }
 
 export async function deleteInvoice(formData: FormData) {
-  const { organizationId, session } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { session, organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const id = String(formData.get("id"));
   const existing = await Invoice.findOne({ _id: id, organizationId }).lean() as any;
@@ -131,8 +128,7 @@ export async function deleteInvoice(formData: FormData) {
 
 export async function recordInvoicePayment(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { organizationId, session } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("accountingView");
     await connectToDatabase();
     const invoiceId = String(formData.get("invoiceId") ?? "");
     const amount = Number(formData.get("amount") ?? 0);

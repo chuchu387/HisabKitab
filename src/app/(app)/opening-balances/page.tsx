@@ -2,14 +2,13 @@ import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { OpeningBalanceForm } from "@/features/forms/opening-balance-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
 import { OpeningBalance } from "@/models/OpeningBalance";
 
 export default async function OpeningBalancesPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const params = await searchParams;
   const [balances, fiscalYears] = await Promise.all([

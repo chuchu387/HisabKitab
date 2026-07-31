@@ -2,15 +2,14 @@ import Papa from "papaparse";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Organization } from "@/models/Organization";
 import { FiscalYear } from "@/models/FiscalYear";
 import { getFinancialStatements } from "@/services/financial-statements";
 
 export async function GET(request: NextRequest) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const { searchParams } = new URL(request.url);
   const fiscalYearId = searchParams.get("fiscalYearId");

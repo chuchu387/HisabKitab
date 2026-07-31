@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { AuditLog } from "@/models/AuditLog";
 import { BankAccount } from "@/models/BankAccount";
 import { BankReconciliation } from "@/models/BankReconciliation";
@@ -22,8 +22,7 @@ import { ProjectTask } from "@/models/ProjectTask";
 import { User } from "@/models/User";
 
 export async function GET() {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const scoped = { organizationId };
   const [organization, users, projects, clients, categories, expenses, expenseApprovalHistory, payments, generalFunds, invoices, tasks, bankAccounts, reconciliations, chartAccounts, openingBalances, journals, fiscalYears, notifications, auditLogs] = await Promise.all([

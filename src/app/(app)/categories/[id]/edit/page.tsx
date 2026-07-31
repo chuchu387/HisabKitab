@@ -2,13 +2,12 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/page-shell";
 import { CategoryForm } from "@/features/forms/category-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { isObjectId } from "@/lib/utils";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 
 export default async function EditCategoryPage({ params }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("expensesManage");
   await connectToDatabase();
   const routeParams = await params;
   if (!isObjectId(routeParams.id)) notFound();

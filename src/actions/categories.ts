@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { categorySchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
@@ -10,8 +10,7 @@ import type { ActionState } from "@/types";
 
 export async function createCategory(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("expensesManage");
     await connectToDatabase();
     const data = parseForm(categorySchema, formData);
     await ExpenseCategory.create({ ...data, organizationId, createdBy: session.user.userId });
@@ -24,8 +23,7 @@ export async function createCategory(_: ActionState, formData: FormData): Promis
 
 export async function updateCategory(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { organizationId } = await requireFeature("expensesManage");
     await connectToDatabase();
     const data = parseForm(categorySchema, formData);
     await ExpenseCategory.findOneAndUpdate({ _id: id, organizationId }, data, { runValidators: true });
@@ -37,8 +35,7 @@ export async function updateCategory(id: string, _: ActionState, formData: FormD
 }
 
 export async function deleteCategory(formData: FormData) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("expensesManage");
   await connectToDatabase();
   await ExpenseCategory.findOneAndDelete({ _id: String(formData.get("id")), organizationId });
   revalidatePath("/categories");

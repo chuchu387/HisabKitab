@@ -6,7 +6,7 @@ import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { SearchBar } from "@/components/search-bar";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole } from "@/lib/permissions";
+import { requireFeatureOrRole } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import { EmailLog } from "@/models/EmailLog";
 
@@ -17,7 +17,7 @@ const statusVariants = {
 } as const;
 
 export default async function EmailLogsPage({ searchParams }: any) {
-  const session = await requireRole(["super_admin", "owner", "admin"]);
+  const session = await requireFeatureOrRole("emailLogsView", ["super_admin", "owner", "admin"]);
   if (session.user.role !== "super_admin" && !session.user.organizationId) redirect("/organizations");
   await connectToDatabase();
   const params = await searchParams;

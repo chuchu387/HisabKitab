@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Lead } from "@/models/Lead";
 import { LeadActivity } from "@/models/LeadActivity";
 import { Client } from "@/models/Client";
@@ -59,8 +59,7 @@ async function scheduleFollowUpNotification(organizationId: string, userId: stri
 
 export async function createLead(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("leadsManage");
     await connectToDatabase();
     const data = parseForm(leadSchema, formData);
     const duplicate = await checkDuplicate(organizationId, data.email || "", data.phone || "");
@@ -93,8 +92,7 @@ export async function createLead(_: ActionState, formData: FormData): Promise<Ac
 
 export async function updateLead(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("leadsManage");
     await connectToDatabase();
     const data = parseForm(leadSchema, formData);
     const duplicate = await checkDuplicate(organizationId, data.email || "", data.phone || "", id);
@@ -117,8 +115,7 @@ export async function updateLead(id: string, _: ActionState, formData: FormData)
 }
 
 export async function deleteLead(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { session, organizationId } = await requireFeature("leadsManage");
   await connectToDatabase();
   const id = String(formData.get("id"));
   await Lead.findOneAndDelete({ _id: id, organizationId });
@@ -129,8 +126,7 @@ export async function deleteLead(formData: FormData) {
 }
 
 export async function updateLeadStatus(id: string, status: string) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin", "staff"]);
+  const { session, organizationId } = await requireFeature("leadsManage");
   await connectToDatabase();
   const parsed = leadStatusUpdateSchema.safeParse({ status });
   if (!parsed.success) throw new Error("Invalid status");
@@ -159,8 +155,7 @@ export async function updateLeadStatus(id: string, status: string) {
 
 export async function convertLeadToClient(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("leadsManage");
     await connectToDatabase();
     const leadId = String(formData.get("leadId"));
     const clientCode = String(formData.get("clientCode"));
@@ -221,8 +216,7 @@ export async function convertLeadToClient(formData: FormData): Promise<{ ok: boo
 
 export async function addLeadActivity(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("leadsManage");
     await connectToDatabase();
     const leadId = String(formData.get("leadId"));
     const type = String(formData.get("type"));
@@ -248,8 +242,7 @@ export async function addLeadActivity(_: ActionState, formData: FormData): Promi
 
 export async function updateLeadFollowUp(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin", "staff"]);
+    const { session, organizationId } = await requireFeature("leadsManage");
     await connectToDatabase();
     const followUpDate = formData.get("followUpDate") ? new Date(String(formData.get("followUpDate"))) : null;
     const lead = await Lead.findOne({ _id: id, organizationId });
@@ -266,8 +259,7 @@ export async function updateLeadFollowUp(id: string, _: ActionState, formData: F
 
 export async function importLeadsCsv(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("leadsManage");
     await connectToDatabase();
     const file = formData.get("file") as File | null;
     if (!file) throw new Error("CSV file is required");

@@ -2,13 +2,12 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { ChartAccount } from "@/models/ChartAccount";
 import { ensureDefaultChartAccounts } from "@/services/accounts";
 
 export default async function ChartOfAccountsPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   await ensureDefaultChartAccounts(organizationId);
   const params = await searchParams;

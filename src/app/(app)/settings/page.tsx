@@ -4,12 +4,11 @@ import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { SettingsForm } from "@/features/forms/settings-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Organization } from "@/models/Organization";
 
 export default async function SettingsPage() {
-  const { organizationId, session } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId, session } = await requireFeature("settingsView");
   await connectToDatabase();
   const organization = await Organization.findById(organizationId).lean();
   if (!organization) notFound();

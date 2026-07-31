@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { GeneralFund } from "@/models/GeneralFund";
 import { actionError, parseForm } from "@/actions/helpers";
 import { generalFundSchema } from "@/validations/schemas";
@@ -14,8 +14,7 @@ import type { ActionState } from "@/types";
 
 export async function createGeneralFund(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireTenant();
-    await requireRole(["owner", "admin"]);
+    const { session, organizationId } = await requireFeature("generalFunds");
     await connectToDatabase();
     const data = parseForm(generalFundSchema, formData);
     await assertFiscalYearOpen(organizationId, data.fundDate);
@@ -33,8 +32,7 @@ export async function createGeneralFund(_: ActionState, formData: FormData): Pro
 }
 
 export async function deleteGeneralFund(formData: FormData) {
-  const { session, organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { session, organizationId } = await requireFeature("generalFunds");
   await connectToDatabase();
   const id = String(formData.get("id"));
   const fund = (await GeneralFund.findOne({ _id: id, organizationId }).lean()) as any;

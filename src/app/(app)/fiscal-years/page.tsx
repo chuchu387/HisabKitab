@@ -5,7 +5,7 @@ import { PageShell } from "@/components/page-shell";
 import { FiscalYearForm } from "@/features/forms/fiscal-year-form";
 import { setupCurrentNepalFiscalYear, toggleFiscalYearStatus } from "@/actions/fiscal-years";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { dateInput, formatDate } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
 import { NepalFiscalYearSetupButton } from "@/features/forms/fiscal-year-form";
@@ -13,8 +13,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 export default async function FiscalYearsPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const params = await searchParams;
   const years = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).lean();

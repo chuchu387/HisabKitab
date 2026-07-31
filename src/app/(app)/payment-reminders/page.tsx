@@ -5,7 +5,7 @@ import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { ReminderRunForm } from "@/features/payment-reminders/reminder-run-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { Client } from "@/models/Client";
 import { EmailLog } from "@/models/EmailLog";
@@ -14,8 +14,7 @@ import { ProjectPayment } from "@/models/ProjectPayment";
 import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
 export default async function PaymentRemindersPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("paymentsView");
   await connectToDatabase();
   const params = await searchParams;
   const oid = new Types.ObjectId(organizationId);

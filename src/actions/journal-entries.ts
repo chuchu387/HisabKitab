@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { ManualJournalEntry } from "@/models/ManualJournalEntry";
 import { manualJournalSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
@@ -12,8 +12,7 @@ import type { ActionState } from "@/types";
 
 export async function createManualJournal(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { organizationId, session } = await requireTenant();
-    await requireRole(["owner"]);
+    const { session, organizationId } = await requireFeature("accountingView");
     await connectToDatabase();
     const data = parseForm(manualJournalSchema, formData);
     await assertFiscalYearOpen(organizationId, data.entryDate);

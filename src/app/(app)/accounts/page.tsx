@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { dateInput, money } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
 import { Organization } from "@/models/Organization";
@@ -39,8 +39,7 @@ export default async function AccountsPage(props: any) {
 }
 
 async function AccountsContent({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("accountingView");
   await connectToDatabase();
   const params = await searchParams;
   const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();

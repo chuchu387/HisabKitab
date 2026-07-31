@@ -10,14 +10,13 @@ import { ConfirmButton } from "@/components/ui/confirm-button";
 import { disableUser } from "@/actions/users";
 import { roleLabels } from "@/constants";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { User } from "@/models/User";
 
 void User;
 
 export default async function UsersPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner"]);
+  const { organizationId } = await requireFeature("usersManage");
   await connectToDatabase();
   const params = await searchParams;
   const q = typeof params?.q === "string" ? params.q : "";

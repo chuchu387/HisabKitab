@@ -9,12 +9,11 @@ import { PageShell } from "@/components/page-shell";
 import { SearchBar } from "@/components/search-bar";
 import { deactivateClient } from "@/actions/clients";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Client } from "@/models/Client";
 
 export default async function ClientsPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("clientsView");
   await connectToDatabase();
   const params = await searchParams;
   const q = typeof params?.q === "string" ? params.q : "";

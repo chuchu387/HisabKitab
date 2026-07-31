@@ -9,7 +9,7 @@ import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
 import { FilterForm } from "@/components/filter-form";
 import { deleteProjectPayment } from "@/actions/project-payments";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
@@ -24,8 +24,7 @@ void Project;
 void User;
 
 export default async function ProjectPaymentsPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId } = await requireFeature("paymentsView");
   await connectToDatabase();
   const params = await searchParams;
   const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();

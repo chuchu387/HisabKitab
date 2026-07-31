@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { FiscalYear } from "@/models/FiscalYear";
 import { fiscalYearSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
@@ -14,8 +14,7 @@ import type { ActionState } from "@/types";
 
 export async function createFiscalYear(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { organizationId } = await requireTenant();
-    await requireRole(["owner"]);
+    const { organizationId } = await requireFeature("fiscalYears");
     await connectToDatabase();
     const data = parseForm(fiscalYearSchema, formData);
     await FiscalYear.create({ ...data, organizationId });
@@ -27,8 +26,7 @@ export async function createFiscalYear(_: ActionState, formData: FormData): Prom
 }
 
 export async function toggleFiscalYearStatus(formData: FormData) {
-  const { organizationId, session } = await requireTenant();
-  await requireRole(["owner"]);
+  const { session, organizationId } = await requireFeature("fiscalYears");
   await connectToDatabase();
   const id = String(formData.get("id"));
   const status = String(formData.get("status")) === "closed" ? "closed" : "open";
@@ -44,8 +42,7 @@ export async function toggleFiscalYearStatus(formData: FormData) {
 }
 
 export async function setupCurrentNepalFiscalYear() {
-  const { organizationId, session } = await requireTenant();
-  await requireRole(["owner"]);
+  const { session, organizationId } = await requireFeature("fiscalYears");
   await connectToDatabase();
   const current = nepalFiscalYearForDate();
   const previous = previousNepalFiscalYear();

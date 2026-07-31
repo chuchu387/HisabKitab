@@ -9,14 +9,13 @@ import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { deleteProposal, sendProposal, acceptProposal } from "@/actions/proposals";
 import { connectToDatabase } from "@/lib/db";
-import { requireRole, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { Proposal } from "@/models/Proposal";
 import { proposalStatusLabels } from "@/constants";
 
 export default async function ProposalsPage({ searchParams }: any) {
-  const { organizationId, session } = await requireTenant();
-  await requireRole(["owner", "admin"]);
+  const { organizationId, session } = await requireFeature("salesProposals");
   await connectToDatabase();
   const params = await searchParams;
   const statusFilter = typeof params?.status === "string" ? params.status : "";
