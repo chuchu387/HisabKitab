@@ -50,6 +50,20 @@ export function dateInput(value: Date | string | null | undefined) {
   return date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : "";
 }
 
+export function waLink(phone: string | null | undefined, text = ""): string {
+  if (!phone) return "";
+  let number = phone.replace(/\D/g, "").replace(/^0+/, "");
+  if (!number) return "";
+  if (number.startsWith("977") && number.length === 13) {
+    number = number;
+  } else if (number.length === 10 || number.length === 9) {
+    number = `977${number}`;
+  }
+  const params = new URLSearchParams();
+  if (text) params.set("text", text);
+  return `https://wa.me/${number}${params.toString() ? `?${params.toString()}` : ""}`;
+}
+
 export function timeAgo(value: Date | string | null | undefined) {
   if (!value) return "";
   const now = Date.now();

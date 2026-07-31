@@ -11,7 +11,7 @@ import { navFeatureMap, type Permissions } from "@/constants/permissions";
 import { cn } from "@/lib/utils";
 
 const navGroups = [
-  { title: "Overview", hrefs: ["/dashboard", "/attendance", "/attendance/selfies", "/attendance/reports", "/attendance/leaves", "/notifications", "/account"] },
+  { title: "Overview", hrefs: ["/dashboard", "/attendance", "/attendance/selfies", "/attendance/reports", "/attendance/leaves", "/payroll", "/payroll/settings", "/notifications", "/account"] },
   { title: "Chat", hrefs: ["/chat"] },
   { title: "Sales", hrefs: ["/leads", "/sales/pipeline", "/sales/proposals", "/sales/products", "/sales/campaigns", "/sales/targets", "/sales/commissions", "/sales/activities", "/sales/tasks", "/sales/reports"] },
   { title: "Accounting", hrefs: ["/expenses", "/project-payments", "/payment-reminders", "/general-funds", "/vendors", "/expense-contributors"] },

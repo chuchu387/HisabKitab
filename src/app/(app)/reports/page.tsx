@@ -100,6 +100,7 @@ export default async function ReportsPage({ searchParams }: any) {
         <Button asChild variant="ghost"><Link href="/reports">Reset</Link></Button>
       </FilterForm>
       <div className="filter-bar">
+        <Button asChild size="sm" variant="outline"><Link href="/reports/profitability">Project Profitability</Link></Button>
         <Button asChild size="sm" variant={!filters.from && !filters.to ? "secondary" : "outline"}><Link href="/reports">All Time</Link></Button>
         <Button asChild size="sm" variant="outline"><Link href={`/reports?${thisMonth}`}>This Month</Link></Button>
         <Button asChild size="sm" variant="outline"><Link href={`/reports?${lastMonth}`}>Last Month</Link></Button>

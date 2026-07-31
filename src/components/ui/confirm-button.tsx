@@ -11,7 +11,8 @@ export function ConfirmButton({
   description,
   icon = "trash",
   variant = "destructive",
-  className
+  className,
+  onClick
 }: {
   label?: string;
   title?: string;
@@ -19,6 +20,7 @@ export function ConfirmButton({
   icon?: "trash" | "logout";
   variant?: "default" | "secondary" | "ghost" | "destructive" | "outline";
   className?: string;
+  onClick?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [targetForm, setTargetForm] = useState<HTMLFormElement | null>(null);
@@ -63,6 +65,7 @@ export function ConfirmButton({
         size="sm"
         className={className}
         onClick={(event) => {
+          onClick?.();
           document.querySelectorAll("form[data-confirm-active='true']").forEach((form) => form.removeAttribute("data-confirm-active"));
           const form = event.currentTarget.closest("form");
           form?.setAttribute("data-confirm-active", "true");

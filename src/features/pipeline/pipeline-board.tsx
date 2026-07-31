@@ -6,8 +6,9 @@ import { UserRoundX, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { bulkAssignLeads, updateLeadStatus } from "@/actions/leads";
 import { Button } from "@/components/ui/button";
+import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { leadSourceLabels, leadStatusLabels } from "@/constants";
-import { cn, formatDate, money } from "@/lib/utils";
+import { cn, formatDate, money, waLink } from "@/lib/utils";
 
 const stages = [
   { value: "new", color: "#2563eb", tint: "rgba(37, 99, 235, 0.08)" },
@@ -190,7 +191,14 @@ function PipelineCard({ lead, stageColor, checked, onChecked, onDragStart }: { l
       </div>
       <div className="mt-1.5 flex items-center justify-between gap-2 border-t pt-1.5 text-[10px] text-muted-foreground">
         <span className="truncate">{lead.assignedTo?.name ?? "Unassigned"}</span>
-        {lead.followUpDate && <span className="shrink-0">Follow: {formatDate(lead.followUpDate)}</span>}
+        <span className="flex shrink-0 items-center gap-2">
+          {lead.followUpDate && <span>Follow: {formatDate(lead.followUpDate)}</span>}
+          {waLink(lead.phone) && (
+            <a href={waLink(lead.phone, `Hello ${lead.name}`)} target="_blank" rel="noopener noreferrer" className="inline-flex h-5 w-5 items-center justify-center rounded text-primary transition-colors hover:bg-secondary" aria-label="WhatsApp">
+              <WhatsAppIcon className="h-3.5 w-3.5" />
+            </a>
+          )}
+        </span>
       </div>
     </div>
   );

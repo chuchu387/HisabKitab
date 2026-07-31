@@ -2,12 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
 import { requireFeature } from "@/lib/permissions";
-import { formatDate, money, safeObjectId } from "@/lib/utils";
+import { formatDate, money, safeObjectId, waLink } from "@/lib/utils";
 import { Lead } from "@/models/Lead";
 import { LeadActivity } from "@/models/LeadActivity";
 import { LeadTask } from "@/models/LeadTask";
@@ -46,7 +47,7 @@ export default async function LeadDetailPage({ params }: any) {
         <InfoCard label="Estimated Value" value={lead.estimatedValue ? money(lead.estimatedValue) : "-"} />
         <InfoCard label="Assigned To" value={lead.assignedTo?.name || "-"} />
         <InfoCard label="Email" value={lead.email ? <div className="flex items-center gap-2"><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a><LogEmail leadId={lead._id.toString()} email={lead.email} /></div> : "-"} />
-        <InfoCard label="Phone" value={lead.phone ? <a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a> : "-"} />
+        <InfoCard label="Phone" value={lead.phone ? <div className="flex items-center gap-2"><a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a><WaButton phone={lead.phone} name={lead.name} /></div> : "-"} />
         <InfoCard label="Follow-up Date" value={lead.followUpDate ? formatDate(lead.followUpDate) : "-"} />
         <InfoCard label="Created" value={formatDate(lead.createdAt)} />
         <InfoCard label="Score" value={<span className={lead.score >= 60 ? "text-primary font-semibold" : lead.score >= 30 ? "text-accent" : "text-muted-foreground"}>{lead.score}/100</span>} />
@@ -140,5 +141,15 @@ function InfoCard({ label, value }: { label: string; value: React.ReactNode }) {
     <Card>
       <CardContent className="p-4 sm:p-5"><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p><div className="mt-1 font-medium">{value}</div></CardContent>
     </Card>
+  );
+}
+
+function WaButton({ phone, name }: { phone: string; name: string }) {
+  const href = waLink(phone, `Hello ${name}`);
+  if (!href) return null;
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex h-7 w-7 items-center justify-center rounded-md border bg-background text-primary transition-colors hover:bg-secondary" aria-label="WhatsApp">
+      <WhatsAppIcon className="h-4 w-4" />
+    </a>
   );
 }

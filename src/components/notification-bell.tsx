@@ -1,10 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import { markAllNotificationsRead, markNotificationRead } from "@/actions/notifications";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useRealtime } from "@/hooks/use-realtime";
 
-export function NotificationBell({ notifications, unreadCount }: { notifications: any[]; unreadCount: number }) {
+export function NotificationBell({ notifications: initialNotifications, unreadCount: initialUnreadCount }: { notifications: any[]; unreadCount: number }) {
+  const { unreadCount, notifications } = useRealtime({ unreadCount: initialUnreadCount, notifications: initialNotifications, chatGroups: [] });
   return (
     <details className="group relative">
       <summary className="relative flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-lg border bg-card shadow-sm hover:bg-muted [&::-webkit-details-marker]:hidden">
@@ -24,7 +28,7 @@ export function NotificationBell({ notifications, unreadCount }: { notifications
           <div className="max-h-96 overflow-y-auto">
             {notifications.length ? notifications.map((notification) => (
               <div key={notification._id.toString()} className={notification.readAt ? "border-b p-3" : "border-b bg-primary/5 p-3"}>
-                <Link href={`/api/notifications/${notification._id}/open`} className="block hover:text-primary">
+                <Link href={notification.href || "/dashboard"} className="block hover:text-primary">
                   <p className="text-sm font-semibold">{notification.title}</p>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">{notification.message}</p>
                   <p className="mt-2 text-[11px] text-muted-foreground">{formatDate(notification.createdAt)}</p>

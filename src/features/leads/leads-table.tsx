@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { DataTable } from "@/components/data-table";
+import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { leadSourceLabels, leadStatusColors, leadStatusLabels } from "@/constants";
-import { formatDate, money } from "@/lib/utils";
+import { formatDate, money, waLink } from "@/lib/utils";
 
 export function LeadsTable({ leads, pagination }: { leads: any[]; pagination: any }) {
   const router = useRouter();
@@ -61,7 +62,11 @@ export function LeadsTable({ leads, pagination }: { leads: any[]; pagination: an
     { header: "Value", cell: (lead: any) => lead.estimatedValue ? money(lead.estimatedValue) : "-" },
     { header: "Assigned", cell: (lead: any) => lead.assignedTo?.name || "-" },
     { header: "Follow-up", cell: (lead: any) => lead.followUpDate ? formatDate(lead.followUpDate) : "-" },
-    { header: "Actions", cell: (lead: any) => <div className="flex gap-2"><Button asChild variant="outline" size="sm"><Link href={`/leads/${lead._id}/edit`}>Edit</Link></Button><form action={deleteLead}><input type="hidden" name="id" value={lead._id.toString()} /><ConfirmButton label="Delete" /></form></div> }
+    { header: "Actions", cell: (lead: any) => <div className="flex gap-2">
+      {waLink(lead.phone) && <Button asChild variant="outline" size="sm" aria-label="WhatsApp"><a href={waLink(lead.phone, `Hello ${lead.name}`)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon className="h-4 w-4" /></a></Button>}
+      <Button asChild variant="outline" size="sm"><Link href={`/leads/${lead._id}/edit`}>Edit</Link></Button>
+      <form action={deleteLead}><input type="hidden" name="id" value={lead._id.toString()} /><ConfirmButton label="Delete" /></form>
+    </div> }
   ];
 
   return (

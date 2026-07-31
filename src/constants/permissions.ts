@@ -1,6 +1,8 @@
 export const featureKeys = [
   "attendanceView",
   "attendanceManage",
+  "payrollView",
+  "payrollManage",
   "leadsView",
   "leadsManage",
   "salesPipeline",
@@ -38,6 +40,8 @@ export type PermissionOverrides = Partial<Permissions>;
 export const featureLabels: Record<FeatureKey, string> = {
   attendanceView: "Attendance",
   attendanceManage: "Attendance Admin (overrides, reports, selfies)",
+  payrollView: "Payroll",
+  payrollManage: "Payroll Admin (generate, approve, payslips)",
   leadsView: "Leads",
   leadsManage: "Leads Admin (create/edit/delete)",
   salesPipeline: "Sales Pipeline",
@@ -73,6 +77,8 @@ export const defaultPermissions: Record<string, Partial<Permissions>> = {
   admin: {
     attendanceView: true,
     attendanceManage: true,
+    payrollView: true,
+    payrollManage: true,
     leadsView: true,
     leadsManage: true,
     salesPipeline: true,
@@ -105,6 +111,8 @@ export const defaultPermissions: Record<string, Partial<Permissions>> = {
   staff: {
     attendanceView: true,
     attendanceManage: false,
+    payrollView: true,
+    payrollManage: false,
     leadsView: true,
     leadsManage: true,
     salesPipeline: false,
@@ -174,6 +182,7 @@ export const navFeatureMap: Record<string, FeatureKey> = {
   "/fiscal-years": "accountingView",
   "/data-health": "accountingView",
   "/reports": "reportsView",
+  "/reports/profitability": "reportsView",
   "/email-logs": "emailLogsView",
   "/audit-logs": "reportsView",
   "/users": "usersManage",
@@ -182,5 +191,7 @@ export const navFeatureMap: Record<string, FeatureKey> = {
   "/attendance": "attendanceView",
   "/attendance/selfies": "attendanceManage",
   "/attendance/reports": "attendanceManage",
-  "/attendance/leaves": "attendanceView"
+  "/attendance/leaves": "attendanceView",
+  "/payroll": "payrollView",
+  "/payroll/settings": "payrollManage"
 };

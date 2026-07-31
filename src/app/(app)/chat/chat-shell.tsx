@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createGroup, sendMessage, toggleReaction, deleteMessage, leaveGroup, addMembers, markRead } from "@/actions/chat";
 import { toast } from "sonner";
+import { useRealtime } from "@/hooks/use-realtime";
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "🎉", "💯", "⭐", "👏", "✅", "🤔", "👀", "🚀", "💪", "✨", "🎯", "🙌", "💡"];
 
@@ -40,6 +41,25 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
   const fileInput = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const [liveGroups, setLiveGroups] = useState<any[]>(groups);
+  const { chatGroups: liveChatGroups } = useRealtime({ unreadCount: 0, notifications: [], chatGroups: [] });
+
+  useEffect(() => {
+    if (!liveChatGroups.length) return;
+    setLiveGroups((prev) => {
+      const map = new Map(prev.map((g: any) => [g._id, g]));
+      for (const g of liveChatGroups) {
+        const existing = map.get(g._id);
+        map.set(g._id, {
+          ...(existing ?? { _id: g._id, name: g.name, description: g.description, members: [] }),
+          memberCount: g.memberCount,
+          updatedAt: g.updatedAt,
+          lastMessage: g.lastMessage
+        });
+      }
+      return Array.from(map.values()).sort((a, b) => (String(b.updatedAt || "") > String(a.updatedAt || "") ? 1 : -1));
+    });
+  }, [liveChatGroups]);
 
   const scrollToBottom = () => messagesEnd.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(scrollToBottom, [messages]);
@@ -190,7 +210,7 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
           {isAdmin && <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setShowCreateForm(true)}><Plus className="h-4 w-4" /></Button>}
         </div>
         <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
-          {groups.map((g: any) => {
+          {liveGroups.map((g: any) => {
             const isActive = g._id === activeGroup;
             const unread = 0;
             return (
@@ -198,13 +218,13 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
                 <Avatar name={g.name} />
                 <div className="min-w-0 flex-1">
                   <p className={cn("truncate text-xs font-medium", isActive && "text-primary")}>{g.name}</p>
-                  <p className="truncate text-[10px] text-muted-foreground">{g.members.length} members</p>
+                  <p className="truncate text-[10px] text-muted-foreground">{g.lastMessage?.content || `${g.memberCount ?? g.members.length} members`}</p>
                 </div>
                 {unread > 0 && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{unread}</span>}
               </button>
             );
           })}
-          {!groups.length && <p className="p-4 text-center text-xs text-muted-foreground">No groups yet</p>}
+          {!liveGroups.length && <p className="p-4 text-center text-xs text-muted-foreground">No groups yet</p>}
         </div>
       </Card>
 
