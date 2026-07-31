@@ -10,6 +10,7 @@ import { getReceiptBucket } from "@/services/gridfs";
 import { sendEmail, emailLayout, actionButton, appUrl, escapeHtml } from "@/services/email";
 import { actionError } from "@/actions/helpers";
 import { writeAuditLog } from "@/services/audit";
+import { sendPushToUser } from "@/services/push";
 import { mongo } from "mongoose";
 
 export async function createGroup(formData: FormData) {
@@ -129,6 +130,12 @@ export async function sendMessage(formData: FormData) {
       const groupUrl = appUrl(`/chat?g=${groupId}`);
       const preview = content ? (content.length > 100 ? content.slice(0, 100) + "..." : content) : (attachments.length ? `${attachments.length} file(s)` : "");
       for (const member of members) {
+        sendPushToUser(organizationId, member._id, {
+          title: `${sender?.name || "Someone"} in ${group.name}`,
+          message: preview,
+          href: `/chat?g=${groupId}`,
+          type: "chat"
+        }).catch(() => {});
         sendEmail({
           to: [{ email: member.email, name: member.name }],
           subject: `[${group.name}] ${sender?.name || "Someone"}: ${preview}`,
