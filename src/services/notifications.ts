@@ -1,6 +1,7 @@
 import { actionButton, appUrl, emailLayout, escapeHtml, sendEmail } from "@/services/email";
 import { money } from "@/lib/utils";
 import { Notification } from "@/models/Notification";
+import { sendPushToUser } from "@/services/push";
 
 type UserLike = {
   _id?: unknown;
@@ -26,6 +27,12 @@ export async function createNotification(input: NotificationInput) {
     href: input.href,
     type: input.type ?? "info"
   });
+  sendPushToUser(input.organizationId, input.userId, {
+    title: input.title,
+    message: input.message,
+    href: input.href,
+    type: input.type ?? "info"
+  }).catch(() => undefined);
 }
 
 export async function notifyUserCreated(user: UserLike & { organizationId?: string; role?: string; password?: string }) {

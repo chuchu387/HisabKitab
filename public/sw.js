@@ -9,6 +9,38 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim()));
 });
 
+self.addEventListener("push", (event) => {
+  let payload = { title: "HisabKitab", message: "", href: "/dashboard" };
+  try {
+    if (event.data) payload = { ...payload, ...event.data.json() };
+  } catch {}
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.message,
+      icon: "/pwa/icon-192.png",
+      badge: "/pwa/icon-192.png",
+      data: { href: payload.href || "/dashboard" }
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const href = event.notification.data?.href || "/dashboard";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if ("focus" in client && "navigate" in client) {
+          try {
+            return client.navigate(href).then(() => client.focus());
+          } catch {}
+        }
+      }
+      return self.clients.openWindow(href);
+    })
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;

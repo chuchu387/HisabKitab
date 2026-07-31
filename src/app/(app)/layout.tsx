@@ -7,6 +7,7 @@ import { resolvePermissions, type Permissions } from "@/constants/permissions";
 import { Notification } from "@/models/Notification";
 import { Attendance } from "@/models/Attendance";
 import { CheckInGuard } from "@/features/attendance/checkin-guard";
+import { PushManager } from "@/components/push-manager";
 import { nepalDateString, isCheckInOpen, isSaturday } from "@/lib/timezone";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -47,6 +48,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </CheckInGuard>
         </main>
       </div>
+      <PushManager />
     </div>
   );
 }
