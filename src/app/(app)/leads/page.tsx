@@ -2,20 +2,18 @@ import Link from "next/link";
 import { Download, Plus } from "lucide-react";
 import { Types } from "mongoose";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DataTable } from "@/components/data-table";
 import { FilterForm } from "@/components/filter-form";
 import { PageShell } from "@/components/page-shell";
 import { SearchBar } from "@/components/search-bar";
-import { ConfirmButton } from "@/components/ui/confirm-button";
-import { deleteLead } from "@/actions/leads";
 import { LeadImportForm } from "@/features/forms/lead-import-form";
+import { LeadsTable } from "@/features/leads/leads-table";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
-import { formatDate, money } from "@/lib/utils";
+import { money } from "@/lib/utils";
 import { Lead } from "@/models/Lead";
-import { leadStatusLabels, leadStatusColors, leadSourceLabels } from "@/constants";
+import { Project } from "@/models/Project";
+import { leadStatusLabels } from "@/constants";
 
 export default async function LeadsPage({ searchParams }: any) {
   const { organizationId } = await requireTenant();
@@ -24,13 +22,16 @@ export default async function LeadsPage({ searchParams }: any) {
   const q = typeof params?.q === "string" ? params.q : "";
   const sourceFilter = typeof params?.source === "string" ? params.source : "";
   const statusFilter = typeof params?.status === "string" ? params.status : "";
+  const projectFilter = typeof params?.projectId === "string" ? params.projectId : "";
   const query: any = { organizationId: new Types.ObjectId(organizationId) };
   if (q) query.$or = [{ name: new RegExp(q, "i") }, { company: new RegExp(q, "i") }, { email: new RegExp(q, "i") }];
   if (sourceFilter) query.source = sourceFilter;
   if (statusFilter) query.status = statusFilter;
-  const [leads, totalCount] = await Promise.all([
-    Lead.find(query).sort({ createdAt: -1 }).populate("assignedTo", "name").lean() as any,
-    Lead.countDocuments({ organizationId: new Types.ObjectId(organizationId) })
+  if (projectFilter && Types.ObjectId.isValid(projectFilter)) query.projectId = new Types.ObjectId(projectFilter);
+  const [leads, totalCount, projects] = await Promise.all([
+    Lead.find(query).sort({ createdAt: -1 }).populate("assignedTo", "name").populate("projectId", "name code").lean() as any,
+    Lead.countDocuments({ organizationId: new Types.ObjectId(organizationId) }),
+    Project.find({ organizationId, status: "active" }).sort({ name: 1 }).select("name code").lean()
   ]);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -70,6 +71,10 @@ export default async function LeadsPage({ searchParams }: any) {
             <option key={value} value={value}>{label}</option>
           ))}
         </select>
+        <select className="native-control" name="projectId" defaultValue={projectFilter}>
+          <option value="">All projects</option>
+          {projects.map((p: any) => <option key={p._id.toString()} value={p._id.toString()}>{p.name}</option>)}
+        </select>
         <Button variant="outline">Filter</Button>
       </FilterForm>
       <div className="flex items-start gap-3">
@@ -79,17 +84,7 @@ export default async function LeadsPage({ searchParams }: any) {
           Download<br />Sample CSV
         </a>
       </div>
-      <DataTable data={leads} pagination={{ basePath: "/leads", searchParams: params }} columns={[
-        { header: "Name", cell: (lead: any) => <Link className="font-medium hover:text-primary" href={`/leads/${lead._id}`}>{lead.name}</Link> },
-        { header: "Company", cell: (lead: any) => lead.company || "-" },
-        { header: "Contact", cell: (lead: any) => <div>{lead.email ? <a href={`mailto:${lead.email}`} className="block text-primary hover:underline">{lead.email}</a> : null}{lead.phone ? <a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a> : lead.email ? null : "-"}</div> },
-        { header: "Source", cell: (lead: any) => <Badge variant="info">{leadSourceLabels[lead.source as keyof typeof leadSourceLabels] || lead.source}</Badge> },
-        { header: "Status", cell: (lead: any) => <Badge variant={(leadStatusColors[lead.status as keyof typeof leadStatusColors] || "default") as any}>{leadStatusLabels[lead.status as keyof typeof leadStatusLabels] || lead.status}</Badge> },
-        { header: "Value", cell: (lead: any) => lead.estimatedValue ? money(lead.estimatedValue) : "-" },
-        { header: "Assigned", cell: (lead: any) => lead.assignedTo?.name || "-" },
-        { header: "Follow-up", cell: (lead: any) => lead.followUpDate ? formatDate(lead.followUpDate) : "-" },
-        { header: "Actions", cell: (lead: any) => <div className="flex gap-2"><Button asChild variant="outline" size="sm"><Link href={`/leads/${lead._id}/edit`}>Edit</Link></Button><form action={deleteLead}><input type="hidden" name="id" value={lead._id.toString()} /><ConfirmButton label="Delete" /></form></div> }
-      ]} />
+      <LeadsTable leads={JSON.parse(JSON.stringify(leads))} pagination={{ basePath: "/leads", searchParams: params }} />
     </PageShell>
   );
 }

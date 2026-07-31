@@ -51,7 +51,7 @@ export default async function TasksPage({ searchParams }: any) {
     ProjectTask.find(query).populate("projectId folderId assigneeId assigneeIds createdBy comments.userId activity.userId").sort({ createdAt: -1 }).lean(),
     Project.find({ organizationId }).sort({ name: 1 }).lean(),
     TaskFolder.find({ organizationId, active: true }).populate("projectIds createdBy").sort({ name: 1 }).lean(),
-    User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean(),
+    User.find({ organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).sort({ name: 1 }).lean(),
     User.findOne({ _id: session.user.userId, organizationId }).select("taskPermissions").lean(),
     sendDueTaskNotifications({ organizationId }).catch(() => undefined)
   ]);

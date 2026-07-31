@@ -26,7 +26,7 @@ export default async function TaskFolderPage({ params }: any) {
   const projectIds = (folder.projectIds ?? []).map((project: any) => project._id ?? project);
   const [tasks, assignees, currentUser] = await Promise.all([
     ProjectTask.find({ organizationId, folderId, projectId: { $in: projectIds } }).populate("projectId folderId assigneeId assigneeIds createdBy comments.userId activity.userId").sort({ createdAt: -1 }).lean(),
-    User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean(),
+    User.find({ organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).sort({ name: 1 }).lean(),
     User.findOne({ _id: session.user.userId, organizationId }).select("taskPermissions").lean(),
     sendDueTaskNotifications({ organizationId }).catch(() => undefined)
   ]);

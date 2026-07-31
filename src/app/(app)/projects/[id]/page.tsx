@@ -31,7 +31,7 @@ export default async function ProjectDetailPage({ params, searchParams }: any) {
     Expense.find({ organizationId, projectId }).populate("categoryId createdBy").sort({ expenseDate: -1 }).lean(),
     ProjectTask.find({ organizationId, projectId }).populate("folderId assigneeId assigneeIds createdBy comments.userId activity.userId").sort({ createdAt: -1 }).lean(),
     TaskFolder.find({ organizationId, active: true, projectIds: projectId }).populate("projectIds createdBy").sort({ name: 1 }).lean(),
-    User.find({ organizationId, active: true, role: { $in: ["admin", "staff"] } }).sort({ name: 1 }).lean(),
+    User.find({ organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).sort({ name: 1 }).lean(),
     User.findOne({ _id: session.user.userId, organizationId }).select("taskPermissions").lean()
   ]);
   if (!financials.project) notFound();

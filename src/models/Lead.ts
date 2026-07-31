@@ -13,6 +13,7 @@ const leadSchema = new Schema(
     estimatedValue: { type: Number, default: 0, min: 0 },
     assignedTo: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
     campaignId: { type: Schema.Types.ObjectId, ref: "Campaign", default: null, index: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", default: null, index: true },
     score: { type: Number, default: 0, min: 0 },
     dealValue: { type: Number, default: 0, min: 0 },
     notes: { type: String, default: "" },

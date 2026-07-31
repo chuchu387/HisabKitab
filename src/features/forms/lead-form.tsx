@@ -14,7 +14,7 @@ import type { ActionState } from "@/types";
 
 const initialState: ActionState = { ok: false, message: "" };
 
-export function LeadForm({ lead, users = [], campaigns }: { lead?: any; users?: any[]; campaigns?: { _id: string; name: string }[] }) {
+export function LeadForm({ lead, users = [], campaigns, projects = [] }: { lead?: any; users?: any[]; campaigns?: { _id: string; name: string }[]; projects?: { _id: string; name: string }[] }) {
   const action = lead ? updateLead.bind(null, lead._id.toString()) : createLead;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
@@ -49,6 +49,15 @@ export function LeadForm({ lead, users = [], campaigns }: { lead?: any; users?: 
           <Select id="campaignId" name="campaignId" defaultValue={lead?.campaignId ?? ""}>
             <option value="">No campaign</option>
             {campaigns.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+          </Select>
+        </div>
+      )}
+      {projects && (
+        <div className="space-y-2">
+          <Label htmlFor="projectId">Project</Label>
+          <Select id="projectId" name="projectId" defaultValue={lead?.projectId ?? ""}>
+            <option value="">No project</option>
+            {projects.map((p) => <option key={p._id} value={p._id}>{p.name}</option>)}
           </Select>
         </div>
       )}

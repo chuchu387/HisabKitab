@@ -1,5 +1,6 @@
 "use server";
 
+import { Types } from "mongoose";
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
 import { requireFeature } from "@/lib/permissions";
@@ -8,6 +9,7 @@ import { LeadActivity } from "@/models/LeadActivity";
 import { Client } from "@/models/Client";
 import { Project } from "@/models/Project";
 import { Notification } from "@/models/Notification";
+import { User } from "@/models/User";
 import { leadSchema, leadStatusUpdateSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
 import { writeAuditLog } from "@/services/audit";
@@ -68,6 +70,7 @@ export async function createLead(_: ActionState, formData: FormData): Promise<Ac
       ...data,
       assignedTo: data.assignedTo || null,
       campaignId: data.campaignId || null,
+      projectId: data.projectId || null,
       followUpDate: data.followUpDate || null,
       score: computeLeadScore(data),
       organizationId,
@@ -99,7 +102,7 @@ export async function updateLead(id: string, _: ActionState, formData: FormData)
     if (duplicate) throw new Error(`A ${duplicate.type} already exists with this contact: ${duplicate.name}`);
     const lead = await Lead.findOneAndUpdate(
       { _id: id, organizationId },
-      { ...data, assignedTo: data.assignedTo || null, followUpDate: data.followUpDate || null },
+      { ...data, assignedTo: data.assignedTo || null, campaignId: data.campaignId || null, projectId: data.projectId || null, followUpDate: data.followUpDate || null },
       { runValidators: true }
     );
     if (!lead) throw new Error("Lead not found");
@@ -123,6 +126,41 @@ export async function deleteLead(formData: FormData) {
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Lead Deleted", entityType: "Lead", entityId: id });
   revalidatePath("/leads");
   revalidatePath("/sales/reports");
+}
+
+export async function bulkDeleteLeads(ids: string[]) {
+  const { session, organizationId } = await requireFeature("leadsManage");
+  await connectToDatabase();
+  const objectIds = ids.filter((id) => id).map((id) => new Types.ObjectId(id));
+  if (!objectIds.length) throw new Error("No leads selected");
+  const leads = await Lead.find({ _id: { $in: objectIds }, organizationId }).select("_id").lean();
+  if (!leads.length) throw new Error("Leads not found");
+  await Lead.deleteMany({ _id: { $in: leads.map((lead) => lead._id) }, organizationId });
+  await LeadActivity.deleteMany({ leadId: { $in: leads.map((lead) => lead._id) }, organizationId });
+  await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Deleted", entityType: "Lead", entityId: `${leads.length} leads`, metadata: { count: leads.length } });
+  revalidatePath("/leads");
+  revalidatePath("/sales/pipeline");
+  revalidatePath("/sales/reports");
+  return { ok: true, message: `${leads.length} leads deleted` };
+}
+
+export async function bulkAssignLeads(ids: string[], assigneeId: string) {
+  const { session, organizationId } = await requireFeature("leadsManage");
+  await connectToDatabase();
+  const objectIds = ids.filter((id) => id).map((id) => new Types.ObjectId(id));
+  if (!objectIds.length) throw new Error("No leads selected");
+  let assignedUserId: string | null = null;
+  if (assigneeId) {
+    const assignee = await User.findOne({ _id: assigneeId, organizationId, active: true }).select("_id").lean();
+    if (!assignee) throw new Error("Assignee not found");
+    assignedUserId = assigneeId;
+  }
+  await Lead.updateMany({ _id: { $in: objectIds }, organizationId }, { $set: { assignedTo: assignedUserId } });
+  await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Assigned", entityType: "Lead", entityId: `${objectIds.length} leads`, metadata: { count: objectIds.length, assigneeId: assignedUserId } });
+  revalidatePath("/leads");
+  revalidatePath("/sales/pipeline");
+  revalidatePath("/sales/reports");
+  return { ok: true, message: `${objectIds.length} leads assigned` };
 }
 
 export async function updateLeadStatus(id: string, status: string) {

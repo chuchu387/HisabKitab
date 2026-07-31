@@ -13,6 +13,7 @@ import { LeadActivity } from "@/models/LeadActivity";
 import { LeadTask } from "@/models/LeadTask";
 import { Proposal } from "@/models/Proposal";
 import { Campaign } from "@/models/Campaign";
+import { Project } from "@/models/Project";
 import { addLeadActivity, convertLeadToClient, updateLeadFollowUp, updateLeadStatus } from "@/actions/leads";
 import { leadStatusLabels, leadStatusColors, leadSourceLabels, leadActivityTypes, leadTaskStatuses } from "@/constants";
 import { ActivityForm } from "./activity-form";
@@ -34,6 +35,7 @@ export default async function LeadDetailPage({ params }: any) {
     Proposal.find({ leadId: lead._id, organizationId }).sort({ createdAt: -1 }).lean()
   ]);
   const campaign: any = lead.campaignId ? await Campaign.findOne({ _id: lead.campaignId, organizationId }).lean() : null;
+  const project: any = lead.projectId ? await Project.findOne({ _id: lead.projectId, organizationId }).lean() : null;
   const canManage = ["owner", "admin"].includes(session.user.role);
   const isConverted = lead.convertedToClientId || lead.status === "won" || lead.status === "lost";
   return (
@@ -49,6 +51,7 @@ export default async function LeadDetailPage({ params }: any) {
         <InfoCard label="Created" value={formatDate(lead.createdAt)} />
         <InfoCard label="Score" value={<span className={lead.score >= 60 ? "text-primary font-semibold" : lead.score >= 30 ? "text-accent" : "text-muted-foreground"}>{lead.score}/100</span>} />
         {campaign && <InfoCard label="Campaign" value={campaign.name} />}
+        {project && <InfoCard label="Project" value={<Link className="font-medium text-primary hover:underline" href={`/projects/${project._id}`}>{project.name}</Link>} />}
       </div>
 
       {lead.notes && (

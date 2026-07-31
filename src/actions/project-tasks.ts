@@ -46,7 +46,7 @@ async function normalizeAssignees(formData: FormData, organizationId: string) {
   const legacyAssigneeId = String(formData.get("assigneeId") ?? "");
   if (!ids.length && legacyAssigneeId) ids.push(legacyAssigneeId);
   if (!ids.length) return { assigneeId: null, assigneeIds: [] };
-  const users = await User.find({ _id: { $in: ids }, organizationId, active: true, role: { $in: ["admin", "staff"] } }).select("_id").lean();
+  const users = await User.find({ _id: { $in: ids }, organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).select("_id").lean();
   const validIds = new Set(users.map((user: any) => user._id.toString()));
   if (validIds.size !== ids.length) throw new Error("One or more assignees were not found");
   return { assigneeId: ids[0], assigneeIds: ids };
