@@ -1,18 +1,21 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, RotateCcw } from "lucide-react";
+import { Crown, RotateCcw, Shield } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { updateUserPermissions } from "@/actions/users";
-import { resolvePermissions, defaultPermissions, type FeatureKey, type Permissions } from "@/constants/permissions";
+import { updateUserPermissions, updateUserRole } from "@/actions/users";
+import { resolvePermissions } from "@/constants/permissions";
 import { ActionMessage } from "@/components/action-message";
 import type { ActionState } from "@/types";
 
 const initialState: ActionState = { ok: false, message: "" };
+
+const roleLabels: Record<string, string> = { owner: "Co-owner", admin: "Admin", staff: "Staff" };
 
 function FeatureToggle({ label, enabled, onChange }: { label: string; enabled: boolean; onChange: () => void }) {
   return (
@@ -23,14 +26,17 @@ function FeatureToggle({ label, enabled, onChange }: { label: string; enabled: b
   );
 }
 
-export function PermissionManager({ users, featureLabels: labels, featureKeys: keys, currentUserId }: { users: any[]; featureLabels: Record<string, string>; featureKeys: string[]; currentUserId: string }) {
+export function PermissionManager({ users, featureLabels: labels, featureKeys: keys, currentUserId, currentRole }: { users: any[]; featureLabels: Record<string, string>; featureKeys: string[]; currentUserId: string; currentRole: string }) {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [state, formAction, pending] = useActionState(updateUserPermissions, initialState);
+  const [role, setRole] = useState("");
+  const [isSavingRole, startRoleSave] = useTransition();
   const router = useRouter();
 
   function selectUser(user: any) {
     setSelectedUser(user);
+    setRole(user.role);
     const perms = resolvePermissions(user.role, user.permissions || {});
     setPermissions({ ...perms });
   }
@@ -54,13 +60,29 @@ export function PermissionManager({ users, featureLabels: labels, featureKeys: k
     formAction(formData);
   }
 
-  const hasChanges = selectedUser && Object.keys(permissions).length > 0;
+  function saveRole() {
+    if (!selectedUser || role === selectedUser.role) return;
+    startRoleSave(async () => {
+      const result = await updateUserRole(selectedUser._id, role);
+      if (result.ok) {
+        toast.success(result.message);
+        selectUser({ ...selectedUser, role });
+        router.refresh();
+      } else {
+        toast.error(result.message);
+        setRole(selectedUser.role);
+      }
+    });
+  }
+
+  const isOwner = currentRole === "owner";
+  const roleOptions = isOwner ? ["staff", "admin", "owner"] : ["staff", "admin"];
+  const canChangeRole = selectedUser && selectedUser._id !== currentUserId;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-      {/* User list */}
       <Card>
-        <CardHeader><CardTitle className="text-xs uppercase tracking-wide">Staff</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-xs uppercase tracking-wide">Members</CardTitle></CardHeader>
         <CardContent className="space-y-1 p-2">
           {users.map((user) => (
             <button
@@ -72,46 +94,65 @@ export function PermissionManager({ users, featureLabels: labels, featureKeys: k
                 {user.name.charAt(0)}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium">{user.name}</p>
-                <p className="truncate text-[10px] text-muted-foreground">{user.role}</p>
+                <p className="truncate text-xs font-medium">{user.name}{user._id === currentUserId && <span className="text-muted-foreground"> (you)</span>}</p>
+                <p className="truncate text-[10px] text-muted-foreground">{roleLabels[user.role] ?? user.role}</p>
               </div>
-              <Shield className="h-3 w-3 text-muted-foreground" />
+              {user.role === "owner" ? <Crown className="h-3.5 w-3.5 text-accent" /> : <Shield className="h-3 w-3 text-muted-foreground" />}
             </button>
           ))}
-          {!users.length && <p className="p-4 text-center text-xs text-muted-foreground">No staff members</p>}
+          {!users.length && <p className="p-4 text-center text-xs text-muted-foreground">No members</p>}
         </CardContent>
       </Card>
 
-      {/* Permission toggles */}
       <Card>
         {selectedUser ? (
           <>
-            <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <CardHeader className="flex flex-col gap-3 border-b xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <CardTitle className="text-sm">{selectedUser.name}</CardTitle>
-                <p className="text-xs text-muted-foreground capitalize">{selectedUser.role} · {selectedUser.email}</p>
+                <p className="text-xs text-muted-foreground">{selectedUser.email}</p>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={resetToDefaults}><RotateCcw className="h-3 w-3" /> Reset</Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {canChangeRole && (
+                  <>
+                    <select value={role} onChange={(event) => setRole(event.target.value)} className="native-control h-8 w-32">
+                      {roleOptions.map((option) => <option key={option} value={option}>{roleLabels[option]}</option>)}
+                    </select>
+                    <Button variant={role !== selectedUser.role ? "default" : "outline"} size="sm" className="h-8 text-xs" disabled={isSavingRole || role === selectedUser.role} onClick={saveRole}>
+                      {isSavingRole ? "Saving..." : "Update Role"}
+                    </Button>
+                  </>
+                )}
+                {selectedUser.role !== "owner" && (
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={resetToDefaults}><RotateCcw className="h-3 w-3" /> Reset</Button>
+                )}
               </div>
             </CardHeader>
-            <CardContent>
-              <form action={handleSubmit} className="space-y-3">
-                <ActionMessage state={state} />
-                <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {keys.map((key) => (
-                    <FeatureToggle key={key} label={labels[key] || key} enabled={permissions[key] ?? false} onChange={() => toggle(key)} />
-                  ))}
+            <CardContent className="pt-4">
+              {selectedUser.role === "owner" ? (
+                <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 text-sm text-muted-foreground">
+                  <p className="flex items-center gap-2 font-medium text-foreground"><Crown className="h-4 w-4 text-accent" /> Co-owner</p>
+                  <p className="mt-1 text-xs">Co-owners have full access to every feature, like the primary owner. You can demote them to admin or staff using the role dropdown.</p>
                 </div>
-                <Button type="submit" disabled={pending || !hasChanges} size="sm">
-                  {pending ? "Saving..." : "Save Permissions"}
-                </Button>
-              </form>
+              ) : (
+                <form action={handleSubmit} className="space-y-3">
+                  <ActionMessage state={state} />
+                  <p className="text-xs text-muted-foreground">Feature access for <span className="font-medium capitalize">{roleLabels[selectedUser.role]}</span> role — overrides apply on top of the default role permissions.</p>
+                  <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                    {keys.map((key) => (
+                      <FeatureToggle key={key} label={labels[key] || key} enabled={permissions[key] ?? false} onChange={() => toggle(key)} />
+                    ))}
+                  </div>
+                  <Button type="submit" disabled={pending} size="sm">
+                    {pending ? "Saving..." : "Save Permissions"}
+                  </Button>
+                </form>
+              )}
             </CardContent>
           </>
         ) : (
           <div className="flex items-center justify-center py-16 text-center text-sm text-muted-foreground">
-            <div><Shield className="mx-auto mb-2 h-10 w-10 text-muted-foreground/40" /><p>Select a staff member to manage permissions</p></div>
+            <div><Shield className="mx-auto mb-2 h-10 w-10 text-muted-foreground/40" /><p>Select a member to manage their role and permissions</p></div>
           </div>
         )}
       </Card>

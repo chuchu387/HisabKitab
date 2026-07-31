@@ -78,7 +78,7 @@ export async function updateUserPermissions(_: ActionState, formData: FormData):
     if (userId === session.user.userId) throw new Error("Cannot edit your own permissions");
     const user = await User.findOne({ _id: userId, organizationId });
     if (!user) throw new Error("User not found");
-    if (user.role === "owner") throw new Error("Cannot change owner permissions");
+    if (user.role === "owner" && session.user.role !== "owner") throw new Error("Only the owner can change permissions of another owner");
     const permissions: Record<string, boolean> = {};
     for (const [key, value] of formData.entries()) {
       if (key.startsWith("perm_")) {
@@ -92,5 +92,31 @@ export async function updateUserPermissions(_: ActionState, formData: FormData):
     return { ok: true, message: "Permissions updated" };
   } catch (error) {
     return actionError(error);
+  }
+}
+
+export async function updateUserRole(userId: string, role: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { session, organizationId } = await requireFeature("usersManage");
+    await connectToDatabase();
+    if (userId === session.user.userId) throw new Error("Cannot change your own role");
+    if (!["staff", "admin", "owner"].includes(role)) throw new Error("Invalid role");
+    if (session.user.role !== "owner" && role === "owner") throw new Error("Only the owner can promote to co-owner");
+    if (session.user.role === "admin" && role === "owner") throw new Error("Only the owner can promote to co-owner");
+    const user = await User.findOne({ _id: userId, organizationId });
+    if (!user) throw new Error("User not found");
+    if (user.role === "owner" && session.user.role !== "owner") throw new Error("Only the owner can change a co-owner's role");
+    if (user.role === role) throw new Error("User already has this role");
+    const oldRole = user.role;
+    user.role = role;
+    user.permissions = {};
+    await user.save();
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "User Role Changed", entityType: "User", entityId: userId, metadata: { from: oldRole, to: role } });
+    revalidatePath("/permissions");
+    revalidatePath("/users");
+    return { ok: true, message: "Role updated" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to update role";
+    return { ok: false, message };
   }
 }
