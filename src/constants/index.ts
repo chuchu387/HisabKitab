@@ -151,3 +151,14 @@ export const navItems = [
   { href: "/permissions", label: "Permissions", icon: ShieldCheck, roles: ["owner", "admin"] },
   { href: "/settings", label: "Settings", icon: Settings, roles: ["owner", "admin"] }
 ] as const;
+
+export const navGroups = [
+  { title: "Overview", hrefs: ["/dashboard", "/attendance", "/attendance/selfies", "/attendance/reports", "/attendance/leaves", "/payroll", "/payroll/settings", "/notifications", "/account"] },
+  { title: "Chat", hrefs: ["/chat"] },
+  { title: "Sales", hrefs: ["/leads", "/sales/pipeline", "/sales/proposals", "/sales/products", "/sales/campaigns", "/sales/targets", "/sales/commissions", "/sales/activities", "/sales/tasks", "/sales/reports"] },
+  { title: "Accounting", hrefs: ["/expenses", "/project-payments", "/payment-reminders", "/general-funds", "/vendors", "/expense-contributors"] },
+  { title: "Work", hrefs: ["/clients", "/projects", "/tasks", "/categories"] },
+  { title: "Accounts", hrefs: ["/accounts", "/data-health", "/chart-of-accounts", "/ledger", "/bank-accounts", "/reconciliation", "/opening-balances", "/journal-entries", "/invoices", "/tax", "/fiscal-years"] },
+  { title: "Reports", hrefs: ["/reports", "/email-logs", "/audit-logs"] },
+  { title: "Admin", hrefs: ["/organizations", "/users", "/permissions", "/settings"] }
+];

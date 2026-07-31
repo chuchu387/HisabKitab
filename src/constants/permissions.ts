@@ -151,6 +151,17 @@ export function resolvePermissions(role: string, overrides: PermissionOverrides 
   }, {} as Permissions);
 }
 
+export function hasAccess(item: { href: string; roles: readonly string[] }, role: string, permissions: Permissions | null): boolean {
+  if (role === "owner" || role === "super_admin") return (item.roles as readonly string[]).includes(role);
+  if (permissions) {
+    const feature = navFeatureMap[item.href];
+    if (feature) return permissions[feature];
+    return (item.roles as readonly string[]).includes(role);
+  }
+  if (role === "admin") return true;
+  return (item.roles as readonly string[]).includes(role);
+}
+
 export const navFeatureMap: Record<string, FeatureKey> = {
   "/leads": "leadsView",
   "/sales/pipeline": "salesPipeline",

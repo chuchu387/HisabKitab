@@ -5,36 +5,18 @@ import { ChevronDown } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { BrandLogo } from "@/components/brand";
-import { navItems } from "@/constants";
+import { navGroups, navItems } from "@/constants";
 import type { Role } from "@/constants";
-import { navFeatureMap, type Permissions } from "@/constants/permissions";
+import { hasAccess, type Permissions } from "@/constants/permissions";
 import { cn } from "@/lib/utils";
 
-const navGroups = [
-  { title: "Overview", hrefs: ["/dashboard", "/attendance", "/attendance/selfies", "/attendance/reports", "/attendance/leaves", "/payroll", "/payroll/settings", "/notifications", "/account"] },
-  { title: "Chat", hrefs: ["/chat"] },
-  { title: "Sales", hrefs: ["/leads", "/sales/pipeline", "/sales/proposals", "/sales/products", "/sales/campaigns", "/sales/targets", "/sales/commissions", "/sales/activities", "/sales/tasks", "/sales/reports"] },
-  { title: "Accounting", hrefs: ["/expenses", "/project-payments", "/payment-reminders", "/general-funds", "/vendors", "/expense-contributors"] },
-  { title: "Work", hrefs: ["/clients", "/projects", "/tasks", "/categories"] },
-  { title: "Accounts", hrefs: ["/accounts", "/data-health", "/chart-of-accounts", "/ledger", "/bank-accounts", "/reconciliation", "/opening-balances", "/journal-entries", "/invoices", "/tax", "/fiscal-years"] },
-  { title: "Reports", hrefs: ["/reports", "/email-logs", "/audit-logs"] },
-  { title: "Admin", hrefs: ["/organizations", "/users", "/permissions", "/settings"] }
-];
-
-function hasAccess(item: (typeof navItems)[number], role: Role, permissions: Permissions | null): boolean {
-  if (role === "owner" || role === "super_admin") return (item.roles as readonly Role[]).includes(role);
-  if (permissions) {
-    const feature = navFeatureMap[item.href];
-    if (feature) return permissions[feature];
-    return (item.roles as readonly Role[]).includes(role);
-  }
-  if (role === "admin") return true;
-  return (item.roles as readonly Role[]).includes(role);
+function hasPermission(item: (typeof navItems)[number], role: Role, permissions: Permissions | null): boolean {
+  return hasAccess(item, role, permissions);
 }
 
 export function Sidebar({ role, permissions }: { role: Role; permissions: Permissions | null }) {
   const pathname = usePathname();
-  const visibleItems = navItems.filter((item) => hasAccess(item, role, permissions));
+  const visibleItems = navItems.filter((item) => hasPermission(item, role, permissions));
   const accountsActive = navGroups.find((group) => group.title === "Accounts")?.hrefs.some((href) => pathname === href || pathname.startsWith(`${href}/`)) ?? false;
   const [accountsOpen, setAccountsOpen] = useState(accountsActive);
   return (

@@ -5,22 +5,14 @@ import { Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { BrandLogo } from "@/components/brand";
-import { navItems, type Role } from "@/constants";
+import { navGroups, navItems, type Role } from "@/constants";
+import { hasAccess, type Permissions } from "@/constants/permissions";
 import { cn } from "@/lib/utils";
 
-const navGroups = [
-  { title: "Overview", hrefs: ["/dashboard", "/attendance", "/attendance/leaves", "/payroll", "/notifications", "/account"] },
-  { title: "Accounting", hrefs: ["/expenses", "/project-payments", "/payment-reminders", "/general-funds", "/vendors", "/expense-contributors"] },
-  { title: "Work", hrefs: ["/clients", "/projects", "/tasks", "/categories"] },
-  { title: "Accounts", hrefs: ["/accounts", "/data-health", "/chart-of-accounts", "/ledger", "/bank-accounts", "/reconciliation", "/opening-balances", "/journal-entries", "/invoices", "/tax", "/fiscal-years"] },
-  { title: "Reports", hrefs: ["/reports", "/email-logs", "/audit-logs"] },
-  { title: "Admin", hrefs: ["/organizations", "/users", "/settings"] }
-];
-
-export function MobileNav({ role }: { role: Role }) {
+export function MobileNav({ role, permissions }: { role: Role; permissions: Permissions | null }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const visibleItems = navItems.filter((item) => (item.roles as readonly Role[]).includes(role));
+  const visibleItems = navItems.filter((item) => hasAccess(item, role, permissions));
   return (
     <>
       <button type="button" className="rounded-lg border bg-card p-2 shadow-sm hover:bg-muted lg:hidden" onClick={() => setOpen(true)} aria-label="Open navigation">
