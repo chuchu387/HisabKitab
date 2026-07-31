@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { connectToDatabase } from "@/lib/db";
 import { User } from "@/models/User";
 import { resolvePermissions, type FeatureKey, type PermissionOverrides } from "@/constants/permissions";
 import type { Role } from "@/constants";
@@ -22,7 +23,24 @@ export function corsPreflight() {
 export const requireSession = cache(async () => {
   const session = await auth();
   if (!session?.user?.userId || !session?.user?.active) redirect("/login");
-  return session as unknown as { user: { userId: string; organizationId?: string; name: string; email: string; role: Role; active: boolean } };
+  try {
+    await connectToDatabase();
+    const user = await User.findById(session.user.userId).select("name email role active organizationId").lean() as any;
+    if (!user || !user.active) redirect("/login");
+    return {
+      ...session,
+      user: {
+        ...session.user,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        organizationId: user.organizationId?.toString() ?? session.user.organizationId,
+        active: user.active
+      }
+    } as unknown as Awaited<ReturnType<typeof auth>> & { user: { userId: string; organizationId?: string; name: string; email: string; role: Role; active: boolean } };
+  } catch {
+    return session as unknown as { user: { userId: string; organizationId?: string; name: string; email: string; role: Role; active: boolean } };
+  }
 });
 
 export async function requireRole(allowed: Role[]) {

@@ -21,20 +21,20 @@ const navGroups = [
   { title: "Admin", hrefs: ["/organizations", "/users", "/permissions", "/settings"] }
 ];
 
-function hasAccess(href: string, role: Role, permissions: Permissions | null): boolean {
-  if (role === "owner" || role === "super_admin") return true;
-  if (role === "admin" && !permissions) return true;
-  const feature = navFeatureMap[href];
-  if (!feature) return true;
-  return permissions ? permissions[feature] : false;
+function hasAccess(item: (typeof navItems)[number], role: Role, permissions: Permissions | null): boolean {
+  if (role === "owner" || role === "super_admin") return (item.roles as readonly Role[]).includes(role);
+  if (permissions) {
+    const feature = navFeatureMap[item.href];
+    if (feature) return permissions[feature];
+    return (item.roles as readonly Role[]).includes(role);
+  }
+  if (role === "admin") return true;
+  return (item.roles as readonly Role[]).includes(role);
 }
 
 export function Sidebar({ role, permissions }: { role: Role; permissions: Permissions | null }) {
   const pathname = usePathname();
-  const visibleItems = navItems.filter((item) => {
-    if (!(item.roles as readonly Role[]).includes(role)) return false;
-    return hasAccess(item.href, role, permissions);
-  });
+  const visibleItems = navItems.filter((item) => hasAccess(item, role, permissions));
   const accountsActive = navGroups.find((group) => group.title === "Accounts")?.hrefs.some((href) => pathname === href || pathname.startsWith(`${href}/`)) ?? false;
   const [accountsOpen, setAccountsOpen] = useState(accountsActive);
   return (
