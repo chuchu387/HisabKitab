@@ -69,7 +69,7 @@ export function PipelineBoard({ leads }: { leads: any[] }) {
             key={stage.value}
             onDragOver={(event) => event.preventDefault()}
             onDrop={() => onDrop(stage.value)}
-            className="flex min-h-[300px] min-w-60 flex-col overflow-hidden rounded-lg border bg-card transition-opacity data-[moving=true]:opacity-75"
+            className="flex max-h-[min(72vh,760px)] min-h-[300px] min-w-60 flex-col overflow-hidden rounded-lg border bg-card transition-opacity data-[moving=true]:opacity-75"
             data-moving={isMoving}
             style={{ borderTopColor: stage.color, boxShadow: `inset 0 3px 0 ${stage.color}` }}
           >
