@@ -3,12 +3,15 @@ import type { MetadataRoute } from "next";
 export const dynamic = "force-static";
 
 export default function manifest(): MetadataRoute.Manifest {
-  return {
+  const appManifest: MetadataRoute.Manifest & { display_override: string[]; id: string; scope: string } = {
+    id: "/",
     name: "HisabKitab",
     short_name: "HisabKitab",
     description: "Multi-tenant accounting, sales and expense management",
     start_url: "/dashboard",
+    scope: "/",
     display: "standalone",
+    display_override: ["standalone", "fullscreen"],
     background_color: "#ffffff",
     theme_color: "#0f172a",
     orientation: "portrait-primary",
@@ -19,4 +22,5 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/pwa/apple-touch-icon.png", sizes: "180x180", type: "image/png" }
     ]
   };
+  return appManifest;
 }

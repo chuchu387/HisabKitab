@@ -1,4 +1,4 @@
-const CACHE = "hisabkitab-v1";
+const CACHE = "hisabkitab-v2";
 const PRECACHE = ["/", "/login", "/dashboard", "/pwa/icon-192.png", "/pwa/icon-512.png"];
 
 self.addEventListener("install", (event) => {

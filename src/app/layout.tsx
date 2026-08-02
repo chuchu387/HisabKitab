@@ -4,6 +4,11 @@ import { PwaRegister } from "@/components/pwa-register";
 import "@/app/globals.css";
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
   themeColor: "#0f172a"
 };
 
@@ -14,7 +19,16 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "HisabKitab",
-    statusBarStyle: "default"
+    statusBarStyle: "black-translucent"
+  },
+  formatDetection: {
+    telephone: false
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-title": "HisabKitab",
+    "apple-mobile-web-app-status-bar-style": "black-translucent"
   },
   icons: {
     icon: "/icon.svg",
