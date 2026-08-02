@@ -14,7 +14,7 @@ import type { ActionState } from "@/types";
 
 const initialState: ActionState = { ok: false, message: "" };
 
-export function LeadForm({ lead, users = [], campaigns, projects = [] }: { lead?: any; users?: any[]; campaigns?: { _id: string; name: string }[]; projects?: { _id: string; name: string }[] }) {
+export function LeadForm({ lead, users = [], campaigns, projects = [], products = [] }: { lead?: any; users?: any[]; campaigns?: { _id: string; name: string }[]; projects?: { _id: string; name: string }[]; products?: { _id: string; name: string; category?: string }[] }) {
   const action = lead ? updateLead.bind(null, lead._id.toString()) : createLead;
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
@@ -61,6 +61,13 @@ export function LeadForm({ lead, users = [], campaigns, projects = [] }: { lead?
           </Select>
         </div>
       )}
+      <div className="space-y-2">
+        <Label htmlFor="productId">Product / Service</Label>
+        <Select id="productId" name="productId" defaultValue={lead?.productId ?? ""}>
+          <option value="">No product</option>
+          {products.map((p) => <option key={p._id} value={p._id}>{p.name}{p.category ? ` (${p.category})` : ""}</option>)}
+        </Select>
+      </div>
       <Field name="followUpDate" label="Follow-up Date" type="date" defaultValue={formatDate(lead?.followUpDate)} error={state.fieldErrors?.followUpDate?.[0]} />
       <div className="space-y-2 md:col-span-2">
         <Label htmlFor="notes">Notes</Label>

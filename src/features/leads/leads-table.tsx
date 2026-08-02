@@ -75,6 +75,7 @@ export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]
     { header: "Contact", cell: (lead: any) => <div>{lead.email ? <a href={`mailto:${lead.email}`} className="block text-primary hover:underline">{lead.email}</a> : null}{lead.phone ? <a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a> : lead.email ? null : "-"}</div> },
     { header: "Source", cell: (lead: any) => <Badge variant="info">{leadSourceLabels[lead.source as keyof typeof leadSourceLabels] || lead.source}</Badge> },
     { header: "Project", cell: (lead: any) => lead.projectId ? <Link className="font-medium text-primary hover:underline" href={`/projects/${lead.projectId._id}`}>{lead.projectId.name}</Link> : "-" },
+    { header: "Product", cell: (lead: any) => lead.productId?.name ?? "-" },
     { header: "Status", cell: (lead: any) => <Badge variant={(leadStatusColors[lead.status as keyof typeof leadStatusColors] || "default") as any}>{leadStatusLabels[lead.status as keyof typeof leadStatusLabels] || lead.status}</Badge> },
     { header: "Value", cell: (lead: any) => lead.estimatedValue ? money(lead.estimatedValue) : "-" },
     { header: "Assigned", cell: (lead: any) => lead.assignedTo?.name || "-" },

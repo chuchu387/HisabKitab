@@ -14,7 +14,7 @@ export default async function PipelinePage() {
   await connectToDatabase();
   const oid = new Types.ObjectId(organizationId);
   const [leads, users] = await Promise.all([
-    Lead.find({ organizationId: oid }).sort({ createdAt: -1 }).populate("assignedTo", "name").lean() as any,
+    Lead.find({ organizationId: oid }).sort({ createdAt: -1 }).populate("assignedTo", "name").populate("projectId", "name code").populate("productId", "name category").lean() as any,
     User.find({ organizationId, active: true }).sort({ name: 1 }).select("name role").lean()
   ]);
   return (

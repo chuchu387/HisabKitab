@@ -17,7 +17,7 @@ export default async function SalesReportsPage() {
   await connectToDatabase();
   const oid = new Types.ObjectId(organizationId);
   const [allLeads, allTasks, allProposals] = await Promise.all([
-    Lead.find({ organizationId: oid }).populate("assignedTo", "name").lean() as any,
+    Lead.find({ organizationId: oid }).populate("assignedTo", "name").populate("projectId", "name code").populate("productId", "name category").lean() as any,
     LeadTask.find({ organizationId: oid }).lean(),
     Proposal.find({ organizationId: oid }).lean()
   ]);
@@ -91,6 +91,34 @@ export default async function SalesReportsPage() {
     rate: u.leads > 0 ? Math.round((u.won / u.leads) * 100) : 0
   }));
 
+  const projectData = allLeads.reduce((acc: Record<string, { name: string; leads: number; won: number; value: number }>, lead: any) => {
+    const key = lead.projectId?._id?.toString() || "no-project";
+    const name = lead.projectId?.name || "No project";
+    if (!acc[key]) acc[key] = { name, leads: 0, won: 0, value: 0 };
+    acc[key].leads += 1;
+    if (lead.status === "won") acc[key].won += 1;
+    acc[key].value += lead.estimatedValue || 0;
+    return acc;
+  }, {} as Record<string, { name: string; leads: number; won: number; value: number }>);
+  const projectRows = (Object.values(projectData) as { name: string; leads: number; won: number; value: number }[]).map((item) => ({
+    ...item,
+    rate: item.leads > 0 ? Math.round((item.won / item.leads) * 100) : 0
+  }));
+
+  const productData = allLeads.reduce((acc: Record<string, { name: string; leads: number; won: number; value: number }>, lead: any) => {
+    const key = lead.productId?._id?.toString() || "no-product";
+    const name = lead.productId?.name || "No product/service";
+    if (!acc[key]) acc[key] = { name, leads: 0, won: 0, value: 0 };
+    acc[key].leads += 1;
+    if (lead.status === "won") acc[key].won += 1;
+    acc[key].value += lead.estimatedValue || 0;
+    return acc;
+  }, {} as Record<string, { name: string; leads: number; won: number; value: number }>);
+  const productRows = (Object.values(productData) as { name: string; leads: number; won: number; value: number }[]).map((item) => ({
+    ...item,
+    rate: item.leads > 0 ? Math.round((item.won / item.leads) * 100) : 0
+  }));
+
   const statusBreakdown = (["new", "contacted", "meeting_scheduled", "proposal_sent", "negotiation", "won", "lost"] as const).map((s) => ({
     status: leadStatusLabels[s],
     count: allLeads.filter((l: any) => l.status === s).length,
@@ -148,6 +176,33 @@ export default async function SalesReportsPage() {
             <DataTable data={sourceRows} columns={[
               { header: "Source", cell: (r: any) => r.source },
               { header: "Leads", cell: (r: any) => r.count },
+              { header: "Won", cell: (r: any) => r.won },
+              { header: "Conversion", cell: (r: any) => `${r.rate}%` },
+              { header: "Pipeline Value", cell: (r: any) => money(r.value) }
+            ]} />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle>Project-wise Leads</CardTitle></CardHeader>
+          <CardContent>
+            <DataTable data={projectRows} columns={[
+              { header: "Project", cell: (r: any) => r.name },
+              { header: "Leads", cell: (r: any) => r.leads },
+              { header: "Won", cell: (r: any) => r.won },
+              { header: "Conversion", cell: (r: any) => `${r.rate}%` },
+              { header: "Pipeline Value", cell: (r: any) => money(r.value) }
+            ]} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Product / Service-wise Leads</CardTitle></CardHeader>
+          <CardContent>
+            <DataTable data={productRows} columns={[
+              { header: "Product / Service", cell: (r: any) => r.name },
+              { header: "Leads", cell: (r: any) => r.leads },
               { header: "Won", cell: (r: any) => r.won },
               { header: "Conversion", cell: (r: any) => `${r.rate}%` },
               { header: "Pipeline Value", cell: (r: any) => money(r.value) }

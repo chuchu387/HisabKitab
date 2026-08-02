@@ -179,6 +179,16 @@ function PipelineCard({ lead, stageColor, checked, onChecked, onDragStart }: { l
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
         {lead.company && <span className="truncate">{lead.company}</span>}
+        {lead.projectId?.name && (
+          <span className="rounded bg-secondary px-1.5 py-0.5 text-secondary-foreground">
+            {lead.projectId.name}
+          </span>
+        )}
+        {lead.productId?.name && (
+          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary">
+            {lead.productId.name}
+          </span>
+        )}
         {lead.source && (
           <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
             {leadSourceLabels[lead.source as keyof typeof leadSourceLabels] ?? lead.source}

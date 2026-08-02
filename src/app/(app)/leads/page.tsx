@@ -13,6 +13,7 @@ import { requireTenant } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Lead } from "@/models/Lead";
 import { Project } from "@/models/Project";
+import { Product } from "@/models/Product";
 import { User } from "@/models/User";
 import { leadStatusLabels } from "@/constants";
 
@@ -24,15 +25,18 @@ export default async function LeadsPage({ searchParams }: any) {
   const sourceFilter = typeof params?.source === "string" ? params.source : "";
   const statusFilter = typeof params?.status === "string" ? params.status : "";
   const projectFilter = typeof params?.projectId === "string" ? params.projectId : "";
+  const productFilter = typeof params?.productId === "string" ? params.productId : "";
   const query: any = { organizationId: new Types.ObjectId(organizationId) };
   if (q) query.$or = [{ name: new RegExp(q, "i") }, { company: new RegExp(q, "i") }, { email: new RegExp(q, "i") }];
   if (sourceFilter) query.source = sourceFilter;
   if (statusFilter) query.status = statusFilter;
   if (projectFilter && Types.ObjectId.isValid(projectFilter)) query.projectId = new Types.ObjectId(projectFilter);
-  const [leads, totalCount, projects, assignees] = await Promise.all([
-    Lead.find(query).sort({ createdAt: -1 }).populate("assignedTo", "name").populate("projectId", "name code").lean() as any,
+  if (productFilter && Types.ObjectId.isValid(productFilter)) query.productId = new Types.ObjectId(productFilter);
+  const [leads, totalCount, projects, products, assignees] = await Promise.all([
+    Lead.find(query).sort({ createdAt: -1 }).populate("assignedTo", "name").populate("projectId", "name code").populate("productId", "name category").lean() as any,
     Lead.countDocuments({ organizationId: new Types.ObjectId(organizationId) }),
     Project.find({ organizationId, status: "active" }).sort({ name: 1 }).select("name code").lean(),
+    Product.find({ organizationId, active: true }).sort({ name: 1 }).select("name category").lean(),
     User.find({ organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).sort({ role: 1, name: 1 }).select("name role").lean()
   ]);
   const today = new Date();
@@ -76,6 +80,10 @@ export default async function LeadsPage({ searchParams }: any) {
         <select className="native-control" name="projectId" defaultValue={projectFilter}>
           <option value="">All projects</option>
           {projects.map((p: any) => <option key={p._id.toString()} value={p._id.toString()}>{p.name}</option>)}
+        </select>
+        <select className="native-control" name="productId" defaultValue={productFilter}>
+          <option value="">All products/services</option>
+          {products.map((p: any) => <option key={p._id.toString()} value={p._id.toString()}>{p.name}{p.category ? ` (${p.category})` : ""}</option>)}
         </select>
         <Button variant="outline">Filter</Button>
       </FilterForm>

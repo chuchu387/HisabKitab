@@ -8,6 +8,7 @@ import { Lead } from "@/models/Lead";
 import { LeadActivity } from "@/models/LeadActivity";
 import { Client } from "@/models/Client";
 import { Project } from "@/models/Project";
+import { Product } from "@/models/Product";
 import { Notification } from "@/models/Notification";
 import { User } from "@/models/User";
 import { leadSchema, leadStatusUpdateSchema } from "@/validations/schemas";
@@ -71,6 +72,7 @@ export async function createLead(_: ActionState, formData: FormData): Promise<Ac
       assignedTo: data.assignedTo || null,
       campaignId: data.campaignId || null,
       projectId: data.projectId || null,
+      productId: data.productId || null,
       followUpDate: data.followUpDate || null,
       score: computeLeadScore(data),
       organizationId,
@@ -102,7 +104,7 @@ export async function updateLead(id: string, _: ActionState, formData: FormData)
     if (duplicate) throw new Error(`A ${duplicate.type} already exists with this contact: ${duplicate.name}`);
     const lead = await Lead.findOneAndUpdate(
       { _id: id, organizationId },
-      { ...data, assignedTo: data.assignedTo || null, campaignId: data.campaignId || null, projectId: data.projectId || null, followUpDate: data.followUpDate || null },
+      { ...data, assignedTo: data.assignedTo || null, campaignId: data.campaignId || null, projectId: data.projectId || null, productId: data.productId || null, followUpDate: data.followUpDate || null },
       { runValidators: true }
     );
     if (!lead) throw new Error("Lead not found");
@@ -314,6 +316,21 @@ export async function importLeadsCsv(formData: FormData): Promise<{ ok: boolean;
       }
       return "";
     }
+    const [projects, products] = await Promise.all([
+      Project.find({ organizationId }).select("name code").lean(),
+      Product.find({ organizationId, active: true }).select("name category").lean()
+    ]);
+    const normalize = (value: string) => value.trim().toLowerCase();
+    const projectLookup = new Map<string, string>();
+    projects.forEach((project: any) => {
+      if (project.name) projectLookup.set(normalize(project.name), project._id.toString());
+      if (project.code) projectLookup.set(normalize(project.code), project._id.toString());
+    });
+    const productLookup = new Map<string, string>();
+    products.forEach((product: any) => {
+      if (product.name) productLookup.set(normalize(product.name), product._id.toString());
+      if (product.category) productLookup.set(normalize(`${product.name} ${product.category}`), product._id.toString());
+    });
     let created = 0;
     let skipped = 0;
     for (const row of rows) {
@@ -325,6 +342,8 @@ export async function importLeadsCsv(formData: FormData): Promise<{ ok: boolean;
       if (dup) { skipped += 1; continue; }
       const company = cell(row, "company", "Company");
       const source = cell(row, "source", "Source").toLowerCase().trim();
+      const projectKey = normalize(cell(row, "project", "Project", "Project Code", "projectCode", "project_code"));
+      const productKey = normalize(cell(row, "product", "Product", "service", "Service", "Product / Service"));
       const validSources = ["website", "referral", "facebook", "instagram", "linkedin", "cold_call", "existing_client", "walk_in", "other"];
       const finalSource = validSources.includes(source) ? source : "referral";
       await Lead.create({
@@ -334,6 +353,8 @@ export async function importLeadsCsv(formData: FormData): Promise<{ ok: boolean;
         phone,
         company,
         source: finalSource,
+        projectId: projectLookup.get(projectKey) || null,
+        productId: productLookup.get(productKey) || null,
         estimatedValue: parseFloat(cell(row, "estimatedValue", "Estimated Value", "estimated_value", "value")) || 0,
         notes: cell(row, "notes", "Notes"),
         createdBy: session.user.userId
