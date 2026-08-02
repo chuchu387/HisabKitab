@@ -111,6 +111,7 @@ export const navItems = [
   { href: "/attendance/selfies", label: "Selfies", icon: Camera, roles: ["owner", "admin"] },
   { href: "/attendance/reports", label: "Attendance Reports", icon: ListChecks, roles: ["owner", "admin"] },
   { href: "/attendance/leaves", label: "Leaves", icon: CalendarRange, roles: ["owner", "admin", "staff"] },
+  { href: "/attendance/settings", label: "Attendance Settings", icon: Settings2, roles: ["owner", "admin"] },
   { href: "/payroll", label: "Payroll", icon: Wallet, roles: ["owner", "admin", "staff"] },
   { href: "/payroll/settings", label: "Salary Settings", icon: Settings2, roles: ["owner", "admin"] },
   { href: "/leads", label: "Leads", icon: Target, roles: ["owner", "admin", "staff"] },
@@ -153,7 +154,7 @@ export const navItems = [
 ] as const;
 
 export const navGroups = [
-  { title: "Overview", hrefs: ["/dashboard", "/attendance", "/attendance/selfies", "/attendance/reports", "/attendance/leaves", "/payroll", "/payroll/settings", "/notifications", "/account"] },
+  { title: "Overview", hrefs: ["/dashboard", "/attendance", "/attendance/selfies", "/attendance/reports", "/attendance/leaves", "/attendance/settings", "/payroll", "/payroll/settings", "/notifications", "/account"] },
   { title: "Chat", hrefs: ["/chat"] },
   { title: "Sales", hrefs: ["/leads", "/sales/pipeline", "/sales/proposals", "/sales/products", "/sales/campaigns", "/sales/targets", "/sales/commissions", "/sales/activities", "/sales/tasks", "/sales/reports"] },
   { title: "Accounting", hrefs: ["/expenses", "/project-payments", "/payment-reminders", "/general-funds", "/vendors", "/expense-contributors"] },

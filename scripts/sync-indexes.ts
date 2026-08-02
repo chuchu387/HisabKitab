@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { connectToDatabase } from "@/lib/db";
 import { Attendance } from "@/models/Attendance";
+import { AttendanceSetting } from "@/models/AttendanceSetting";
 import { AuditLog } from "@/models/AuditLog";
 import { BankAccount } from "@/models/BankAccount";
 import { BankReconciliation } from "@/models/BankReconciliation";
@@ -81,6 +82,7 @@ async function main() {
     OpeningBalance,
     ManualJournalEntry,
     Attendance,
+    AttendanceSetting,
     Leave,
     Payroll,
     SalarySetting,

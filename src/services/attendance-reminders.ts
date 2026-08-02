@@ -1,4 +1,5 @@
 import { Attendance } from "@/models/Attendance";
+import { AttendanceSetting } from "@/models/AttendanceSetting";
 import { EmailLog } from "@/models/EmailLog";
 import { Organization } from "@/models/Organization";
 import { User } from "@/models/User";
@@ -34,10 +35,19 @@ export async function sendMissingAttendanceReminders(options: AttendanceReminder
 
   for (const organization of organizations) {
     const organizationId = organization._id.toString();
-    const [users, presentRecords] = await Promise.all([
+    const [settings, users, presentRecords] = await Promise.all([
+      AttendanceSetting.findOne({ organizationId }).lean() as any,
       User.find({ organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).select("_id name email role").lean(),
       Attendance.find({ organizationId, date: today }).select("userId").lean()
     ]);
+    const orgStartHour = Number(settings?.reminderStartHour ?? startHour);
+    const orgEndHour = Number(settings?.reminderEndHour ?? endHour);
+    const orgMaxPerDay = Number(settings?.reminderMaxPerDay ?? maxPerDay);
+    const workingDays = settings?.workingDays?.length ? settings.workingDays.map(Number) : [0, 1, 2, 3, 4, 5];
+    const holidays = new Set((settings?.holidays ?? []).map(String));
+    if (settings?.remindersEnabled === false || holidays.has(today) || !workingDays.includes(nepalDay(now)) || (!options.force && (currentHour < orgStartHour || currentHour > orgEndHour))) {
+      continue;
+    }
     const typedUsers = users as any[];
     const typedPresentRecords = presentRecords as any[];
     const presentUserIds = new Set(typedPresentRecords.map((record) => record.userId?.toString()).filter(Boolean));
@@ -55,7 +65,7 @@ export async function sendMissingAttendanceReminders(options: AttendanceReminder
         status: "sent",
         "metadata.date": today
       });
-      if (!options.force && sentToday >= maxPerDay) continue;
+      if (!options.force && sentToday >= orgMaxPerDay) continue;
 
       const sentThisHour = await EmailLog.exists({
         organizationId,
@@ -71,17 +81,17 @@ export async function sendMissingAttendanceReminders(options: AttendanceReminder
       const result = await sendEmail({
         organizationId,
         to: [{ email: user.email, name: user.name }],
-        subject: `Attendance reminder ${attempt}/${maxPerDay}: please mark today's attendance`,
+        subject: `Attendance reminder ${attempt}/${orgMaxPerDay}: please mark today's attendance`,
         template: selfTemplate,
         entityType: "User",
         entityId: userId,
-        metadata: { date: today, hour: currentHour, attempt, maxPerDay },
+        metadata: { date: today, hour: currentHour, attempt, maxPerDay: orgMaxPerDay },
         html: emailLayout(
           "Attendance reminder",
           `
             <p>Hi ${escapeHtml(user.name)}, your attendance for ${escapeHtml(today)} has not been marked yet.</p>
             <p>Please open HisabKitab and mark attendance as soon as possible.</p>
-            <p style="color:#6b7280">Reminder ${attempt} of ${maxPerDay}. This reminder is sent once per hour while attendance is missing.</p>
+            <p style="color:#6b7280">Reminder ${attempt} of ${orgMaxPerDay}. This reminder is sent once per hour while attendance is missing.</p>
             ${actionButton("Mark Attendance", appUrl("/attendance"))}
           `
         )
@@ -110,7 +120,7 @@ export async function sendMissingAttendanceReminders(options: AttendanceReminder
               <table style="width:100%;border-collapse:collapse;margin-top:12px">
                 <thead><tr><th align="left" style="border-bottom:1px solid #e5e7eb;padding:8px">Member</th><th align="left" style="border-bottom:1px solid #e5e7eb;padding:8px">Role</th><th align="left" style="border-bottom:1px solid #e5e7eb;padding:8px">Reminder</th></tr></thead>
                 <tbody>
-                  ${remindedUsers.map((user) => `<tr><td style="border-bottom:1px solid #f3f4f6;padding:8px">${escapeHtml(user.name)}</td><td style="border-bottom:1px solid #f3f4f6;padding:8px">${escapeHtml(user.role)}</td><td style="border-bottom:1px solid #f3f4f6;padding:8px">${user.attempt}/${maxPerDay}</td></tr>`).join("")}
+                  ${remindedUsers.map((user) => `<tr><td style="border-bottom:1px solid #f3f4f6;padding:8px">${escapeHtml(user.name)}</td><td style="border-bottom:1px solid #f3f4f6;padding:8px">${escapeHtml(user.role)}</td><td style="border-bottom:1px solid #f3f4f6;padding:8px">${user.attempt}/${orgMaxPerDay}</td></tr>`).join("")}
                 </tbody>
               </table>
               ${actionButton("Open Attendance", appUrl("/attendance"))}
@@ -134,6 +144,11 @@ function nepalDate(date: Date) {
 function nepalHour(date: Date) {
   const hour = new Intl.DateTimeFormat("en-US", { timeZone, hour: "2-digit", hour12: false }).format(date);
   return Number(hour);
+}
+
+function nepalDay(date: Date) {
+  const day = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(date);
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(day);
 }
 
 function numberEnv(key: string, fallback: number) {

@@ -202,6 +202,7 @@ export const navFeatureMap: Record<string, FeatureKey> = {
   "/attendance": "attendanceView",
   "/attendance/selfies": "attendanceManage",
   "/attendance/reports": "attendanceManage",
+  "/attendance/settings": "attendanceManage",
   "/attendance/leaves": "attendanceView",
   "/payroll": "payrollView",
   "/payroll/settings": "payrollManage"

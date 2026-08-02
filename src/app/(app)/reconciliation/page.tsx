@@ -48,11 +48,27 @@ export default async function ReconciliationPage({ searchParams }: any) {
           { header: "System", cell: (row: any) => money(row.systemBalance) },
           { header: "Statement", cell: (row: any) => money(row.statementBalance) },
           { header: "Difference", cell: (row: any) => money(row.difference) },
+          { header: "CSV Match", cell: (row: any) => row.importedRowCount ? `${row.matchedRowCount}/${row.importedRowCount}` : "-" },
           { header: "Status", cell: (row: any) => <Badge variant={row.difference === 0 ? "success" : "warning"}>{row.difference === 0 ? "Matched" : "Review"}</Badge> },
           { header: "By", cell: (row: any) => row.createdBy?.name ?? "Unknown" },
-          { header: "Note", cell: (row: any) => row.note || "-" }
+          { header: "Note", cell: (row: any) => <div className="max-w-md space-y-1"><p>{row.note || "-"}</p><UnmatchedRows rows={row.importedRows ?? []} /></div> }
         ]} />
       </section>
     </PageShell>
+  );
+}
+
+function UnmatchedRows({ rows }: { rows: any[] }) {
+  const unmatched = rows.filter((row) => !row.matched).slice(0, 5);
+  if (!unmatched.length) return null;
+  return (
+    <details className="text-xs text-muted-foreground">
+      <summary className="cursor-pointer text-accent">View unmatched rows</summary>
+      <div className="mt-1 space-y-1">
+        {unmatched.map((row, index) => (
+          <p key={index}>{formatDate(row.date)} · {row.direction} · {money(row.amount)} · {row.description || row.reference || "No description"}</p>
+        ))}
+      </div>
+    </details>
   );
 }
