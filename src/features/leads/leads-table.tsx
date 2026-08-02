@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Trash2, UserRoundX, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
-import { bulkAssignLeads, bulkDeleteLeads, deleteLead } from "@/actions/leads";
+import { bulkAssignLeadProject, bulkAssignLeads, bulkDeleteLeads, deleteLead } from "@/actions/leads";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
@@ -14,10 +14,11 @@ import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { leadSourceLabels, leadStatusColors, leadStatusLabels } from "@/constants";
 import { formatDate, money, waLink } from "@/lib/utils";
 
-export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]; assignees?: any[]; pagination: any }) {
+export function LeadsTable({ leads, projects = [], assignees = [], pagination }: { leads: any[]; projects?: any[]; assignees?: any[]; pagination: any }) {
   const router = useRouter();
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
   const [showAssign, setShowAssign] = useState(false);
+  const [projectId, setProjectId] = useState("");
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [isDeleting, startDelete] = useTransition();
   const [isAssigning, startAssign] = useTransition();
@@ -58,6 +59,22 @@ export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]
         router.refresh();
       } catch (error: any) {
         toast.error(error?.message ?? "Failed to assign leads");
+      }
+    });
+  }
+
+  function assignProjectSelected() {
+    if (!checkedIds.length) return;
+    startAssign(async () => {
+      try {
+        const result = await bulkAssignLeadProject(checkedIds, projectId);
+        if (!result.ok) throw new Error(result.message);
+        toast.success(result.message);
+        setCheckedIds([]);
+        setProjectId("");
+        router.refresh();
+      } catch (error: any) {
+        toast.error(error?.message ?? "Failed to assign project");
       }
     });
   }
@@ -132,6 +149,15 @@ export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]
               )}
             </div>
             <Button type="button" variant="outline" size="sm" onClick={toggleAll}>{allChecked ? "Clear Selection" : "Select All"}</Button>
+            <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-1">
+              <select className="native-control h-9 min-w-48" value={projectId} onChange={(event) => setProjectId(event.target.value)} aria-label="Bulk project">
+                <option value="">No project</option>
+                {projects.map((project: any) => (
+                  <option key={project._id} value={project._id}>{project.name}</option>
+                ))}
+              </select>
+              <Button type="button" variant="outline" size="sm" disabled={isAssigning} onClick={assignProjectSelected}>Move to Project</Button>
+            </div>
             <Button type="button" variant="outline" size="sm" disabled={isDeleting} onClick={deleteSelected}>
               <Trash2 className="h-4 w-4 text-destructive" />
               {isDeleting ? "Deleting..." : "Delete Selected"}

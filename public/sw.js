@@ -51,17 +51,19 @@ self.addEventListener("fetch", (event) => {
 
   if (isStatic) {
     event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      const copy = response.clone();
-      caches.open(CACHE).then((cache) => cache.put(request, copy));
+      if (response.ok && response.type === "basic") {
+        const copy = response.clone();
+        caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
+      }
       return response;
     })));
     return;
   }
 
   event.respondWith(fetch(request).then((response) => {
-    if (response.ok) {
+    if (response.ok && response.type === "basic") {
       const copy = response.clone();
-      caches.open(CACHE).then((cache) => cache.put(request, copy));
+      caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
     }
     return response;
   }).catch(() => caches.match(request).then((cached) => cached || caches.match("/"))));

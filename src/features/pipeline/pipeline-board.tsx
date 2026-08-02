@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { UserRoundX, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
-import { bulkAssignLeads, updateLeadStatus } from "@/actions/leads";
+import { bulkAssignLeadProject, bulkAssignLeads, updateLeadStatus } from "@/actions/leads";
 import { Button } from "@/components/ui/button";
 import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { leadSourceLabels, leadStatusLabels } from "@/constants";
@@ -42,11 +42,12 @@ function daysSince(date: string) {
   return `${days} days`;
 }
 
-export function PipelineBoard({ leads, users }: { leads: any[]; users: any[] }) {
+export function PipelineBoard({ leads, projects = [], users }: { leads: any[]; projects?: any[]; users: any[] }) {
   const [items, setItems] = useState(leads);
   const [draggingId, setDraggingId] = useState("");
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
   const [showAssign, setShowAssign] = useState(false);
+  const [projectId, setProjectId] = useState("");
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [isMoving, startMove] = useTransition();
   const [isAssigning, startAssign] = useTransition();
@@ -88,6 +89,23 @@ export function PipelineBoard({ leads, users }: { leads: any[]; users: any[] }) 
     setSelectedAssigneeIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   }
 
+  function assignProjectSelected() {
+    if (!checkedIds.length) return;
+    startAssign(async () => {
+      try {
+        const result = await bulkAssignLeadProject(checkedIds, projectId);
+        if (!result.ok) throw new Error(result.message);
+        const project = projects.find((item) => item._id === projectId);
+        setItems((current) => current.map((item) => checkedIds.includes(item._id) ? { ...item, projectId: project ?? null } : item));
+        setCheckedIds([]);
+        setProjectId("");
+        toast.success(result.message);
+      } catch (error: any) {
+        toast.error(error?.message ?? "Failed to assign project");
+      }
+    });
+  }
+
   return (
     <div className="space-y-3">
       {checkedIds.length > 0 && (
@@ -123,6 +141,15 @@ export function PipelineBoard({ leads, users }: { leads: any[]; users: any[] }) 
                   </div>
                 </div>
               )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-1">
+              <select className="native-control h-9 min-w-48" value={projectId} onChange={(event) => setProjectId(event.target.value)} aria-label="Bulk project">
+                <option value="">No project</option>
+                {projects.map((project: any) => (
+                  <option key={project._id} value={project._id}>{project.name}</option>
+                ))}
+              </select>
+              <Button type="button" variant="outline" size="sm" disabled={isAssigning} onClick={assignProjectSelected}>Move to Project</Button>
             </div>
             <Button type="button" variant="outline" size="sm" onClick={() => setCheckedIds([])}>Clear</Button>
           </div>

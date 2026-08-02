@@ -13,7 +13,7 @@ export default async function NewLeadPage() {
   const [users, campaigns, projects, products] = await Promise.all([
     User.find({ organizationId, active: true }).sort({ name: 1 }).select("name email").lean(),
     Campaign.find({ organizationId, active: true }).sort({ name: 1 }).select("name").lean(),
-    Project.find({ organizationId, status: "active" }).sort({ name: 1 }).select("name code").lean(),
+    Project.find({ organizationId }).sort({ name: 1 }).select("name code status").lean(),
     Product.find({ organizationId, active: true }).sort({ name: 1 }).select("name category").lean()
   ]);
   return <PageShell title="Create Lead" breadcrumb={[{ label: "Leads", href: "/leads" }, { label: "Create" }]}><LeadForm users={JSON.parse(JSON.stringify(users))} campaigns={JSON.parse(JSON.stringify(campaigns))} projects={JSON.parse(JSON.stringify(projects))} products={JSON.parse(JSON.stringify(products))} /></PageShell>;

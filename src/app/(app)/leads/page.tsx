@@ -42,7 +42,7 @@ export default async function LeadsPage({ searchParams }: any) {
   const [leads, totalCount, projects, products, assignees] = await Promise.all([
     Lead.find(query).sort({ createdAt: -1 }).populate("assignedTo assignedToIds", "name").populate("projectId", "name code").populate("productId", "name category").lean() as any,
     Lead.countDocuments({ organizationId: new Types.ObjectId(organizationId) }),
-    Project.find({ organizationId, status: "active" }).sort({ name: 1 }).select("name code").lean(),
+    Project.find({ organizationId }).sort({ name: 1 }).select("name code status").lean(),
     Product.find({ organizationId, active: true }).sort({ name: 1 }).select("name category").lean(),
     User.find({ organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).sort({ role: 1, name: 1 }).select("name role").lean()
   ]);
@@ -105,7 +105,7 @@ export default async function LeadsPage({ searchParams }: any) {
           Download<br />Sample CSV
         </a>
       </div>
-      <LeadsTable leads={JSON.parse(JSON.stringify(leads))} assignees={JSON.parse(JSON.stringify(assignees))} pagination={{ basePath: "/leads", searchParams: params }} />
+      <LeadsTable leads={JSON.parse(JSON.stringify(leads))} projects={JSON.parse(JSON.stringify(projects))} assignees={JSON.parse(JSON.stringify(assignees))} pagination={{ basePath: "/leads", searchParams: params }} />
     </PageShell>
   );
 }

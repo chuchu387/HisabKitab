@@ -19,7 +19,7 @@ export default async function EditLeadPage({ params }: any) {
     Lead.findOne({ _id: routeParams.id, organizationId }).lean(),
     User.find({ organizationId, active: true }).sort({ name: 1 }).select("name email").lean(),
     Campaign.find({ organizationId, active: true }).sort({ name: 1 }).select("name").lean(),
-    Project.find({ organizationId, status: "active" }).sort({ name: 1 }).select("name code").lean(),
+    Project.find({ organizationId }).sort({ name: 1 }).select("name code status").lean(),
     Product.find({ organizationId, active: true }).sort({ name: 1 }).select("name category").lean()
   ]);
   if (!lead) notFound();

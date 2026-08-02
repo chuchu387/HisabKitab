@@ -200,6 +200,32 @@ export async function bulkAssignLeads(ids: string[], assigneeIdsInput: string | 
   }
 }
 
+export async function bulkAssignLeadProject(ids: string[], projectIdInput: string): Promise<ActionState> {
+  try {
+    const { session, organizationId } = await requireFeature("leadsManage");
+    await connectToDatabase();
+    const objectIds = ids.filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
+    if (!objectIds.length) throw new Error("No valid leads selected");
+    let projectId: Types.ObjectId | null = null;
+    let projectName = "No project";
+    if (projectIdInput) {
+      if (!Types.ObjectId.isValid(projectIdInput)) throw new Error("Invalid project");
+      const project = await Project.findOne({ _id: projectIdInput, organizationId }).select("_id name").lean() as any;
+      if (!project) throw new Error("Project not found");
+      projectId = new Types.ObjectId(projectIdInput);
+      projectName = project.name ?? "Selected project";
+    }
+    const result = await Lead.updateMany({ _id: { $in: objectIds }, organizationId }, { $set: { projectId } });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Project Assigned", entityType: "Lead", entityId: objectIds[0].toString(), metadata: { count: result.modifiedCount, projectId: projectId?.toString() ?? null, leadIds: objectIds.map((id) => id.toString()) } });
+    revalidatePath("/leads");
+    revalidatePath("/sales/pipeline");
+    revalidatePath("/sales/reports");
+    return { ok: true, message: projectId ? `${result.modifiedCount} leads moved to ${projectName}` : `${result.modifiedCount} leads removed from project` };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
 export async function updateLeadStatus(id: string, status: string) {
   const { session, organizationId } = await requireFeature("leadsManage");
   await connectToDatabase();
