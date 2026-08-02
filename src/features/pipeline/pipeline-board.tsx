@@ -70,6 +70,7 @@ export function PipelineBoard({ leads, users }: { leads: any[]; users: any[] }) 
     startAssign(async () => {
       try {
         const result = await bulkAssignLeads(checkedIds, assigneeId);
+        if (!result.ok) throw new Error(result.message);
         const assignee = users.find((user) => user._id === assigneeId);
         setItems((current) => current.map((item) => checkedIds.includes(item._id) ? { ...item, assignedTo: assignee ?? null } : item));
         setCheckedIds([]);

@@ -130,39 +130,50 @@ export async function deleteLead(formData: FormData) {
   revalidatePath("/sales/reports");
 }
 
-export async function bulkDeleteLeads(ids: string[]) {
-  const { session, organizationId } = await requireFeature("leadsManage");
-  await connectToDatabase();
-  const objectIds = ids.filter((id) => id).map((id) => new Types.ObjectId(id));
-  if (!objectIds.length) throw new Error("No leads selected");
-  const leads = await Lead.find({ _id: { $in: objectIds }, organizationId }).select("_id").lean();
-  if (!leads.length) throw new Error("Leads not found");
-  await Lead.deleteMany({ _id: { $in: leads.map((lead) => lead._id) }, organizationId });
-  await LeadActivity.deleteMany({ leadId: { $in: leads.map((lead) => lead._id) }, organizationId });
-  await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Deleted", entityType: "Lead", entityId: `${leads.length} leads`, metadata: { count: leads.length } });
-  revalidatePath("/leads");
-  revalidatePath("/sales/pipeline");
-  revalidatePath("/sales/reports");
-  return { ok: true, message: `${leads.length} leads deleted` };
+export async function bulkDeleteLeads(ids: string[]): Promise<ActionState> {
+  try {
+    const { session, organizationId } = await requireFeature("leadsManage");
+    await connectToDatabase();
+    const objectIds = ids.filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
+    if (!objectIds.length) throw new Error("No valid leads selected");
+    const leads = await Lead.find({ _id: { $in: objectIds }, organizationId }).select("_id").lean();
+    if (!leads.length) throw new Error("Leads not found");
+    await Lead.deleteMany({ _id: { $in: leads.map((lead) => lead._id) }, organizationId });
+    await LeadActivity.deleteMany({ leadId: { $in: leads.map((lead) => lead._id) }, organizationId });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Deleted", entityType: "Lead", entityId: `${leads.length} leads`, metadata: { count: leads.length } });
+    revalidatePath("/leads");
+    revalidatePath("/sales/pipeline");
+    revalidatePath("/sales/reports");
+    return { ok: true, message: `${leads.length} leads deleted` };
+  } catch (error) {
+    return actionError(error);
+  }
 }
 
-export async function bulkAssignLeads(ids: string[], assigneeId: string) {
-  const { session, organizationId } = await requireFeature("leadsManage");
-  await connectToDatabase();
-  const objectIds = ids.filter((id) => id).map((id) => new Types.ObjectId(id));
-  if (!objectIds.length) throw new Error("No leads selected");
-  let assignedUserId: string | null = null;
-  if (assigneeId) {
-    const assignee = await User.findOne({ _id: assigneeId, organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).select("_id").lean();
-    if (!assignee) throw new Error("Assignee not found");
-    assignedUserId = assigneeId;
+export async function bulkAssignLeads(ids: string[], assigneeId: string): Promise<ActionState> {
+  try {
+    const { session, organizationId } = await requireFeature("leadsManage");
+    await connectToDatabase();
+    const objectIds = ids.filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
+    if (!objectIds.length) throw new Error("No valid leads selected");
+    let assignedUserId: Types.ObjectId | null = null;
+    let assigneeName = "Unassigned";
+    if (assigneeId) {
+      if (!Types.ObjectId.isValid(assigneeId)) throw new Error("Invalid assignee");
+      const assignee = await User.findOne({ _id: assigneeId, organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).select("_id name").lean();
+      if (!assignee) throw new Error("Assignee not found or inactive");
+      assignedUserId = new Types.ObjectId(assigneeId);
+      assigneeName = (assignee as any).name ?? "Selected user";
+    }
+    const result = await Lead.updateMany({ _id: { $in: objectIds }, organizationId }, { $set: { assignedTo: assignedUserId } });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Assigned", entityType: "Lead", entityId: `${objectIds.length} leads`, metadata: { count: result.modifiedCount, assigneeId: assignedUserId?.toString() ?? null } });
+    revalidatePath("/leads");
+    revalidatePath("/sales/pipeline");
+    revalidatePath("/sales/reports");
+    return { ok: true, message: assignedUserId ? `${result.modifiedCount} leads assigned to ${assigneeName}` : `${result.modifiedCount} leads unassigned` };
+  } catch (error) {
+    return actionError(error);
   }
-  await Lead.updateMany({ _id: { $in: objectIds }, organizationId }, { $set: { assignedTo: assignedUserId } });
-  await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Assigned", entityType: "Lead", entityId: `${objectIds.length} leads`, metadata: { count: objectIds.length, assigneeId: assignedUserId } });
-  revalidatePath("/leads");
-  revalidatePath("/sales/pipeline");
-  revalidatePath("/sales/reports");
-  return { ok: true, message: `${objectIds.length} leads assigned` };
 }
 
 export async function updateLeadStatus(id: string, status: string) {

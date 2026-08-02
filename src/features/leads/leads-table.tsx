@@ -34,6 +34,7 @@ export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]
     startDelete(async () => {
       try {
         const result = await bulkDeleteLeads(checkedIds);
+        if (!result.ok) throw new Error(result.message);
         toast.success(result.message);
         setCheckedIds([]);
         router.refresh();
@@ -48,6 +49,7 @@ export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]
     startAssign(async () => {
       try {
         const result = await bulkAssignLeads(checkedIds, assigneeId);
+        if (!result.ok) throw new Error(result.message);
         toast.success(result.message);
         setCheckedIds([]);
         setShowAssign(false);
