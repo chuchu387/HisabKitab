@@ -52,6 +52,9 @@ BREVO_SENDER_NAME=HisabKitab
 BREVO_SENDER_EMAIL=support@example.com
 NEXT_PUBLIC_APP_URL=https://your-domain.com
 CRON_SECRET=change-this-secret-for-vercel-cron
+ATTENDANCE_REMINDER_START_HOUR=10
+ATTENDANCE_REMINDER_END_HOUR=17
+ATTENDANCE_REMINDER_MAX_PER_DAY=8
 ```
 
 Current email events:
@@ -63,6 +66,8 @@ Current email events:
 - Expense approval status updated
 - Project payment added
 - Client project payment due reminder
+- Missing attendance hourly reminder
+- Missing attendance team alert
 
 Email attempts are recorded in `Email Audit` with sent, failed, and skipped status. Email failures are logged but do not block accounting actions.
 
@@ -72,6 +77,13 @@ Email attempts are recorded in `Email Audit` with sent, failed, and skipped stat
 - Vercel Cron can call `/api/reminders/payment-due` daily.
 - In production, set `CRON_SECRET` or `REMINDER_CRON_SECRET`; Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`.
 - Manual reminders skip projects already reminded in the last 24 hours unless force resend is selected.
+
+## Attendance Reminders
+
+- Cron can call `/api/reminders/attendance-missing` hourly.
+- Missing users receive at most one email per hour and at most `ATTENDANCE_REMINDER_MAX_PER_DAY` emails per Nepal date.
+- Owners/admins receive a team alert listing the missing users reminded in that hourly run.
+- Default reminder window is 10:00-17:59 Nepal time. Override with `ATTENDANCE_REMINDER_START_HOUR` and `ATTENDANCE_REMINDER_END_HOUR`.
 
 ## Accounts and Financial Statements
 

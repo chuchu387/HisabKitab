@@ -67,6 +67,8 @@ export default async function EmailLogsPage({ searchParams }: any) {
           <option value="expense_approval">Expense approval</option>
           <option value="project_payment_received">Payment received</option>
           <option value="payment_due_reminder">Payment due reminder</option>
+          <option value="attendance_missing_self">Attendance reminder</option>
+          <option value="attendance_missing_team">Attendance team alert</option>
         </select>
         <Button variant="outline">Filter</Button>
       </FilterForm>
