@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { unstable_cache } from "next/cache";
 import { ChartAccount } from "@/models/ChartAccount";
 import { BankAccount } from "@/models/BankAccount";
 import { Expense } from "@/models/Expense";
@@ -102,6 +103,12 @@ export async function getDerivedLedger(organizationId: string, from?: string, to
   }, new Map()).values());
   return { entries: filteredEntries, summary };
 }
+
+export const getCachedDerivedLedger = unstable_cache(
+  async (organizationId: string, from?: string, to?: string, accountCode?: string) => getDerivedLedger(organizationId, from, to, accountCode),
+  ["derived-ledger"],
+  { revalidate: 30 }
+);
 
 function line(date: Date, sourceType: string, sourceId: unknown, accountCode: string, accountName: string, memo: string, debit: number, credit: number) {
   const safeDate = date ? new Date(date) : new Date(0);

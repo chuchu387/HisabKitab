@@ -10,7 +10,6 @@ import { Project } from "@/models/Project";
 import { ProjectTask } from "@/models/ProjectTask";
 import { TaskFolder } from "@/models/TaskFolder";
 import { User } from "@/models/User";
-import { sendDueTaskNotifications } from "@/services/task-due-notifications";
 
 void Project;
 void User;
@@ -52,8 +51,7 @@ export default async function TasksPage({ searchParams }: any) {
     Project.find({ organizationId }).sort({ name: 1 }).lean(),
     TaskFolder.find({ organizationId, active: true }).populate("projectIds createdBy").sort({ name: 1 }).lean(),
     User.find({ organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).sort({ name: 1 }).lean(),
-    User.findOne({ _id: session.user.userId, organizationId }).select("taskPermissions").lean(),
-    sendDueTaskNotifications({ organizationId }).catch(() => undefined)
+    User.findOne({ _id: session.user.userId, organizationId }).select("taskPermissions").lean()
   ]);
   const fallbackTaskPermissions = session.user.role === "staff"
     ? { canCreateTask: true, canAssignTask: false, canCreateFolder: false, canManageFolderProjects: false }

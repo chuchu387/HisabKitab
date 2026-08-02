@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { unstable_cache } from "next/cache";
 import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { Organization } from "@/models/Organization";
@@ -133,6 +134,12 @@ export async function getAccountingSummary(organizationId: string, filters: { fr
   };
 }
 
+export const getCachedAccountingSummary = unstable_cache(
+  async (organizationId: string, filters: { from?: string; to?: string } = {}) => getAccountingSummary(organizationId, filters),
+  ["accounting-summary"],
+  { revalidate: 30 }
+);
+
 export async function getProjectFinancials(organizationId: string, projectId: string) {
   const pid = toObjectId(projectId);
   if (!pid) {
@@ -208,6 +215,12 @@ export async function getDashboardCharts(organizationId: string, filters: { from
   ]);
   return { byCategory, byProject, monthly, budgetVsExpense };
 }
+
+export const getCachedDashboardCharts = unstable_cache(
+  async (organizationId: string, filters: { from?: string; to?: string } = {}) => getDashboardCharts(organizationId, filters),
+  ["dashboard-charts"],
+  { revalidate: 30 }
+);
 
 export async function getReports(filters: ReportFilters) {
   const match = expenseMatch(filters);
@@ -337,6 +350,12 @@ export async function getReports(filters: ReportFilters) {
   };
   return { summary, projects, expenses, categorySummary, monthlySummary, expenseTypeSummary };
 }
+
+export const getCachedReports = unstable_cache(
+  async (filters: ReportFilters) => getReports(filters),
+  ["reports"],
+  { revalidate: 30 }
+);
 
 export type ContributorFilters = ReportFilters & {
   contributorId?: string;

@@ -8,8 +8,8 @@ import { requireFeature } from "@/lib/permissions";
 import { dateInput, money } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
 import { Organization } from "@/models/Organization";
-import { fiscalYearOptions, getFinancialStatements } from "@/services/financial-statements";
-import { emptyFinancialStatements, emptyLedger } from "@/services/statement-fallback";
+import { fiscalYearOptions, getCachedFinancialStatements } from "@/services/financial-statements";
+import { emptyFinancialStatements } from "@/services/statement-fallback";
 
 type ReportRow = {
   label: string;
@@ -57,9 +57,9 @@ async function AccountsContent({ searchParams }: any) {
   };
   const compareFilters = compareFY ? { organizationId, from: compareFY.from, to: compareFY.to } : undefined;
   const [statementsResult, organizationResult, compareStatementsResult] = await Promise.all([
-    getFinancialStatements(filters),
+    getCachedFinancialStatements(filters),
     Organization.findById(organizationId).select("name").lean() as any,
-    compareFilters ? getFinancialStatements(compareFilters) : Promise.resolve(null)
+    compareFilters ? getCachedFinancialStatements(compareFilters) : Promise.resolve(null)
   ].map((promise) => Promise.resolve(promise).then((value) => ({ ok: true as const, value })).catch((error) => ({ ok: false as const, error }))));
   if (!statementsResult.ok) console.error("Accounts statements failed", statementsResult.error);
   if (!organizationResult.ok) console.error("Accounts organization failed", organizationResult.error);

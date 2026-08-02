@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { unstable_cache } from "next/cache";
 import { Expense } from "@/models/Expense";
 import { GeneralFund } from "@/models/GeneralFund";
 import { Project } from "@/models/Project";
@@ -198,6 +199,12 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
     receivables: receivableRows
   };
 }
+
+export const getCachedFinancialStatements = unstable_cache(
+  async (filters: FinancialStatementFilters) => getFinancialStatements(filters),
+  ["financial-statements"],
+  { revalidate: 30 }
+);
 
 function typeTotal(rows: any[], key: string) {
   return rows.find((row) => row._id === key)?.total ?? 0;

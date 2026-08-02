@@ -7,7 +7,7 @@ import { connectToDatabase } from "@/lib/db";
 import { requireFeature } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
-import { getDerivedLedger } from "@/services/accounts";
+import { getCachedDerivedLedger } from "@/services/accounts";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
 
 export default async function LedgerPage({ searchParams }: any) {
@@ -21,7 +21,7 @@ export default async function LedgerPage({ searchParams }: any) {
   const from = fyRange.from ? fyRange.from.toISOString().slice(0, 10) : (selectedFY === "custom" && typeof params?.from === "string" ? params.from : undefined);
   const to = fyRange.to ? fyRange.to.toISOString().slice(0, 10) : (selectedFY === "custom" && typeof params?.to === "string" ? params.to : undefined);
   const accountCode = typeof params?.accountCode === "string" ? params.accountCode : undefined;
-  const ledger = await getDerivedLedger(organizationId, from, to, accountCode).catch((error) => {
+  const ledger = await getCachedDerivedLedger(organizationId, from, to, accountCode).catch((error) => {
     console.error("Ledger load failed", error);
     return { entries: [], summary: [], error: "Ledger could not be loaded for the selected filters." };
   }) as any;

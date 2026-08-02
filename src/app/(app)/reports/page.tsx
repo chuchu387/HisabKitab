@@ -13,7 +13,7 @@ import { dateInput, formatDate, money } from "@/lib/utils";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { FiscalYear } from "@/models/FiscalYear";
 import { Project } from "@/models/Project";
-import { getReports } from "@/services/accounting";
+import { getCachedReports } from "@/services/accounting";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter } from "@/services/fiscal-year-filter";
 
 export default async function ReportsPage({ searchParams }: any) {
@@ -32,7 +32,7 @@ export default async function ReportsPage({ searchParams }: any) {
     categoryId: typeof params?.categoryId === "string" ? params.categoryId : undefined
   };
   const [reports, projects, categories] = await Promise.all([
-    getReports(filters),
+    getCachedReports(filters),
     Project.find({ organizationId }).sort({ name: 1 }).select("name code").lean(),
     ExpenseCategory.find({ organizationId }).sort({ name: 1 }).select("name").lean()
   ]);

@@ -16,7 +16,7 @@ import { GeneralFund } from "@/models/GeneralFund";
 import { Invoice } from "@/models/Invoice";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
-import { getFinancialStatements } from "@/services/financial-statements";
+import { getCachedFinancialStatements } from "@/services/financial-statements";
 import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
 export default async function TaxPage(props: any) {
@@ -59,7 +59,7 @@ async function TaxContent({ searchParams }: any) {
     Invoice.find(invoiceMatch).populate("clientId projectId").sort({ invoiceDate: -1 }).lean(),
     ProjectPayment.find(paymentMatch).populate("projectId invoiceId").sort({ paymentDate: -1 }).lean(),
     GeneralFund.find(fundMatch).sort({ fundDate: -1 }).lean(),
-    getFinancialStatements({ organizationId, from, to })
+    getCachedFinancialStatements({ organizationId, from, to })
   ].map((promise) => Promise.resolve(promise).then((value) => ({ ok: true as const, value })).catch((error) => ({ ok: false as const, error }))));
   if (!taxResult.ok) console.error("Tax aggregate failed", taxResult.error);
   if (!revenueResult.ok) console.error("Tax revenue failed", revenueResult.error);
@@ -78,7 +78,7 @@ async function TaxContent({ searchParams }: any) {
   const invoices = invoicesResult.ok ? invoicesResult.value as any[] : [];
   const payments = paymentsResult.ok ? paymentsResult.value as any[] : [];
   const funds = fundsResult.ok ? fundsResult.value as any[] : [];
-  const statements = statementsResult.ok ? statementsResult.value as Awaited<ReturnType<typeof getFinancialStatements>> : null;
+  const statements = statementsResult.ok ? statementsResult.value as Awaited<ReturnType<typeof getCachedFinancialStatements>> : null;
   const tax = taxAgg[0] ?? { vat: 0, tds: 0, taxable: 0, total: 0 };
   const invoiceTax = invoiceTaxAgg[0] ?? { outputVat: 0, invoiceTotal: 0, invoiceSubtotal: 0 };
   const revenue = revenueAgg[0]?.revenue ?? 0;
