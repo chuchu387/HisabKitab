@@ -136,11 +136,11 @@ export async function bulkDeleteLeads(ids: string[]): Promise<ActionState> {
     await connectToDatabase();
     const objectIds = ids.filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
     if (!objectIds.length) throw new Error("No valid leads selected");
-    const leads = await Lead.find({ _id: { $in: objectIds }, organizationId }).select("_id").lean();
+    const leads = await Lead.find({ _id: { $in: objectIds }, organizationId }).select("_id").lean() as { _id: Types.ObjectId }[];
     if (!leads.length) throw new Error("Leads not found");
     await Lead.deleteMany({ _id: { $in: leads.map((lead) => lead._id) }, organizationId });
     await LeadActivity.deleteMany({ leadId: { $in: leads.map((lead) => lead._id) }, organizationId });
-    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Deleted", entityType: "Lead", entityId: `${leads.length} leads`, metadata: { count: leads.length } });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Deleted", entityType: "Lead", entityId: leads[0]._id.toString(), metadata: { count: leads.length, leadIds: leads.map((lead) => lead._id.toString()) } });
     revalidatePath("/leads");
     revalidatePath("/sales/pipeline");
     revalidatePath("/sales/reports");
@@ -166,7 +166,7 @@ export async function bulkAssignLeads(ids: string[], assigneeId: string): Promis
       assigneeName = (assignee as any).name ?? "Selected user";
     }
     const result = await Lead.updateMany({ _id: { $in: objectIds }, organizationId }, { $set: { assignedTo: assignedUserId } });
-    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Assigned", entityType: "Lead", entityId: `${objectIds.length} leads`, metadata: { count: result.modifiedCount, assigneeId: assignedUserId?.toString() ?? null } });
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Assigned", entityType: "Lead", entityId: objectIds[0].toString(), metadata: { count: result.modifiedCount, assigneeId: assignedUserId?.toString() ?? null, leadIds: objectIds.map((id) => id.toString()) } });
     revalidatePath("/leads");
     revalidatePath("/sales/pipeline");
     revalidatePath("/sales/reports");
