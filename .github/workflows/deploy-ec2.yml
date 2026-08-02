@@ -1,0 +1,48 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-ec2-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy HisabKitab
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Configure SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          test -n "$EC2_HOST"
+          test -n "$EC2_SSH_KEY"
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy on server
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
+        run: |
+          USER_NAME="${EC2_USER:-ubuntu}"
+          APP_DIR="${EC2_APP_DIR:-/var/www/HisabKitab}"
+          ssh -i ~/.ssh/ec2_key "$USER_NAME@$EC2_HOST" "APP_DIR='$APP_DIR' bash -s" <<'EOF'
+          set -euo pipefail
+          cd "$APP_DIR"
+          git fetch origin main
+          git reset --hard origin/main
+          npm ci
+          npm run build
+          pm2 restart hisabkitab --update-env || pm2 start npm --name hisabkitab -- start
+          pm2 save
+          EOF
