@@ -17,6 +17,10 @@ const initialState: ActionState = { ok: false, message: "" };
 export function LeadForm({ lead, users = [], campaigns, projects = [], products = [] }: { lead?: any; users?: any[]; campaigns?: { _id: string; name: string }[]; projects?: { _id: string; name: string }[]; products?: { _id: string; name: string; category?: string }[] }) {
   const action = lead ? updateLead.bind(null, lead._id.toString()) : createLead;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const selectedAssigneeIds = new Set([
+    ...((lead?.assignedToIds ?? []).map((user: any) => user?._id?.toString?.() ?? user?.toString?.() ?? String(user))),
+    ...(lead?.assignedTo ? [lead.assignedTo?._id?.toString?.() ?? lead.assignedTo?.toString?.() ?? String(lead.assignedTo)] : [])
+  ].filter(Boolean));
   return (
     <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-4 shadow-sm shadow-foreground/5 sm:p-5 md:grid-cols-2">
       <Field name="name" label="Lead Name" defaultValue={lead?.name} error={state.fieldErrors?.name?.[0]} />
@@ -37,11 +41,16 @@ export function LeadForm({ lead, users = [], campaigns, projects = [], products 
       </div>
       <Field name="estimatedValue" label="Estimated Value (Rs.)" type="number" min="0" step="0.01" defaultValue={lead?.estimatedValue ?? 0} error={state.fieldErrors?.estimatedValue?.[0]} />
       <div className="space-y-2">
-        <Label htmlFor="assignedTo">Assigned To</Label>
-        <Select id="assignedTo" name="assignedTo" defaultValue={lead?.assignedTo ?? ""}>
-          <option value="">Unassigned</option>
-          {users.map((user) => <option key={user._id} value={user._id}>{user.name}</option>)}
-        </Select>
+        <Label>Assign To</Label>
+        <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border bg-background p-2">
+          {users.map((user) => (
+            <label key={user._id} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
+              <input name="assignedToIds" type="checkbox" value={user._id} defaultChecked={selectedAssigneeIds.has(user._id.toString())} className="h-4 w-4 rounded border-input accent-primary" />
+              <span className="min-w-0 flex-1 truncate">{user.name}</span>
+            </label>
+          ))}
+          {!users.length && <p className="px-2 py-1 text-sm text-muted-foreground">No active users available.</p>}
+        </div>
       </div>
       {campaigns && (
         <div className="space-y-2">

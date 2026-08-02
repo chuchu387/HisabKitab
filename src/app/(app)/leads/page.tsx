@@ -26,14 +26,21 @@ export default async function LeadsPage({ searchParams }: any) {
   const statusFilter = typeof params?.status === "string" ? params.status : "";
   const projectFilter = typeof params?.projectId === "string" ? params.projectId : "";
   const productFilter = typeof params?.productId === "string" ? params.productId : "";
+  const assigneeFilter = typeof params?.assigneeId === "string" ? params.assigneeId : "";
   const query: any = { organizationId: new Types.ObjectId(organizationId) };
-  if (q) query.$or = [{ name: new RegExp(q, "i") }, { company: new RegExp(q, "i") }, { email: new RegExp(q, "i") }];
+  const andFilters: any[] = [];
+  if (q) andFilters.push({ $or: [{ name: new RegExp(q, "i") }, { company: new RegExp(q, "i") }, { email: new RegExp(q, "i") }] });
   if (sourceFilter) query.source = sourceFilter;
   if (statusFilter) query.status = statusFilter;
   if (projectFilter && Types.ObjectId.isValid(projectFilter)) query.projectId = new Types.ObjectId(projectFilter);
   if (productFilter && Types.ObjectId.isValid(productFilter)) query.productId = new Types.ObjectId(productFilter);
+  if (assigneeFilter && Types.ObjectId.isValid(assigneeFilter)) {
+    const assigneeId = new Types.ObjectId(assigneeFilter);
+    andFilters.push({ $or: [{ assignedTo: assigneeId }, { assignedToIds: assigneeId }] });
+  }
+  if (andFilters.length) query.$and = andFilters;
   const [leads, totalCount, projects, products, assignees] = await Promise.all([
-    Lead.find(query).sort({ createdAt: -1 }).populate("assignedTo", "name").populate("projectId", "name code").populate("productId", "name category").lean() as any,
+    Lead.find(query).sort({ createdAt: -1 }).populate("assignedTo assignedToIds", "name").populate("projectId", "name code").populate("productId", "name category").lean() as any,
     Lead.countDocuments({ organizationId: new Types.ObjectId(organizationId) }),
     Project.find({ organizationId, status: "active" }).sort({ name: 1 }).select("name code").lean(),
     Product.find({ organizationId, active: true }).sort({ name: 1 }).select("name category").lean(),
@@ -84,6 +91,10 @@ export default async function LeadsPage({ searchParams }: any) {
         <select className="native-control" name="productId" defaultValue={productFilter}>
           <option value="">All products/services</option>
           {products.map((p: any) => <option key={p._id.toString()} value={p._id.toString()}>{p.name}{p.category ? ` (${p.category})` : ""}</option>)}
+        </select>
+        <select className="native-control" name="assigneeId" defaultValue={assigneeFilter}>
+          <option value="">All assignees</option>
+          {assignees.map((user: any) => <option key={user._id.toString()} value={user._id.toString()}>{user.name}</option>)}
         </select>
         <Button variant="outline">Filter</Button>
       </FilterForm>

@@ -12,6 +12,7 @@ const leadSchema = new Schema(
     status: { type: String, enum: leadStatuses, default: "new", index: true },
     estimatedValue: { type: Number, default: 0, min: 0 },
     assignedTo: { type: Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    assignedToIds: [{ type: Schema.Types.ObjectId, ref: "User", index: true }],
     campaignId: { type: Schema.Types.ObjectId, ref: "Campaign", default: null, index: true },
     projectId: { type: Schema.Types.ObjectId, ref: "Project", default: null, index: true },
     productId: { type: Schema.Types.ObjectId, ref: "Product", default: null, index: true },
@@ -29,6 +30,7 @@ const leadSchema = new Schema(
 
 leadSchema.index({ organizationId: 1, status: 1, createdAt: -1 });
 leadSchema.index({ organizationId: 1, assignedTo: 1, status: 1 });
+leadSchema.index({ organizationId: 1, assignedToIds: 1, status: 1 });
 leadSchema.index({ organizationId: 1, projectId: 1, productId: 1, status: 1 });
 leadSchema.index({ organizationId: 1, followUpDate: 1 });
 leadSchema.index({ organizationId: 1, source: 1 });

@@ -17,7 +17,7 @@ export default async function SalesReportsPage() {
   await connectToDatabase();
   const oid = new Types.ObjectId(organizationId);
   const [allLeads, allTasks, allProposals] = await Promise.all([
-    Lead.find({ organizationId: oid }).populate("assignedTo", "name").populate("projectId", "name code").populate("productId", "name category").lean() as any,
+    Lead.find({ organizationId: oid }).populate("assignedTo assignedToIds", "name").populate("projectId", "name code").populate("productId", "name category").lean() as any,
     LeadTask.find({ organizationId: oid }).lean(),
     Proposal.find({ organizationId: oid }).lean()
   ]);
@@ -73,14 +73,17 @@ export default async function SalesReportsPage() {
   }));
 
   const userData = allLeads.reduce((acc: Record<string, { name: string; leads: number; won: number; value: number }>, lead: any) => {
-    const userId = lead.assignedTo?._id?.toString() || "unassigned";
-    const userName = lead.assignedTo?.name || "Unassigned";
-    if (!acc[userId]) {
-      acc[userId] = { name: userName, leads: 0, won: 0, value: 0 };
-    }
-    acc[userId].leads += 1;
-    if (lead.status === "won") acc[userId].won += 1;
-    acc[userId].value += lead.estimatedValue || 0;
+    const assignees = Array.isArray(lead.assignedToIds) && lead.assignedToIds.length ? lead.assignedToIds : lead.assignedTo ? [lead.assignedTo] : [{ _id: "unassigned", name: "Unassigned" }];
+    assignees.forEach((user: any) => {
+      const userId = user?._id?.toString?.() || "unassigned";
+      const userName = user?.name || "Unassigned";
+      if (!acc[userId]) {
+        acc[userId] = { name: userName, leads: 0, won: 0, value: 0 };
+      }
+      acc[userId].leads += 1;
+      if (lead.status === "won") acc[userId].won += 1;
+      acc[userId].value += lead.estimatedValue || 0;
+    });
     return acc;
   }, {} as Record<string, { name: string; leads: number; won: number; value: number }>);
   const userRows = (Object.values(userData) as { name: string; leads: number; won: number; value: number }[]).map((u) => ({

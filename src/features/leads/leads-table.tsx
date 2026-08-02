@@ -18,6 +18,7 @@ export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]
   const router = useRouter();
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
   const [showAssign, setShowAssign] = useState(false);
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [isDeleting, startDelete] = useTransition();
   const [isAssigning, startAssign] = useTransition();
   const allChecked = leads.length > 0 && checkedIds.length === leads.length;
@@ -44,20 +45,25 @@ export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]
     });
   }
 
-  function assignSelected(assigneeId: string) {
+  function assignSelected(assigneeIds: string[]) {
     if (!checkedIds.length) return;
     startAssign(async () => {
       try {
-        const result = await bulkAssignLeads(checkedIds, assigneeId);
+        const result = await bulkAssignLeads(checkedIds, assigneeIds);
         if (!result.ok) throw new Error(result.message);
         toast.success(result.message);
         setCheckedIds([]);
+        setSelectedAssigneeIds([]);
         setShowAssign(false);
         router.refresh();
       } catch (error: any) {
         toast.error(error?.message ?? "Failed to assign leads");
       }
     });
+  }
+
+  function toggleAssignee(id: string) {
+    setSelectedAssigneeIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   }
 
   const columns = [
@@ -80,7 +86,7 @@ export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]
     { header: "Product", cell: (lead: any) => lead.productId?.name ?? "-" },
     { header: "Status", cell: (lead: any) => <Badge variant={(leadStatusColors[lead.status as keyof typeof leadStatusColors] || "default") as any}>{leadStatusLabels[lead.status as keyof typeof leadStatusLabels] || lead.status}</Badge> },
     { header: "Value", cell: (lead: any) => lead.estimatedValue ? money(lead.estimatedValue) : "-" },
-    { header: "Assigned", cell: (lead: any) => lead.assignedTo?.name || "-" },
+    { header: "Assigned", cell: (lead: any) => assignedNames(lead) || "-" },
     { header: "Follow-up", cell: (lead: any) => lead.followUpDate ? formatDate(lead.followUpDate) : "-" },
     { header: "Actions", cell: (lead: any) => <div className="flex gap-2">
       {waLink(lead.phone) && <Button asChild variant="outline" size="sm" aria-label="WhatsApp"><a href={waLink(lead.phone, `Hello ${lead.name}`)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon className="h-4 w-4" /></a></Button>}
@@ -101,20 +107,27 @@ export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]
                 {isAssigning ? "Assigning..." : "Assign Selected"}
               </Button>
               {showAssign && (
-                <div className="absolute right-0 z-20 mt-2 max-h-72 w-64 overflow-y-auto rounded-lg border bg-card p-1.5 shadow-xl overscroll-contain">
+                <div className="absolute right-0 z-20 mt-2 w-72 rounded-lg border bg-card p-2 shadow-xl">
                   <button type="button" className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm hover:bg-muted" onClick={() => { setCheckedIds([]); setShowAssign(false); }}>
                     <X className="h-4 w-4" /> Clear selection
                   </button>
-                  {assignees.map((user) => (
-                    <button key={user._id} type="button" className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm hover:bg-muted" onClick={() => assignSelected(user._id)}>
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                  <div className="my-1 max-h-56 space-y-1 overflow-y-auto overscroll-contain border-y py-1">
+                    {assignees.map((user) => (
+                    <label key={user._id} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm hover:bg-muted">
+                      <input type="checkbox" checked={selectedAssigneeIds.includes(user._id)} onChange={() => toggleAssignee(user._id)} className="h-4 w-4 rounded border-input accent-primary" />
                       <span className="min-w-0 flex-1 truncate">{user.name}</span>
                       <span className="text-xs capitalize text-muted-foreground">{user.role}</span>
-                    </button>
-                  ))}
-                  <button type="button" className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-muted-foreground hover:bg-muted" onClick={() => assignSelected("")}>
+                    </label>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <button type="button" className="flex items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-muted-foreground hover:bg-muted" onClick={() => assignSelected([])}>
                     <UserRoundX className="h-4 w-4" /> Unassign
-                  </button>
+                    </button>
+                    <Button type="button" size="sm" disabled={isAssigning || selectedAssigneeIds.length === 0} onClick={() => assignSelected(selectedAssigneeIds)}>
+                      Apply {selectedAssigneeIds.length || ""}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -134,4 +147,9 @@ export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]
       <DataTable data={leads} pagination={pagination} columns={columns} />
     </div>
   );
+}
+
+function assignedNames(lead: any) {
+  const users = Array.isArray(lead.assignedToIds) && lead.assignedToIds.length ? lead.assignedToIds : lead.assignedTo ? [lead.assignedTo] : [];
+  return users.map((user: any) => user?.name).filter(Boolean).join(", ");
 }

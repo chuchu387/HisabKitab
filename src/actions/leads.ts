@@ -60,16 +60,36 @@ async function scheduleFollowUpNotification(organizationId: string, userId: stri
   }
 }
 
+function uniqueValidIds(values: unknown[]) {
+  return Array.from(new Set(values.map((value) => String(value || "")).filter((value) => Types.ObjectId.isValid(value))));
+}
+
+function leadAssigneeIds(data: { assignedTo?: string | null }, formData: FormData) {
+  const ids = uniqueValidIds([...formData.getAll("assignedToIds"), data.assignedTo || ""]);
+  return ids;
+}
+
+async function assertAssignableUsers(organizationId: string, ids: string[]) {
+  if (!ids.length) return [];
+  const users = await User.find({ _id: { $in: ids }, organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).select("_id name").lean() as any[];
+  if (users.length !== ids.length) throw new Error("One or more assignees were not found or are inactive");
+  const byId = new Map(users.map((user) => [user._id.toString(), user]));
+  return ids.map((id) => byId.get(id)).filter(Boolean);
+}
+
 export async function createLead(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const { session, organizationId } = await requireFeature("leadsManage");
     await connectToDatabase();
     const data = parseForm(leadSchema, formData);
+    const assigneeIds = leadAssigneeIds(data, formData);
+    await assertAssignableUsers(organizationId, assigneeIds);
     const duplicate = await checkDuplicate(organizationId, data.email || "", data.phone || "");
     if (duplicate) throw new Error(`A ${duplicate.type} already exists with this contact: ${duplicate.name}`);
     const lead = await Lead.create({
       ...data,
-      assignedTo: data.assignedTo || null,
+      assignedTo: assigneeIds[0] || null,
+      assignedToIds: assigneeIds,
       campaignId: data.campaignId || null,
       projectId: data.projectId || null,
       productId: data.productId || null,
@@ -85,7 +105,9 @@ export async function createLead(_: ActionState, formData: FormData): Promise<Ac
       type: "note",
       description: "Lead created"
     });
-    await scheduleFollowUpNotification(organizationId, String(data.assignedTo || session.user.userId), lead._id.toString(), data.name, data.followUpDate as Date | null);
+    for (const userId of assigneeIds.length ? assigneeIds : [session.user.userId]) {
+      await scheduleFollowUpNotification(organizationId, userId, lead._id.toString(), data.name, data.followUpDate as Date | null);
+    }
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Lead Created", entityType: "Lead", entityId: lead._id.toString(), metadata: { name: data.name } });
     revalidatePath("/leads");
     revalidatePath("/sales/reports");
@@ -100,15 +122,19 @@ export async function updateLead(id: string, _: ActionState, formData: FormData)
     const { session, organizationId } = await requireFeature("leadsManage");
     await connectToDatabase();
     const data = parseForm(leadSchema, formData);
+    const assigneeIds = leadAssigneeIds(data, formData);
+    await assertAssignableUsers(organizationId, assigneeIds);
     const duplicate = await checkDuplicate(organizationId, data.email || "", data.phone || "", id);
     if (duplicate) throw new Error(`A ${duplicate.type} already exists with this contact: ${duplicate.name}`);
     const lead = await Lead.findOneAndUpdate(
       { _id: id, organizationId },
-      { ...data, assignedTo: data.assignedTo || null, campaignId: data.campaignId || null, projectId: data.projectId || null, productId: data.productId || null, followUpDate: data.followUpDate || null },
+      { ...data, assignedTo: assigneeIds[0] || null, assignedToIds: assigneeIds, campaignId: data.campaignId || null, projectId: data.projectId || null, productId: data.productId || null, followUpDate: data.followUpDate || null },
       { runValidators: true }
     );
     if (!lead) throw new Error("Lead not found");
-    await scheduleFollowUpNotification(organizationId, String(data.assignedTo || session.user.userId), id, data.name, data.followUpDate as Date | null);
+    for (const userId of assigneeIds.length ? assigneeIds : [session.user.userId]) {
+      await scheduleFollowUpNotification(organizationId, userId, id, data.name, data.followUpDate as Date | null);
+    }
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Lead Updated", entityType: "Lead", entityId: id, metadata: { name: data.name } });
     revalidatePath("/leads");
     revalidatePath(`/leads/${id}`);
@@ -150,27 +176,25 @@ export async function bulkDeleteLeads(ids: string[]): Promise<ActionState> {
   }
 }
 
-export async function bulkAssignLeads(ids: string[], assigneeId: string): Promise<ActionState> {
+export async function bulkAssignLeads(ids: string[], assigneeIdsInput: string | string[]): Promise<ActionState> {
   try {
     const { session, organizationId } = await requireFeature("leadsManage");
     await connectToDatabase();
     const objectIds = ids.filter((id) => Types.ObjectId.isValid(id)).map((id) => new Types.ObjectId(id));
     if (!objectIds.length) throw new Error("No valid leads selected");
-    let assignedUserId: Types.ObjectId | null = null;
-    let assigneeName = "Unassigned";
-    if (assigneeId) {
-      if (!Types.ObjectId.isValid(assigneeId)) throw new Error("Invalid assignee");
-      const assignee = await User.findOne({ _id: assigneeId, organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).select("_id name").lean();
-      if (!assignee) throw new Error("Assignee not found or inactive");
-      assignedUserId = new Types.ObjectId(assigneeId);
-      assigneeName = (assignee as any).name ?? "Selected user";
-    }
-    const result = await Lead.updateMany({ _id: { $in: objectIds }, organizationId }, { $set: { assignedTo: assignedUserId } });
-    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Assigned", entityType: "Lead", entityId: objectIds[0].toString(), metadata: { count: result.modifiedCount, assigneeId: assignedUserId?.toString() ?? null, leadIds: objectIds.map((id) => id.toString()) } });
+    const assigneeIds = uniqueValidIds(Array.isArray(assigneeIdsInput) ? assigneeIdsInput : [assigneeIdsInput]);
+    const assignees = await assertAssignableUsers(organizationId, assigneeIds);
+    const assignedUserIds = assigneeIds.map((id) => new Types.ObjectId(id));
+    const result = await Lead.updateMany(
+      { _id: { $in: objectIds }, organizationId },
+      { $set: { assignedTo: assignedUserIds[0] ?? null, assignedToIds: assignedUserIds } }
+    );
+    await writeAuditLog({ organizationId, userId: session.user.userId, action: "Leads Bulk Assigned", entityType: "Lead", entityId: objectIds[0].toString(), metadata: { count: result.modifiedCount, assigneeIds, leadIds: objectIds.map((id) => id.toString()) } });
     revalidatePath("/leads");
     revalidatePath("/sales/pipeline");
     revalidatePath("/sales/reports");
-    return { ok: true, message: assignedUserId ? `${result.modifiedCount} leads assigned to ${assigneeName}` : `${result.modifiedCount} leads unassigned` };
+    const names = assignees.map((user) => user.name).join(", ");
+    return { ok: true, message: assigneeIds.length ? `${result.modifiedCount} leads assigned to ${names}` : `${result.modifiedCount} leads unassigned` };
   } catch (error) {
     return actionError(error);
   }

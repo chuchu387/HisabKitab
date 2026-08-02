@@ -29,7 +29,7 @@ export default async function LeadDetailPage({ params }: any) {
   const routeParams = await params;
   const leadObjectId = safeObjectId(routeParams.id);
   if (!leadObjectId) notFound();
-  const lead = await Lead.findOne({ _id: routeParams.id, organizationId }).populate("assignedTo", "name").populate("createdBy", "name").lean() as any;
+  const lead = await Lead.findOne({ _id: routeParams.id, organizationId }).populate("assignedTo assignedToIds", "name").populate("createdBy", "name").lean() as any;
   if (!lead) notFound();
   const [activities, tasks, proposals] = await Promise.all([
     LeadActivity.find({ leadId: lead._id, organizationId }).sort({ createdAt: -1 }).populate("userId", "name").lean(),
@@ -43,13 +43,14 @@ export default async function LeadDetailPage({ params }: any) {
   ]);
   const canManage = ["owner", "admin"].includes(session.user.role);
   const isConverted = lead.convertedToClientId || lead.status === "won" || lead.status === "lost";
+  const assigneeNames = assignedNames(lead);
   return (
     <PageShell title={lead.name} description={lead.company || lead.email || lead.phone || ""} breadcrumb={[{ label: "Leads", href: "/leads" }, { label: lead.name }]} action={canManage && !isConverted && <Button asChild><Link href={`/leads/${routeParams.id}/edit`}>Edit Lead</Link></Button>}>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <InfoCard label="Status" value={<Badge variant={(leadStatusColors[lead.status as keyof typeof leadStatusColors] || "default") as any}>{leadStatusLabels[lead.status as keyof typeof leadStatusLabels]}</Badge>} />
         <InfoCard label="Source" value={leadSourceLabels[lead.source as keyof typeof leadSourceLabels] || lead.source} />
         <InfoCard label="Estimated Value" value={lead.estimatedValue ? money(lead.estimatedValue) : "-"} />
-        <InfoCard label="Assigned To" value={lead.assignedTo?.name || "-"} />
+        <InfoCard label="Assigned To" value={assigneeNames || "-"} />
         <InfoCard label="Email" value={lead.email ? <div className="flex items-center gap-2"><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a><LogEmail leadId={lead._id.toString()} email={lead.email} /></div> : "-"} />
         <InfoCard label="Phone" value={lead.phone ? <div className="flex items-center gap-2"><a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a><WaButton phone={lead.phone} name={lead.name} /></div> : "-"} />
         <InfoCard label="Follow-up Date" value={lead.followUpDate ? formatDate(lead.followUpDate) : "-"} />
@@ -139,6 +140,11 @@ export default async function LeadDetailPage({ params }: any) {
       )}
     </PageShell>
   );
+}
+
+function assignedNames(lead: any) {
+  const users = Array.isArray(lead.assignedToIds) && lead.assignedToIds.length ? lead.assignedToIds : lead.assignedTo ? [lead.assignedTo] : [];
+  return users.map((user: any) => user?.name).filter(Boolean).join(", ");
 }
 
 function InfoCard({ label, value }: { label: string; value: React.ReactNode }) {

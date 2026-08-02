@@ -47,6 +47,7 @@ export function PipelineBoard({ leads, users }: { leads: any[]; users: any[] }) 
   const [draggingId, setDraggingId] = useState("");
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
   const [showAssign, setShowAssign] = useState(false);
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>([]);
   const [isMoving, startMove] = useTransition();
   const [isAssigning, startAssign] = useTransition();
 
@@ -65,21 +66,26 @@ export function PipelineBoard({ leads, users }: { leads: any[]; users: any[] }) 
     });
   }
 
-  function assignSelected(assigneeId: string) {
+  function assignSelected(assigneeIds: string[]) {
     if (!checkedIds.length) return;
     startAssign(async () => {
       try {
-        const result = await bulkAssignLeads(checkedIds, assigneeId);
+        const result = await bulkAssignLeads(checkedIds, assigneeIds);
         if (!result.ok) throw new Error(result.message);
-        const assignee = users.find((user) => user._id === assigneeId);
-        setItems((current) => current.map((item) => checkedIds.includes(item._id) ? { ...item, assignedTo: assignee ?? null } : item));
+        const assignees = users.filter((user) => assigneeIds.includes(user._id));
+        setItems((current) => current.map((item) => checkedIds.includes(item._id) ? { ...item, assignedTo: assignees[0] ?? null, assignedToIds: assignees } : item));
         setCheckedIds([]);
+        setSelectedAssigneeIds([]);
         setShowAssign(false);
         toast.success(result.message);
       } catch (error: any) {
         toast.error(error?.message ?? "Failed to assign leads");
       }
     });
+  }
+
+  function toggleAssignee(id: string) {
+    setSelectedAssigneeIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   }
 
   return (
@@ -94,20 +100,27 @@ export function PipelineBoard({ leads, users }: { leads: any[]; users: any[] }) 
                 {isAssigning ? "Assigning..." : "Assign"}
               </Button>
               {showAssign && (
-                <div className="absolute right-0 z-20 mt-2 max-h-64 w-56 overflow-y-auto rounded-lg border bg-card p-1.5 shadow-xl overscroll-contain">
+                <div className="absolute right-0 z-20 mt-2 w-72 rounded-lg border bg-card p-2 shadow-xl">
                   <button type="button" className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm hover:bg-muted" onClick={() => { setCheckedIds([]); setShowAssign(false); }}>
                     <X className="h-4 w-4" /> Clear selection
                   </button>
-                  {users.map((user) => (
-                    <button key={user._id} type="button" className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm hover:bg-muted" onClick={() => assignSelected(user._id)}>
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-                      <span className="min-w-0 flex-1 truncate">{user.name}</span>
-                      <span className="text-xs text-muted-foreground">{user.role}</span>
+                  <div className="my-1 max-h-56 space-y-1 overflow-y-auto overscroll-contain border-y py-1">
+                    {users.map((user) => (
+                      <label key={user._id} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm hover:bg-muted">
+                        <input type="checkbox" checked={selectedAssigneeIds.includes(user._id)} onChange={() => toggleAssignee(user._id)} className="h-4 w-4 rounded border-input accent-primary" />
+                        <span className="min-w-0 flex-1 truncate">{user.name}</span>
+                        <span className="text-xs text-muted-foreground">{user.role}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <button type="button" className="flex items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-muted-foreground hover:bg-muted" onClick={() => assignSelected([])}>
+                      <UserRoundX className="h-4 w-4" /> Unassign
                     </button>
-                  ))}
-                  <button type="button" className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-muted-foreground hover:bg-muted" onClick={() => assignSelected("")}>
-                    <UserRoundX className="h-4 w-4" /> Unassign
-                  </button>
+                    <Button type="button" size="sm" disabled={isAssigning || selectedAssigneeIds.length === 0} onClick={() => assignSelected(selectedAssigneeIds)}>
+                      Apply {selectedAssigneeIds.length || ""}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -201,7 +214,7 @@ function PipelineCard({ lead, stageColor, checked, onChecked, onDragStart }: { l
         <span className="text-muted-foreground">{daysSince(lead.createdAt)}</span>
       </div>
       <div className="mt-1.5 flex items-center justify-between gap-2 border-t pt-1.5 text-[10px] text-muted-foreground">
-        <span className="truncate">{lead.assignedTo?.name ?? "Unassigned"}</span>
+        <span className="truncate">{assignedNames(lead) || "Unassigned"}</span>
         <span className="flex shrink-0 items-center gap-2">
           {lead.followUpDate && <span>Follow: {formatDate(lead.followUpDate)}</span>}
           {waLink(lead.phone) && (
@@ -213,4 +226,9 @@ function PipelineCard({ lead, stageColor, checked, onChecked, onDragStart }: { l
       </div>
     </div>
   );
+}
+
+function assignedNames(lead: any) {
+  const users = Array.isArray(lead.assignedToIds) && lead.assignedToIds.length ? lead.assignedToIds : lead.assignedTo ? [lead.assignedTo] : [];
+  return users.map((user: any) => user?.name).filter(Boolean).join(", ");
 }
