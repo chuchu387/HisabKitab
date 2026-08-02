@@ -43,7 +43,7 @@ jobs:
           git reset --hard origin/main
           npm ci
           npm run sync-indexes
-          npm run build
+          NODE_OPTIONS="--max-old-space-size=3072" npm run build
           pm2 restart hisabkitab --update-env || pm2 start npm --name hisabkitab -- start
           pm2 save
           EOF
