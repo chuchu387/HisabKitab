@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, UserRoundX, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
-import { bulkDeleteLeads, deleteLead } from "@/actions/leads";
+import { bulkAssignLeads, bulkDeleteLeads, deleteLead } from "@/actions/leads";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
@@ -14,10 +14,12 @@ import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { leadSourceLabels, leadStatusColors, leadStatusLabels } from "@/constants";
 import { formatDate, money, waLink } from "@/lib/utils";
 
-export function LeadsTable({ leads, pagination }: { leads: any[]; pagination: any }) {
+export function LeadsTable({ leads, assignees = [], pagination }: { leads: any[]; assignees?: any[]; pagination: any }) {
   const router = useRouter();
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
+  const [showAssign, setShowAssign] = useState(false);
   const [isDeleting, startDelete] = useTransition();
+  const [isAssigning, startAssign] = useTransition();
   const allChecked = leads.length > 0 && checkedIds.length === leads.length;
 
   function toggleAll() {
@@ -37,6 +39,21 @@ export function LeadsTable({ leads, pagination }: { leads: any[]; pagination: an
         router.refresh();
       } catch (error: any) {
         toast.error(error?.message ?? "Failed to delete leads");
+      }
+    });
+  }
+
+  function assignSelected(assigneeId: string) {
+    if (!checkedIds.length) return;
+    startAssign(async () => {
+      try {
+        const result = await bulkAssignLeads(checkedIds, assigneeId);
+        toast.success(result.message);
+        setCheckedIds([]);
+        setShowAssign(false);
+        router.refresh();
+      } catch (error: any) {
+        toast.error(error?.message ?? "Failed to assign leads");
       }
     });
   }
@@ -75,6 +92,29 @@ export function LeadsTable({ leads, pagination }: { leads: any[]; pagination: an
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
           <p className="text-sm font-medium">{checkedIds.length} lead{checkedIds.length === 1 ? "" : "s"} selected</p>
           <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Button type="button" variant="default" size="sm" disabled={isAssigning} onClick={() => setShowAssign((value) => !value)}>
+                <UsersRound className="h-4 w-4" />
+                {isAssigning ? "Assigning..." : "Assign Selected"}
+              </Button>
+              {showAssign && (
+                <div className="absolute right-0 z-20 mt-2 max-h-72 w-64 overflow-y-auto rounded-lg border bg-card p-1.5 shadow-xl overscroll-contain">
+                  <button type="button" className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm hover:bg-muted" onClick={() => { setCheckedIds([]); setShowAssign(false); }}>
+                    <X className="h-4 w-4" /> Clear selection
+                  </button>
+                  {assignees.map((user) => (
+                    <button key={user._id} type="button" className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm hover:bg-muted" onClick={() => assignSelected(user._id)}>
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+                      <span className="min-w-0 flex-1 truncate">{user.name}</span>
+                      <span className="text-xs capitalize text-muted-foreground">{user.role}</span>
+                    </button>
+                  ))}
+                  <button type="button" className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left text-sm text-muted-foreground hover:bg-muted" onClick={() => assignSelected("")}>
+                    <UserRoundX className="h-4 w-4" /> Unassign
+                  </button>
+                </div>
+              )}
+            </div>
             <Button type="button" variant="outline" size="sm" onClick={toggleAll}>{allChecked ? "Clear Selection" : "Select All"}</Button>
             <Button type="button" variant="outline" size="sm" disabled={isDeleting} onClick={deleteSelected}>
               <Trash2 className="h-4 w-4 text-destructive" />

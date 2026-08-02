@@ -13,6 +13,7 @@ import { requireTenant } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Lead } from "@/models/Lead";
 import { Project } from "@/models/Project";
+import { User } from "@/models/User";
 import { leadStatusLabels } from "@/constants";
 
 export default async function LeadsPage({ searchParams }: any) {
@@ -28,10 +29,11 @@ export default async function LeadsPage({ searchParams }: any) {
   if (sourceFilter) query.source = sourceFilter;
   if (statusFilter) query.status = statusFilter;
   if (projectFilter && Types.ObjectId.isValid(projectFilter)) query.projectId = new Types.ObjectId(projectFilter);
-  const [leads, totalCount, projects] = await Promise.all([
+  const [leads, totalCount, projects, assignees] = await Promise.all([
     Lead.find(query).sort({ createdAt: -1 }).populate("assignedTo", "name").populate("projectId", "name code").lean() as any,
     Lead.countDocuments({ organizationId: new Types.ObjectId(organizationId) }),
-    Project.find({ organizationId, status: "active" }).sort({ name: 1 }).select("name code").lean()
+    Project.find({ organizationId, status: "active" }).sort({ name: 1 }).select("name code").lean(),
+    User.find({ organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).sort({ role: 1, name: 1 }).select("name role").lean()
   ]);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -84,7 +86,7 @@ export default async function LeadsPage({ searchParams }: any) {
           Download<br />Sample CSV
         </a>
       </div>
-      <LeadsTable leads={JSON.parse(JSON.stringify(leads))} pagination={{ basePath: "/leads", searchParams: params }} />
+      <LeadsTable leads={JSON.parse(JSON.stringify(leads))} assignees={JSON.parse(JSON.stringify(assignees))} pagination={{ basePath: "/leads", searchParams: params }} />
     </PageShell>
   );
 }

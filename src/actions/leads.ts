@@ -151,7 +151,7 @@ export async function bulkAssignLeads(ids: string[], assigneeId: string) {
   if (!objectIds.length) throw new Error("No leads selected");
   let assignedUserId: string | null = null;
   if (assigneeId) {
-    const assignee = await User.findOne({ _id: assigneeId, organizationId, active: true }).select("_id").lean();
+    const assignee = await User.findOne({ _id: assigneeId, organizationId, active: true, role: { $in: ["owner", "admin", "staff"] } }).select("_id").lean();
     if (!assignee) throw new Error("Assignee not found");
     assignedUserId = assigneeId;
   }
