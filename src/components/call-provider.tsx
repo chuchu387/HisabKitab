@@ -687,6 +687,15 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
               </div>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+                {Array.from(remoteStreams.entries()).map(([remoteId, stream]) => (
+                  <audio
+                    key={remoteId}
+                    autoPlay
+                    playsInline
+                    className="hidden"
+                    ref={(el) => { if (el && el.srcObject !== stream) el.srcObject = stream; }}
+                  />
+                ))}
                 <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/25 text-4xl font-bold">{(active.peerName || "G").charAt(0).toUpperCase()}</div>
                 <div>
                   <p className="text-lg font-semibold">{active.peerName || "Group call"}</p>
