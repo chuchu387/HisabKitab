@@ -21,6 +21,7 @@ export async function GET(request: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       let lastPayload = "";
+      let lastCleanup = 0;
       const send = (payload: unknown) => {
         const json = JSON.stringify(payload);
         if (json === lastPayload) return;
@@ -38,6 +39,18 @@ export async function GET(request: Request) {
       const tick = async () => {
         try {
           await connectToDatabase();
+          const now = Date.now();
+          if (now - lastCleanup > 30000 && organizationId) {
+            lastCleanup = now;
+            await Call.updateMany(
+              { organizationId, status: "ringing", createdAt: { $lt: new Date(now - 60000) } },
+              { $set: { status: "ended", endedAt: new Date() } }
+            );
+            await Call.updateMany(
+              { organizationId, status: "active", createdAt: { $lt: new Date(now - 15000) }, "participants.status": { $nin: ["accepted"] } },
+              { $set: { status: "ended", endedAt: new Date() } }
+            );
+          }
           const [unreadCount, notifications, groups] = await Promise.all([
             Notification.countDocuments({ userId, readAt: null }),
             Notification.find({ userId }).sort({ createdAt: -1 }).limit(10).select("title message href type readAt createdAt").lean(),
