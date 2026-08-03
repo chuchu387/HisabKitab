@@ -22,6 +22,7 @@ export type RealtimeNotification = {
 
 export type RealtimeCall = {
   callId: string;
+  groupId?: string;
   initiatorId: string;
   initiatorName: string;
   mode: "audio" | "video";

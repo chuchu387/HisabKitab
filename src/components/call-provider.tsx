@@ -1,15 +1,17 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X } from "lucide-react";
-import { endCall, getCallEvents, respondToCall, sendSignal, startCall as startCallAction } from "@/actions/calls";
-import { useRealtime } from "@/hooks/use-realtime";
+import { endCall, getCallEvents, joinCall as joinCallAction, respondToCall, sendSignal, startCall as startCallAction } from "@/actions/calls";
+import { useRealtime, type RealtimeCall } from "@/hooks/use-realtime";
 import { startRingtone, stopRingtone } from "@/lib/ringtone";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type CallMode = "audio" | "video";
-type MyRole = "initiator" | "callee";
+type MyRole = "initiator" | "callee" | "member";
+
+type CallParticipant = { userId: string; name: string; status: string };
 
 type ActiveCall = {
   callId: string;
@@ -17,20 +19,29 @@ type ActiveCall = {
   status: "ringing" | "active";
   role: MyRole;
   peerName: string;
-  peerId?: string;
 };
 
 type IncomingCall = {
   callId: string;
   mode: CallMode;
   initiatorName: string;
+  initiatorId: string;
+};
+
+type PeerHandle = {
+  peer: RTCPeerConnection;
+  targetId: string;
+  remoteDescriptionSet: boolean;
+  pendingCandidates: RTCIceCandidateInit[];
 };
 
 const CallContext = createContext<{
   activeCall: ActiveCall | null;
   busy: boolean;
+  joinableCalls: RealtimeCall[];
   startCall: (groupId: string, peerId: string, peerName: string, mode: CallMode) => Promise<void>;
-}>({ activeCall: null, busy: false, startCall: async () => {} });
+  joinCall: (callId: string) => Promise<void>;
+}>({ activeCall: null, busy: false, joinableCalls: [], startCall: async () => {}, joinCall: async () => {} });
 
 export function useCalls() {
   return useContext(CallContext);
@@ -48,72 +59,126 @@ function getIceServers() {
 }
 
 const POLL_MS = 800;
+const RING_TIMEOUT_MS = 45000;
 
 export function CallProvider({ userId, userName, children }: { userId: string; userName: string; children: React.ReactNode }) {
   const { calls } = useRealtime({ unreadCount: 0, notifications: [], chatGroups: [] });
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [incoming, setIncoming] = useState<IncomingCall | null>(null);
+  const [participants, setParticipants] = useState<CallParticipant[]>([]);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
 
-  const peerRef = useRef<RTCPeerConnection | null>(null);
+  const peersRef = useRef<Map<string, PeerHandle>>(new Map());
+  const orphanCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
-  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const activeRef = useRef<ActiveCall | null>(null);
-  const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastEventId = useRef<string>("");
-  const remoteDescriptionSet = useRef(false);
   const endedLocally = useRef(false);
+  const acceptedCallIds = useRef(new Set<string>());
+  const startedAtRef = useRef(0);
 
   activeRef.current = activeCall;
 
-  const cleanup = useCallback((toastMessage?: string) => {
+  const dispose = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     stopRingtone();
-    peerRef.current?.close();
-    peerRef.current = null;
+    for (const handle of peersRef.current.values()) {
+      try { handle.peer.close(); } catch {}
+    }
+    peersRef.current.clear();
+    orphanCandidatesRef.current.clear();
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
     localStreamRef.current = null;
-    remoteStreamRef.current?.getTracks().forEach((track) => track.stop());
-    remoteStreamRef.current = null;
-    setLocalStream(null);
-    setRemoteStream(null);
-    setIncoming(null);
-    setActiveCall(null);
+    for (const stream of remoteStreamsRef.current.values()) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    remoteStreamsRef.current.clear();
     lastEventId.current = "";
-    pendingCandidates.current = [];
-    remoteDescriptionSet.current = false;
-    if (toastMessage) toast.message(toastMessage);
+    startedAtRef.current = 0;
   }, []);
 
-  const createPeer = useCallback((mode: CallMode, stream: MediaStream | null) => {
+  const cleanup = useCallback((toastMessage?: string) => {
+    dispose();
+    setLocalStream(null);
+    setRemoteStreams(new Map());
+    setParticipants([]);
+    setIncoming(null);
+    setActiveCall(null);
+    if (toastMessage) toast.message(toastMessage);
+  }, [dispose]);
+
+  useEffect(() => {
+    return () => dispose();
+  }, [dispose]);
+
+  const sendTo = useCallback((callId: string, targetId: string | null, type: string, payload: unknown) => {
+    return sendSignal(callId, targetId, type, payload).catch(() => undefined);
+  }, []);
+
+  const createPeer = useCallback((callId: string, targetId: string, stream: MediaStream | null): PeerHandle => {
     const peer = new RTCPeerConnection({ iceServers: getIceServers() });
     if (stream) stream.getTracks().forEach((track) => peer.addTrack(track, stream));
     peer.onicecandidate = (event) => {
-      if (!event.candidate || !activeRef.current) return;
-      const call = activeRef.current;
-      if (call.peerId) {
-        sendSignal(call.callId, call.peerId, "ice", { candidate: event.candidate.toJSON() }).catch(() => undefined);
-      }
+      if (!event.candidate) return;
+      sendTo(callId, targetId, "ice", { candidate: event.candidate.toJSON() });
     };
     peer.ontrack = (event) => {
-      const [stream] = event.streams;
+      const stream = event.streams[0];
       if (stream) {
-        remoteStreamRef.current = stream;
-        setRemoteStream(stream);
+        remoteStreamsRef.current.set(targetId, stream);
+        setRemoteStreams(new Map(remoteStreamsRef.current));
+      } else if (event.track.kind === "audio" || event.track.kind === "video") {
+        const merged = remoteStreamsRef.current.get(targetId) ?? new MediaStream();
+        merged.addTrack(event.track);
+        remoteStreamsRef.current.set(targetId, merged);
+        setRemoteStreams(new Map(remoteStreamsRef.current));
       }
     };
     peer.onconnectionstatechange = () => {
-      if (["failed", "closed", "disconnected"].includes(peer.connectionState) && activeRef.current?.status === "active") {
-        cleanup("Connection lost — call ended");
+      if (["failed", "closed", "disconnected"].includes(peer.connectionState)) {
+        peersRef.current.delete(targetId);
+        try { peer.close(); } catch {}
+        const stream = remoteStreamsRef.current.get(targetId);
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+          remoteStreamsRef.current.delete(targetId);
+          setRemoteStreams(new Map(remoteStreamsRef.current));
+        }
       }
     };
-    peerRef.current = peer;
-    return peer;
-  }, [cleanup]);
+    const handle: PeerHandle = { peer, targetId, remoteDescriptionSet: false, pendingCandidates: [] };
+    peersRef.current.set(targetId, handle);
+    return handle;
+  }, [sendTo]);
+
+  const getOrCreatePeer = useCallback((callId: string, targetId: string) => {
+    return peersRef.current.get(targetId) ?? createPeer(callId, targetId, localStreamRef.current);
+  }, [createPeer]);
+
+  const flushCandidates = useCallback(async (handle: PeerHandle, targetId: string) => {
+    const orphans = orphanCandidatesRef.current.get(targetId) ?? [];
+    orphanCandidatesRef.current.delete(targetId);
+    const all = [...orphans, ...handle.pendingCandidates];
+    handle.pendingCandidates = [];
+    for (const candidate of all) {
+      try { await handle.peer.addIceCandidate(candidate); } catch {}
+    }
+  }, []);
+
+  const offerTo = useCallback(async (callId: string, targetId: string) => {
+    if (peersRef.current.has(targetId)) return;
+    const handle = createPeer(callId, targetId, localStreamRef.current);
+    try {
+      const offer = await handle.peer.createOffer();
+      await handle.peer.setLocalDescription(offer);
+      sendTo(callId, targetId, "offer", { sdp: offer });
+    } catch {}
+  }, [createPeer, sendTo]);
 
   const setupLocalStream = useCallback(async (mode: CallMode) => {
     const constraints: MediaStreamConstraints = { audio: true, video: mode === "video" };
@@ -141,61 +206,99 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     }
   }, []);
 
-  const processEvent = useCallback(async (event: { id: string; type: string; from: string; payload: any }, call: ActiveCall) => {
-    const peer = peerRef.current;
-    if (event.type === "accepted" && call.role === "initiator" && call.status === "ringing") {
-      setActiveCall({ ...call, status: "active" });
-      const stream = await setupLocalStream(call.mode);
-      const created = createPeer(call.mode, stream);
-      const offer = await created.createOffer();
-      await created.setLocalDescription(offer);
-      if (call.peerId) {
-        await sendSignal(call.callId, call.peerId, "offer", { sdp: offer }).catch(() => undefined);
+  const hangUp = useCallback(async () => {
+    const call = activeRef.current;
+    if (!call) return;
+    endedLocally.current = true;
+    await endCall(call.callId).catch(() => undefined);
+    cleanup();
+  }, [cleanup]);
+
+  const processEvent = useCallback(async (event: { id: string; type: string; from: string; payload: any }) => {
+    const call = activeRef.current;
+    if (!call) return;
+    if (event.type === "accepted") {
+      if (call.role === "initiator" && call.status === "ringing") {
+        setActiveCall({ ...call, status: "active" });
       }
+      const stream = localStreamRef.current ?? (await setupLocalStream(call.mode).catch(() => null));
+      if (!stream) {
+        toast.error("Microphone access required");
+        hangUp();
+        return;
+      }
+      await offerTo(call.callId, event.from);
+      return;
+    }
+    if (event.type === "joined") {
+      if (event.from === String(userId)) return;
+      const stream = localStreamRef.current ?? (await setupLocalStream(call.mode).catch(() => null));
+      if (!stream) {
+        toast.error("Microphone access required");
+        hangUp();
+        return;
+      }
+      await offerTo(call.callId, event.from);
       return;
     }
     if (event.type === "offer") {
-      const created = peer ?? createPeer(call.mode, localStreamRef.current);
-      await created.setRemoteDescription({ type: "offer", sdp: event.payload.sdp });
-      remoteDescriptionSet.current = true;
-      for (const candidate of pendingCandidates.current) {
-        try { await created.addIceCandidate(candidate); } catch {}
-      }
-      pendingCandidates.current = [];
-      const answer = await created.createAnswer();
-      await created.setLocalDescription(answer);
-      if (call.peerId) {
-        await sendSignal(call.callId, call.peerId, "answer", { sdp: answer }).catch(() => undefined);
-      }
+      const handle = getOrCreatePeer(call.callId, event.from);
+      await handle.peer.setRemoteDescription({ type: "offer", sdp: event.payload.sdp });
+      handle.remoteDescriptionSet = true;
+      await flushCandidates(handle, event.from);
+      const answer = await handle.peer.createAnswer();
+      await handle.peer.setLocalDescription(answer);
+      sendTo(call.callId, event.from, "answer", { sdp: answer });
       return;
     }
-    if (event.type === "answer" && peer) {
-      await peer.setRemoteDescription({ type: "answer", sdp: event.payload.sdp });
-      remoteDescriptionSet.current = true;
-      for (const candidate of pendingCandidates.current) {
-        try { await peer.addIceCandidate(candidate); } catch {}
-      }
-      pendingCandidates.current = [];
+    if (event.type === "answer") {
+      const handle = getOrCreatePeer(call.callId, event.from);
+      await handle.peer.setRemoteDescription({ type: "answer", sdp: event.payload.sdp });
+      handle.remoteDescriptionSet = true;
+      await flushCandidates(handle, event.from);
       return;
     }
-    if (event.type === "ice" && peer) {
+    if (event.type === "ice") {
       const candidate = event.payload.candidate as RTCIceCandidateInit;
-      if (remoteDescriptionSet.current) {
-        try { await peer.addIceCandidate(candidate); } catch {}
+      const handle = peersRef.current.get(event.from);
+      if (!handle) {
+        const queue = orphanCandidatesRef.current.get(event.from) ?? [];
+        queue.push(candidate);
+        orphanCandidatesRef.current.set(event.from, queue);
+        return;
+      }
+      if (handle.remoteDescriptionSet) {
+        try { await handle.peer.addIceCandidate(candidate); } catch {}
       } else {
-        pendingCandidates.current.push(candidate);
+        handle.pendingCandidates.push(candidate);
       }
       return;
     }
     if (event.type === "declined") {
-      cleanup(`${event.payload?.name ?? "The other user"} declined the call`);
+      if (call.role === "initiator") {
+        cleanup(`${event.payload?.name ?? "The other user"} declined the call`);
+      }
       return;
     }
-    if (event.type === "ended" || event.type === "left") {
+    if (event.type === "left") {
+      const handle = peersRef.current.get(event.from);
+      if (handle) {
+        peersRef.current.delete(event.from);
+        try { handle.peer.close(); } catch {}
+      }
+      const stream = remoteStreamsRef.current.get(event.from);
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+        remoteStreamsRef.current.delete(event.from);
+        setRemoteStreams(new Map(remoteStreamsRef.current));
+      }
+      return;
+    }
+    if (event.type === "ended") {
       if (!endedLocally.current) cleanup("Call ended");
       return;
     }
-  }, [cleanup, createPeer, setupLocalStream]);
+  }, [cleanup, flushCandidates, getOrCreatePeer, hangUp, offerTo, sendTo, setupLocalStream, userId]);
 
   const startPolling = useCallback((call: ActiveCall) => {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -205,30 +308,39 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
         if (pollRef.current) clearInterval(pollRef.current);
         return;
       }
-      const result = await getCallEvents(current.callId, lastEventId.current || null).catch(() => null);
-      if (!result?.ok) return;
-      if (result.status === "ended" && current.status !== "active") {
-        cleanup("Call ended");
-        return;
-      }
-      if (result.status === "ended") {
-        if (!endedLocally.current) cleanup("Call ended");
-        return;
-      }
-      const events = result.events ?? [];
-      for (const event of events) {
-        lastEventId.current = event.id;
-        if (event.type === "ended" || event.type === "declined" || event.type === "left") {
-          if (!endedLocally.current) {
-            cleanup(event.type === "declined" ? "Call declined" : "Call ended");
+      try {
+        if (current.status === "ringing" && Date.now() - startedAtRef.current > RING_TIMEOUT_MS) {
+          toast.message("No answer — call ended");
+          hangUp();
+          return;
+        }
+        const result = await getCallEvents(current.callId, lastEventId.current || null).catch(() => null);
+        if (!result?.ok) return;
+        if (Array.isArray(result.participants)) setParticipants(result.participants);
+        const events = result.events ?? [];
+        for (const event of events) {
+          lastEventId.current = event.id;
+          if (event.type === "ended") {
+            if (!endedLocally.current) cleanup("Call ended");
             return;
           }
-        } else {
-          await processEvent(event, current);
+          if (event.type === "declined") {
+            if (current.role === "initiator") {
+              cleanup(`${event.payload?.name ?? "The other user"} declined the call`);
+              return;
+            }
+            continue;
+          }
+          await processEvent(event);
         }
-      }
+        if (!activeRef.current) return;
+        if (result.status === "ended") {
+          if (!endedLocally.current) cleanup("Call ended");
+          return;
+        }
+      } catch {}
     }, POLL_MS);
-  }, [cleanup, processEvent]);
+  }, [cleanup, hangUp, processEvent]);
 
   useEffect(() => {
     if (!activeCall) return;
@@ -240,27 +352,40 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   }, [activeCall?.status, activeCall?.role, activeCall?.callId]);
 
   useEffect(() => {
-    if (!incoming) return;
+    if (!incoming || activeRef.current) return;
     startRingtone();
     return () => stopRingtone();
   }, [incoming]);
 
   useEffect(() => {
-    if (!calls.length) return;
     for (const call of calls) {
-      if (activeRef.current?.callId === call.callId) continue;
+      if (activeRef.current) continue;
       if (incoming?.callId === call.callId) continue;
-      if (String(call.initiatorId) === String(userId)) {
-        continue;
-      }
+      if (acceptedCallIds.current.has(call.callId)) continue;
+      if (String(call.initiatorId) === String(userId)) continue;
       if (call.myStatus === "invited" && call.status === "ringing") {
-        setIncoming({ callId: call.callId, mode: call.mode, initiatorName: call.initiatorName || "A colleague" });
+        setIncoming({ callId: call.callId, mode: call.mode, initiatorName: call.initiatorName || "A colleague", initiatorId: String(call.initiatorId) });
       }
+    }
+    if (incoming && !calls.some((call) => call.callId === incoming.callId)) {
+      stopRingtone();
+      setIncoming(null);
+      toast.message("Call ended");
     }
     if (activeRef.current && !calls.some((call) => call.callId === activeRef.current!.callId)) {
-      cleanup("Call ended");
+      cleanup(endedLocally.current ? undefined : "Call ended");
     }
   }, [calls, userId, incoming?.callId, cleanup]);
+
+  const joinableCalls = useMemo(() => {
+    if (activeCall) return [];
+    return calls.filter(
+      (call) =>
+        (call.myStatus === "none" || call.myStatus === "ended") &&
+        String(call.initiatorId) !== String(userId) &&
+        (call.status === "ringing" || call.status === "active")
+    );
+  }, [calls, userId, activeCall]);
 
   const startCall = useCallback(async (groupId: string, peerId: string, peerName: string, mode: CallMode) => {
     if (activeRef.current) {
@@ -272,40 +397,95 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       toast.error(result.message ?? "Could not start call");
       return;
     }
+    const stream = await setupLocalStream(mode);
+    if (!stream) {
+      await endCall(result.data.callId).catch(() => undefined);
+      toast.error("Microphone access is required to call");
+      return;
+    }
     const call: ActiveCall = {
       callId: result.data.callId,
       mode,
       status: "ringing",
       role: "initiator",
-      peerName,
-      peerId
+      peerName
     };
     endedLocally.current = false;
+    startedAtRef.current = Date.now();
     setActiveCall(call);
+    setParticipants([
+      { userId, name: userName, status: "accepted" },
+      { userId: peerId, name: peerName, status: "invited" }
+    ]);
     startPolling(call);
-  }, [startPolling]);
+  }, [setupLocalStream, startPolling, userId, userName]);
 
   const accept = useCallback(async (incomingCall: IncomingCall) => {
     const result = await respondToCall(incomingCall.callId, true);
     if (!result.ok) {
       toast.error(result.message ?? "Could not join call");
+      stopRingtone();
+      setIncoming(null);
       return;
     }
+    acceptedCallIds.current.add(incomingCall.callId);
     stopRingtone();
     setIncoming(null);
+    const stream = await setupLocalStream(incomingCall.mode);
+    if (!stream) {
+      await endCall(incomingCall.callId).catch(() => undefined);
+      toast.error("Microphone access required — call declined");
+      cleanup();
+      return;
+    }
     const call: ActiveCall = {
       callId: incomingCall.callId,
       mode: incomingCall.mode,
-      status: "ringing",
+      status: "active",
       role: "callee",
       peerName: incomingCall.initiatorName
     };
     endedLocally.current = false;
+    startedAtRef.current = Date.now();
     setActiveCall(call);
-    const stream = await setupLocalStream(call.mode);
-    createPeer(call.mode, stream);
+    setParticipants([
+      { userId: incomingCall.initiatorId, name: incomingCall.initiatorName, status: "accepted" },
+      { userId, name: userName, status: "accepted" }
+    ]);
     startPolling(call);
-  }, [createPeer, setupLocalStream, startPolling]);
+  }, [cleanup, setupLocalStream, startPolling, userId, userName]);
+
+  const joinCall = useCallback(async (callId: string) => {
+    if (activeRef.current) {
+      toast.error("You are already in a call");
+      return;
+    }
+    const callInfo = calls.find((c) => c.callId === callId);
+    const result = await joinCallAction(callId);
+    if (!result.ok || !result.data) {
+      toast.error(result.message ?? "Could not join call");
+      return;
+    }
+    const mode = callInfo?.mode ?? "audio";
+    const stream = await setupLocalStream(mode);
+    if (!stream) {
+      await endCall(callId).catch(() => undefined);
+      toast.error("Microphone access required");
+      cleanup();
+      return;
+    }
+    const call: ActiveCall = {
+      callId,
+      mode,
+      status: "active",
+      role: "member",
+      peerName: ""
+    };
+    endedLocally.current = false;
+    setActiveCall(call);
+    setParticipants(result.data.participants);
+    startPolling(call);
+  }, [calls, cleanup, setupLocalStream, startPolling]);
 
   const decline = useCallback(async () => {
     if (!incoming) return;
@@ -313,17 +493,6 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     await respondToCall(incoming.callId, false).catch(() => undefined);
     setIncoming(null);
   }, [incoming]);
-
-  const hangUp = useCallback(async () => {
-    const call = activeRef.current;
-    if (!call) return;
-    endedLocally.current = true;
-    if (call.status === "active") {
-      await sendSignal(call.callId, call.peerId ?? null, "ended", {}).catch(() => undefined);
-    }
-    await endCall(call.callId).catch(() => undefined);
-    cleanup();
-  }, [cleanup]);
 
   const toggleMute = useCallback(() => {
     const stream = localStreamRef.current;
@@ -344,8 +513,22 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   const active = activeCall;
   const showIncoming = incoming && !active;
 
+  const visibleParticipants = useMemo(() => {
+    return participants.filter((p) => p.status === "accepted" || p.status === "invited");
+  }, [participants]);
+
+  const tiles = useMemo(() => {
+    if (!active || active.mode !== "video") return [];
+    const others = visibleParticipants.filter((p) => p.userId !== userId);
+    const tiles = [{ userId, name: userName, stream: localStream, isMe: true }];
+    for (const p of others) {
+      tiles.push({ userId: p.userId, name: p.name, stream: remoteStreams.get(p.userId) ?? null, isMe: false });
+    }
+    return tiles;
+  }, [active, visibleParticipants, remoteStreams, localStream, userId, userName]);
+
   return (
-    <CallContext.Provider value={{ activeCall: active, busy: !!active, startCall }}>
+    <CallContext.Provider value={{ activeCall: active, busy: !!active, joinableCalls, startCall, joinCall }}>
       {children}
       {showIncoming && (
         <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-6 bg-slate-950/95 px-6 text-white">
@@ -365,24 +548,51 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
         </div>
       )}
       {active && (
-        <div className={cn("fixed inset-0 z-[200] flex flex-col bg-slate-950/95 text-white", active.mode !== "video" && "items-center justify-center")}>
-          {active.mode === "video" && remoteStream ? (
-            <video ref={(el) => { if (el) el.srcObject = remoteStream; }} autoPlay playsInline className="absolute inset-0 h-full w-full object-contain" />
-          ) : active.mode === "video" ? (
-            <div className="absolute inset-0 grid place-items-center">
-              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/25 text-4xl font-bold">{active.peerName.charAt(0).toUpperCase()}</div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-4 px-6">
-              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/25 text-4xl font-bold">{active.peerName.charAt(0).toUpperCase()}</div>
-              <p className="text-lg font-semibold">{active.peerName}</p>
-              <p className="text-sm text-white/60">{active.status === "ringing" ? "Ringing..." : "In call"}</p>
-            </div>
-          )}
-          {active.mode === "video" && localStream && (
-            <video ref={(el) => { if (el) el.srcObject = localStream; }} autoPlay playsInline muted className="absolute right-4 top-4 h-36 w-28 rounded-xl border border-white/20 bg-black object-cover sm:h-44 sm:w-64" />
-          )}
-          <div className="relative z-10 mt-auto flex items-center justify-center gap-4 p-6">
+        <div className="fixed inset-0 z-[200] flex flex-col bg-slate-950/95 text-white">
+          <div className="flex min-h-0 flex-1 p-3 sm:p-4">
+            {active.mode === "video" ? (
+              <div className="grid h-full w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {tiles.map((tile) => (
+                  <div key={tile.userId} className="relative min-h-0 overflow-hidden rounded-xl border border-white/10 bg-black">
+                    {tile.stream ? (
+                      <video
+                        autoPlay
+                        playsInline
+                        muted={tile.isMe}
+                        className="absolute inset-0 h-full w-full object-contain"
+                        ref={(el) => { if (el && el.srcObject !== tile.stream) el.srcObject = tile.stream; }}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/25 text-2xl font-bold">{tile.name.charAt(0).toUpperCase()}</div>
+                        <p className="text-xs text-white/60">{tile.name}</p>
+                      </div>
+                    )}
+                    <p className="absolute bottom-2 left-2 rounded bg-black/50 px-2 py-0.5 text-[10px] text-white/80">{tile.isMe ? "You" : tile.name}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/25 text-4xl font-bold">{(active.peerName || "G").charAt(0).toUpperCase()}</div>
+                <div>
+                  <p className="text-lg font-semibold">{active.peerName || "Group call"}</p>
+                  <p className="text-sm text-white/60">{active.status === "ringing" ? "Ringing..." : `${visibleParticipants.length} in call`}</p>
+                </div>
+                {visibleParticipants.length > 1 && (
+                  <div className="flex max-w-md flex-wrap items-center justify-center gap-2">
+                    {visibleParticipants.map((p) => (
+                      <span key={p.userId} className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/30 text-[8px] font-bold">{p.name.charAt(0).toUpperCase()}</span>
+                        {p.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-center gap-4 p-4 sm:p-6">
             <button type="button" onClick={toggleMute} className={cn("flex h-12 w-12 items-center justify-center rounded-full transition", micOn ? "bg-white/10 hover:bg-white/20" : "bg-red-600 hover:bg-red-700")} aria-label="Toggle microphone">
               {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
             </button>
@@ -393,9 +603,6 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
             )}
             <button type="button" onClick={hangUp} className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white transition hover:bg-red-700" aria-label="End call">
               <PhoneOff className="h-6 w-6" />
-            </button>
-            <button type="button" onClick={hangUp} className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20" aria-label="Close">
-              <X className="h-5 w-5" />
             </button>
           </div>
         </div>

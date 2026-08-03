@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.userId) return new Response("Unauthorized", { status: 401 });
   const userId = new Types.ObjectId(String(session.user.userId));
-  const organizationId = new Types.ObjectId(String(session.user.organizationId ?? ""));
+  const organizationId = session.user.organizationId ? new Types.ObjectId(String(session.user.organizationId)) : null;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -38,12 +38,15 @@ export async function GET(request: Request) {
       const tick = async () => {
         try {
           await connectToDatabase();
-          const [unreadCount, notifications, groups, calls] = await Promise.all([
+          const [unreadCount, notifications, groups] = await Promise.all([
             Notification.countDocuments({ userId, readAt: null }),
             Notification.find({ userId }).sort({ createdAt: -1 }).limit(10).select("title message href type readAt createdAt").lean(),
-            ChatGroup.find({ "members.userId": userId }).sort({ updatedAt: -1 }).select("name description updatedAt members").lean(),
-            Call.find({ organizationId, status: { $ne: "ended" }, "participants.userId": userId }).sort({ createdAt: -1 }).limit(5).select("_id initiatorId initiatorName mode status participants createdAt").lean()
+            ChatGroup.find({ "members.userId": userId }).sort({ updatedAt: -1 }).select("name description updatedAt members").lean()
           ]);
+          const groupIds = groups.map((g: any) => g._id);
+          const calls = groupIds.length
+            ? await Call.find({ organizationId, status: { $ne: "ended" }, groupId: { $in: groupIds } }).sort({ createdAt: -1 }).limit(10).select("_id groupId initiatorId initiatorName mode status participants createdAt").lean()
+            : [];
           const previews = await Promise.all(groups.map((group: any) =>
             ChatMessage.findOne({ groupId: group._id }).sort({ createdAt: -1 }).select("content senderId createdAt").populate("senderId", "name").lean()
           ));
@@ -63,11 +66,12 @@ export async function GET(request: Request) {
               const me = (call.participants ?? []).find((p: any) => String(p.userId) === String(userId));
               return {
                 callId: call._id.toString(),
+                groupId: call.groupId?.toString() ?? "",
                 initiatorId: String(call.initiatorId),
                 initiatorName: call.initiatorName ?? "",
                 mode: call.mode ?? "audio",
                 status: call.status,
-                myStatus: me?.status ?? "invited",
+                myStatus: me?.status ?? "none",
                 createdAt: call.createdAt
               };
             })))

@@ -44,8 +44,10 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const [liveGroups, setLiveGroups] = useState<any[]>(groups);
   const { chatGroups: liveChatGroups } = useRealtime({ unreadCount: 0, notifications: [], chatGroups: [] });
-  const { startCall, busy } = useCalls();
+  const { startCall, busy, joinableCalls, joinCall } = useCalls();
   const [callPicker, setCallPicker] = useState<null | "audio" | "video">(null);
+
+  const activeGroupCall = joinableCalls.find((c: any) => c.groupId === activeGroup);
 
   useEffect(() => {
     if (!liveChatGroups.length) return;
@@ -270,6 +272,11 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
                 <p className="text-[10px] text-muted-foreground">{activeGroupData.members.length} members{activeGroupData.description ? ` · ${activeGroupData.description}` : ""}</p>
               </div>
               <div className="flex gap-1">
+                {activeGroupCall && (
+                  <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-primary" title="Join the active call in this group" onClick={() => joinCall(activeGroupCall.callId)}>
+                    <Phone className="h-3.5 w-3.5 animate-pulse" /> Join
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Audio call" onClick={() => setCallPicker("audio")}><Phone className="h-3.5 w-3.5" /></Button>
                 <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Video call" onClick={() => setCallPicker("video")}><Video className="h-3.5 w-3.5" /></Button>
                 {isAdmin && <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Add members" onClick={() => setShowAddMembers(!showAddMembers)}><UserPlus className="h-3.5 w-3.5" /></Button>}
