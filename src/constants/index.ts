@@ -107,7 +107,7 @@ export const navItems = [
   { href: "/account", label: "Account", icon: UserCircle, roles },
   { href: "/organizations", label: "Organizations", icon: Building2, roles: ["super_admin"] },
   { href: "/users", label: "Users", icon: Users, roles: ["owner"] },
-  { href: "/attendance", label: "Attendance", icon: UserRoundCheck, roles: ["owner", "admin", "staff"] },
+  { href: "/attendance", label: "Attendance", icon: UserRoundCheck, roles: ["owner", "admin", "staff", "super_admin"] },
   { href: "/attendance/selfies", label: "Selfies", icon: Camera, roles: ["owner", "admin"] },
   { href: "/attendance/reports", label: "Attendance Reports", icon: ListChecks, roles: ["owner", "admin"] },
   { href: "/attendance/leaves", label: "Leaves", icon: CalendarRange, roles: ["owner", "admin", "staff"] },

@@ -6,6 +6,7 @@ export function formToObject(formData: FormData) {
 }
 
 export function actionError(error: unknown): ActionState {
+  if (error instanceof Error && (error as Error & { digest?: string }).digest === "NEXT_REDIRECT") throw error;
   if (error instanceof ZodError) {
     return { ok: false, message: "Validation failed", fieldErrors: error.flatten().fieldErrors };
   }

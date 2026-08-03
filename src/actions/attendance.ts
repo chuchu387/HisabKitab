@@ -55,6 +55,7 @@ export async function markAttendance(formData: FormData): Promise<{ ok: boolean;
     revalidatePath("/attendance");
     return { ok: true, message: "Attendance marked successfully" };
   } catch (error) {
+    if (error instanceof Error && (error as Error & { digest?: string }).digest === "NEXT_REDIRECT") throw error;
     return { ok: false, message: error instanceof Error ? error.message : "Failed to mark attendance" };
   }
 }
@@ -81,6 +82,7 @@ export async function checkOutAttendance(): Promise<{ ok: boolean; message: stri
     revalidatePath("/attendance");
     return { ok: true, message: "Checked out successfully" };
   } catch (error) {
+    if (error instanceof Error && (error as Error & { digest?: string }).digest === "NEXT_REDIRECT") throw error;
     return { ok: false, message: error instanceof Error ? error.message : "Failed to check out" };
   }
 }
