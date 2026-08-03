@@ -43,11 +43,11 @@ export async function GET(request: Request) {
           if (now - lastCleanup > 30000 && organizationId) {
             lastCleanup = now;
             await Call.updateMany(
-              { organizationId, status: "ringing", createdAt: { $lt: new Date(now - 60000) } },
+              { organizationId, status: "ringing", createdAt: { $lt: new Date(now - 120000) } },
               { $set: { status: "ended", endedAt: new Date() } }
             );
             await Call.updateMany(
-              { organizationId, status: "active", createdAt: { $lt: new Date(now - 15000) }, "participants.status": { $nin: ["accepted"] } },
+              { organizationId, status: "active", createdAt: { $lt: new Date(now - 90000) }, "participants.status": { $nin: ["accepted"] } },
               { $set: { status: "ended", endedAt: new Date() } }
             );
           }

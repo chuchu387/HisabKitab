@@ -59,7 +59,7 @@ function getIceServers() {
 }
 
 const POLL_MS = 800;
-const RING_TIMEOUT_MS = 45000;
+const RING_TIMEOUT_MS = 90000;
 
 export function CallProvider({ userId, userName, children }: { userId: string; userName: string; children: React.ReactNode }) {
   const { calls } = useRealtime({ unreadCount: 0, notifications: [], chatGroups: [] });
@@ -86,6 +86,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   const acceptedCallIds = useRef(new Set<string>());
   const startedAtRef = useRef(0);
   const dismissedJoinCalls = useRef(new Set<string>());
+  const acceptingRef = useRef(false);
 
   activeRef.current = activeCall;
 
@@ -159,7 +160,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       }
     };
     peer.onconnectionstatechange = () => {
-      if (["failed", "closed", "disconnected"].includes(peer.connectionState)) {
+      if (["failed", "closed"].includes(peer.connectionState)) {
         peersRef.current.delete(targetId);
         try { peer.close(); } catch {}
         const stream = remoteStreamsRef.current.get(targetId);
@@ -388,7 +389,11 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
             }
             continue;
           }
-          await processEvent(event);
+          try {
+            await processEvent(event);
+          } catch (error) {
+            console.error("call event processing failed", event.type, error);
+          }
         }
         if (!activeRef.current) return;
         if (result.status === "ended") {
@@ -512,38 +517,50 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   }, [setupLocalStream, startPolling]);
 
   const accept = useCallback(async (incomingCall: IncomingCall) => {
-    const result = await respondToCall(incomingCall.callId, true);
-    if (!result.ok) {
-      toast.error(result.message ?? "Could not join call");
-      stopRingtone();
-      setIncoming(null);
-      return;
-    }
-    acceptedCallIds.current.add(incomingCall.callId);
+    if (acceptingRef.current) return;
+    acceptingRef.current = true;
+    const callId = incomingCall.callId;
     stopRingtone();
     setIncoming(null);
-    const stream = await setupLocalStream(incomingCall.mode);
-    if (!stream) {
-      await endCall(incomingCall.callId).catch(() => undefined);
-      toast.error("Microphone access required — call declined");
+    try {
+      const result = await respondToCall(callId, true).catch((error: unknown) => ({
+        ok: false,
+        message: error instanceof Error ? error.message : "Could not join call"
+      }));
+      if (!result.ok) {
+        toast.error(result.message ?? "Could not join call");
+        return;
+      }
+      acceptedCallIds.current.add(callId);
+      const stream = await setupLocalStream(incomingCall.mode);
+      if (!stream) {
+        await endCall(callId).catch(() => undefined);
+        toast.error("Microphone access required — call declined");
+        cleanup();
+        return;
+      }
+      const call: ActiveCall = {
+        callId,
+        mode: incomingCall.mode,
+        status: "active",
+        role: "callee",
+        peerName: incomingCall.initiatorName
+      };
+      endedLocally.current = false;
+      startedAtRef.current = Date.now();
+      setActiveCall(call);
+      setParticipants([
+        { userId: incomingCall.initiatorId, name: incomingCall.initiatorName, status: "accepted" },
+        { userId, name: userName, status: "accepted" }
+      ]);
+      startPolling(call);
+    } catch (error) {
+      console.error("accept call failed", error);
+      toast.error(error instanceof Error ? error.message : "Could not join the call");
       cleanup();
-      return;
+    } finally {
+      acceptingRef.current = false;
     }
-    const call: ActiveCall = {
-      callId: incomingCall.callId,
-      mode: incomingCall.mode,
-      status: "active",
-      role: "callee",
-      peerName: incomingCall.initiatorName
-    };
-    endedLocally.current = false;
-    startedAtRef.current = Date.now();
-    setActiveCall(call);
-    setParticipants([
-      { userId: incomingCall.initiatorId, name: incomingCall.initiatorName, status: "accepted" },
-      { userId, name: userName, status: "accepted" }
-    ]);
-    startPolling(call);
   }, [cleanup, setupLocalStream, startPolling, userId, userName]);
 
   const joinCall = useCallback(async (callId: string) => {
@@ -551,39 +568,56 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       toast.error("You are already in a call");
       return;
     }
+    if (acceptingRef.current) return;
+    acceptingRef.current = true;
     dismissedJoinCalls.current.add(callId);
-    const callInfo = calls.find((c) => c.callId === callId);
-    const result = await joinCallAction(callId);
-    if (!result.ok || !result.data) {
-      toast.error(result.message ?? "Could not join call");
-      return;
-    }
-    const mode = callInfo?.mode ?? "audio";
-    const stream = await setupLocalStream(mode);
-    if (!stream) {
-      await endCall(callId).catch(() => undefined);
-      toast.error("Microphone access required");
+    try {
+      const callInfo = calls.find((c) => c.callId === callId);
+      const result = await joinCallAction(callId).catch((error: unknown) => ({
+        ok: false,
+        message: error instanceof Error ? error.message : "Could not join call"
+      }));
+      if (!result.ok || !("data" in result) || !result.data) {
+        toast.error(result.message ?? "Could not join call");
+        return;
+      }
+      const mode = callInfo?.mode ?? "audio";
+      const stream = await setupLocalStream(mode);
+      if (!stream) {
+        await endCall(callId).catch(() => undefined);
+        toast.error("Microphone access required");
+        cleanup();
+        return;
+      }
+      const call: ActiveCall = {
+        callId,
+        mode,
+        status: "active",
+        role: "member",
+        peerName: ""
+      };
+      endedLocally.current = false;
+      setActiveCall(call);
+      setParticipants(result.data.participants);
+      startPolling(call);
+    } catch (error) {
+      console.error("join call failed", error);
+      toast.error(error instanceof Error ? error.message : "Could not join the call");
       cleanup();
-      return;
+    } finally {
+      acceptingRef.current = false;
     }
-    const call: ActiveCall = {
-      callId,
-      mode,
-      status: "active",
-      role: "member",
-      peerName: ""
-    };
-    endedLocally.current = false;
-    setActiveCall(call);
-    setParticipants(result.data.participants);
-    startPolling(call);
   }, [calls, cleanup, setupLocalStream, startPolling]);
 
   const decline = useCallback(async () => {
-    if (!incoming) return;
+    if (!incoming || acceptingRef.current) return;
     stopRingtone();
-    await respondToCall(incoming.callId, false).catch(() => undefined);
     setIncoming(null);
+    try {
+      await respondToCall(incoming.callId, false);
+    } catch (error) {
+      console.error("decline call failed", error);
+    }
   }, [incoming]);
 
   const toggleMute = useCallback(() => {
