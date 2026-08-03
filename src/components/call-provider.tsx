@@ -1,10 +1,10 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, MonitorUp, MonitorOff } from "lucide-react";
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, MonitorUp, MonitorOff, X } from "lucide-react";
 import { endCall, getCallEvents, joinCall as joinCallAction, respondToCall, sendSignal, startCall as startCallAction } from "@/actions/calls";
 import { useRealtime, type RealtimeCall } from "@/hooks/use-realtime";
-import { startRingtone, stopRingtone } from "@/lib/ringtone";
+import { startRingtone, stopRingtone, unlockAudio } from "@/lib/ringtone";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -72,6 +72,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   const [micOn, setMicOn] = useState(true);
   const [sharing, setSharing] = useState(false);
   const [sharedStream, setSharedStream] = useState<MediaStream | null>(null);
+  const [joinBanner, setJoinBanner] = useState<{ callId: string; groupName: string; initiatorName: string; mode: CallMode } | null>(null);
 
   const peersRef = useRef<Map<string, PeerHandle>>(new Map());
   const orphanCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
@@ -84,8 +85,19 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   const endedLocally = useRef(false);
   const acceptedCallIds = useRef(new Set<string>());
   const startedAtRef = useRef(0);
+  const dismissedJoinCalls = useRef(new Set<string>());
 
   activeRef.current = activeCall;
+
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
 
   const dispose = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -422,6 +434,43 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     }
   }, [calls, userId, incoming?.callId, cleanup]);
 
+  useEffect(() => {
+    if (activeRef.current || incoming) {
+      setJoinBanner(null);
+      return;
+    }
+    const joinable = calls
+      .filter(
+        (call) =>
+          (call.myStatus === "none" || call.myStatus === "ended") &&
+          String(call.initiatorId) !== String(userId) &&
+          (call.status === "ringing" || call.status === "active") &&
+          !dismissedJoinCalls.current.has(call.callId)
+      )
+      .sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""))[0];
+    if (joinable) {
+      setJoinBanner((prev) =>
+        prev?.callId === joinable.callId
+          ? prev
+          : { callId: joinable.callId, groupName: joinable.groupName || "your group", initiatorName: joinable.initiatorName || "Someone", mode: joinable.mode }
+      );
+    } else {
+      setJoinBanner(null);
+    }
+  }, [calls, userId, incoming, activeCall]);
+
+  useEffect(() => {
+    if (joinBanner && !incoming && !activeCall) {
+      startRingtone();
+      return () => stopRingtone();
+    }
+  }, [joinBanner, incoming, activeCall]);
+
+  const dismissJoinBanner = useCallback(() => {
+    if (joinBanner) dismissedJoinCalls.current.add(joinBanner.callId);
+    setJoinBanner(null);
+  }, [joinBanner]);
+
   const joinableCalls = useMemo(() => {
     if (activeCall) return [];
     return calls.filter(
@@ -502,6 +551,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       toast.error("You are already in a call");
       return;
     }
+    dismissedJoinCalls.current.add(callId);
     const callInfo = calls.find((c) => c.callId === callId);
     const result = await joinCallAction(callId);
     if (!result.ok || !result.data) {
@@ -585,6 +635,27 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
             </button>
             <button type="button" onClick={() => accept(incoming)} className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white transition hover:bg-emerald-700" aria-label="Accept call">
               <Phone className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+      )}
+      {joinBanner && (
+        <div className="fixed left-1/2 top-4 z-[250] w-[min(94vw,380px)] -translate-x-1/2 rounded-xl border bg-card p-3 shadow-xl">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15">
+              <Phone className="h-4 w-4 animate-pulse text-primary" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">{joinBanner.initiatorName} started a {joinBanner.mode} call</p>
+              <p className="truncate text-xs text-muted-foreground">in {joinBanner.groupName}</p>
+            </div>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <button type="button" onClick={() => joinCall(joinBanner.callId)} className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-xs font-semibold text-primary-foreground transition hover:bg-primary/90">
+              <Phone className="h-3.5 w-3.5" /> Join now
+            </button>
+            <button type="button" onClick={dismissJoinBanner} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary/40" aria-label="Dismiss">
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>

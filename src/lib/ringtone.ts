@@ -34,6 +34,10 @@ export function startRingtone() {
   } catch {}
 }
 
+export function unlockAudio() {
+  try { ensureContext(); } catch {}
+}
+
 export function stopRingtone() {
   if (interval) clearInterval(interval);
   interval = null;

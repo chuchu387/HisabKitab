@@ -80,6 +80,7 @@ export async function GET(request: Request) {
               return {
                 callId: call._id.toString(),
                 groupId: call.groupId?.toString() ?? "",
+                groupName: groups.find((g: any) => String(g._id) === String(call.groupId))?.name ?? "",
                 initiatorId: String(call.initiatorId),
                 initiatorName: call.initiatorName ?? "",
                 mode: call.mode ?? "audio",
