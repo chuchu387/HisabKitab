@@ -8,6 +8,7 @@ export type RealtimeChatGroup = {
   description: string;
   updatedAt?: string;
   memberCount: number;
+  isDM?: boolean;
   lastMessage: { content: string; senderId?: any; createdAt?: string } | null;
 };
 

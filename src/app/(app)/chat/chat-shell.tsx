@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageSquare, Plus, Send, Smile, Paperclip, Phone, Video, Reply, X, Trash2, ChevronLeft, Loader2, FileText, Download, UserPlus, AtSign, LogOut } from "lucide-react";
+import { MessageSquare, Plus, Send, Smile, Paperclip, Phone, Video, Reply, X, Trash2, ChevronLeft, Loader2, FileText, Download, UserPlus, AtSign, LogOut, MessageSquarePlus } from "lucide-react";
 import { cn, timeAgo } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createGroup, sendMessage, toggleReaction, deleteMessage, leaveGroup, addMembers, markRead } from "@/actions/chat";
+import { createGroup, sendMessage, toggleReaction, deleteMessage, leaveGroup, addMembers, markRead, openConversation } from "@/actions/chat";
 import { toast } from "sonner";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useCalls } from "@/components/call-provider";
@@ -28,6 +28,7 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
   const [loading, setLoading] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(showCreate);
+  const [showNewChat, setShowNewChat] = useState(false);
   const [showAddMembers, setShowAddMembers] = useState(false);
   const [composerText, setComposerText] = useState("");
   const [replyTo, setReplyTo] = useState<any>(null);
@@ -56,7 +57,8 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
       for (const g of liveChatGroups) {
         const existing = map.get(g._id);
         map.set(g._id, {
-          ...(existing ?? { _id: g._id, name: g.name, description: g.description, members: [] }),
+          ...(existing ?? { _id: g._id, name: g.name, description: g.description, members: [], isDM: false }),
+          isDM: g.isDM ?? existing?.isDM ?? false,
           memberCount: g.memberCount,
           updatedAt: g.updatedAt,
           lastMessage: g.lastMessage
@@ -211,25 +213,75 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
       {/* Groups Sidebar */}
       <Card className={cn("flex w-72 shrink-0 flex-col overflow-hidden transition-all", showSidebar ? "max-md:flex" : "max-md:hidden max-md:w-0 max-md:overflow-hidden")}>
         <div className="flex items-center justify-between border-b p-3">
-          <h2 className="text-sm font-semibold">Groups</h2>
-          {isAdmin && <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setShowCreateForm(true)}><Plus className="h-4 w-4" /></Button>}
+          <h2 className="text-sm font-semibold">Chat</h2>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" className="h-7 px-2" title="New private chat" onClick={() => setShowNewChat(!showNewChat)}><MessageSquarePlus className="h-4 w-4" /></Button>
+            {isAdmin && <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setShowCreateForm(true)}><Plus className="h-4 w-4" /></Button>}
+          </div>
         </div>
+        {showNewChat && (
+          <div className="border-b p-2">
+            <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">Start a private chat with</p>
+            <div className="max-h-40 overflow-y-auto rounded-lg border p-1.5">
+              {staff.filter((u: any) => u._id !== currentUser?.userId).map((u: any) => (
+                <button
+                  key={u._id}
+                  type="button"
+                  onClick={async () => {
+                    const res = await openConversation(u._id);
+                    if (!res.ok || !res.data) { toast.error(res.message || "Could not start chat"); return; }
+                    setShowNewChat(false);
+                    navigate(res.data.groupId);
+                  }}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-secondary/40"
+                >
+                  <Avatar name={u.name} className="h-6 w-6 text-[10px]" />
+                  <span className="min-w-0 flex-1 truncate font-medium">{u.name}</span>
+                  <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                </button>
+              ))}
+              {staff.filter((u: any) => u._id !== currentUser?.userId).length === 0 && <p className="p-2 text-[10px] text-muted-foreground">No other staff yet</p>}
+            </div>
+          </div>
+        )}
         <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
-          {liveGroups.map((g: any) => {
-            const isActive = g._id === activeGroup;
-            const unread = 0;
-            return (
-              <button key={g._id} onClick={() => navigate(g._id)} className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-secondary/60", isActive && "bg-primary/10 text-primary font-medium")}>
-                <Avatar name={g.name} />
-                <div className="min-w-0 flex-1">
-                  <p className={cn("truncate text-xs font-medium", isActive && "text-primary")}>{g.name}</p>
-                  <p className="truncate text-[10px] text-muted-foreground">{g.lastMessage?.content || `${g.memberCount ?? g.members.length} members`}</p>
-                </div>
-                {unread > 0 && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{unread}</span>}
-              </button>
-            );
-          })}
-          {!liveGroups.length && <p className="p-4 text-center text-xs text-muted-foreground">No groups yet</p>}
+          {liveGroups.filter((g: any) => g.isDM).length > 0 && (
+            <>
+              <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Direct messages</p>
+              {liveGroups.filter((g: any) => g.isDM).map((g: any) => {
+                const isActive = g._id === activeGroup;
+                return (
+                  <button key={g._id} onClick={() => navigate(g._id)} className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-secondary/60", isActive && "bg-primary/10 text-primary font-medium")}>
+                    <Avatar name={g.name} />
+                    <div className="min-w-0 flex-1">
+                      <p className={cn("truncate text-xs font-medium", isActive && "text-primary")}>{g.name}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">{g.lastMessage?.content || "Private chat"}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </>
+          )}
+          {liveGroups.filter((g: any) => !g.isDM).length > 0 && (
+            <>
+              <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Groups</p>
+              {liveGroups.filter((g: any) => !g.isDM).map((g: any) => {
+                const isActive = g._id === activeGroup;
+                const unread = 0;
+                return (
+                  <button key={g._id} onClick={() => navigate(g._id)} className={cn("flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-secondary/60", isActive && "bg-primary/10 text-primary font-medium")}>
+                    <Avatar name={g.name} />
+                    <div className="min-w-0 flex-1">
+                      <p className={cn("truncate text-xs font-medium", isActive && "text-primary")}>{g.name}</p>
+                      <p className="truncate text-[10px] text-muted-foreground">{g.lastMessage?.content || `${g.memberCount ?? g.members.length} members`}</p>
+                    </div>
+                    {unread > 0 && <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{unread}</span>}
+                  </button>
+                );
+              })}
+            </>
+          )}
+          {!liveGroups.length && <p className="p-4 text-center text-xs text-muted-foreground">No chats yet — start a private chat or ask an admin to create a group</p>}
         </div>
       </Card>
 
@@ -269,7 +321,7 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
               <Avatar name={activeGroupData.name} />
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold">{activeGroupData.name}</h3>
-                <p className="text-[10px] text-muted-foreground">{activeGroupData.members.length} members{activeGroupData.description ? ` · ${activeGroupData.description}` : ""}</p>
+                <p className="text-[10px] text-muted-foreground">{activeGroupData.isDM ? "Private chat" : `${activeGroupData.members.length} members${activeGroupData.description ? ` · ${activeGroupData.description}` : ""}`}</p>
               </div>
               <div className="flex gap-1">
                 {activeGroupCall && (
@@ -313,7 +365,7 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
                   <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => setCallPicker(null)}><X className="h-4 w-4" /></Button>
                 </div>
                 <div className="grid max-h-32 gap-1 overflow-y-auto rounded-lg border p-2">
-                  {activeGroupData.members.length > 1 && (
+                  {activeGroupData.members.length > 1 && !activeGroupData.isDM && (
                     <button
                       type="button"
                       disabled={busy}

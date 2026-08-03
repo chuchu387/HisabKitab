@@ -11,7 +11,39 @@ import { sendEmail, emailLayout, actionButton, appUrl, escapeHtml } from "@/serv
 import { actionError } from "@/actions/helpers";
 import { writeAuditLog } from "@/services/audit";
 import { sendPushToUser } from "@/services/push";
-import { mongo } from "mongoose";
+import { Types, mongo } from "mongoose";
+
+export async function openConversation(targetUserId: string): Promise<{ ok: boolean; message?: string; data?: { groupId: string } }> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await connectToDatabase();
+    const oid = new Types.ObjectId(organizationId);
+    const target = await User.findOne({ _id: targetUserId, organizationId: oid, active: true }).select("name").lean() as any;
+    if (!target) return { ok: false, message: "User not found" };
+    if (String(target._id) === String(session.user.userId)) return { ok: false, message: "Cannot start a chat with yourself" };
+    const existing = await ChatGroup.findOne({
+      organizationId: oid,
+      isDM: true,
+      $and: [{ "members.userId": session.user.userId }, { "members.userId": targetUserId }]
+    }).lean() as any;
+    if (existing) return { ok: true, data: { groupId: existing._id.toString() } };
+    const group = await ChatGroup.create({
+      organizationId: oid,
+      name: target.name || "Private chat",
+      description: "Direct message",
+      isDM: true,
+      createdBy: session.user.userId,
+      members: [
+        { userId: session.user.userId, role: "member", joinedAt: new Date() },
+        { userId: targetUserId, role: "member", joinedAt: new Date() }
+      ]
+    });
+    revalidatePath("/chat");
+    return { ok: true, data: { groupId: group._id.toString() } };
+  } catch (error) {
+    return actionError(error);
+  }
+}
 
 export async function createGroup(formData: FormData) {
   try {

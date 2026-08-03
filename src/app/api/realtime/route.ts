@@ -73,6 +73,7 @@ export async function GET(request: Request) {
               description: group.description ?? "",
               updatedAt: group.updatedAt,
               memberCount: (group.members ?? []).length,
+              isDM: group.isDM ?? false,
               lastMessage: previews[index] ?? null
             })))),
             calls: JSON.parse(JSON.stringify(calls.map((call: any) => {
