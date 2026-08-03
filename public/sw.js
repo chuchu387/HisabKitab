@@ -1,5 +1,5 @@
-const CACHE = "hisabkitab-assets-v3";
-const PRECACHE = ["/pwa/icon-192.png", "/pwa/icon-512.png"];
+const CACHE = "hisabkitab-assets-v4";
+const PRECACHE = ["/pwa/icon-192.png", "/pwa/icon-512.png", "/pwa/ringtone.mp3"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -24,6 +24,27 @@ self.addEventListener("push", (event) => {
   try {
     if (event.data) payload = { ...payload, ...event.data.json() };
   } catch {}
+  if (payload.type === "call") {
+    event.waitUntil(
+      self.registration.showNotification(payload.title, {
+        body: payload.message,
+        icon: "/pwa/icon-192.png",
+        badge: "/pwa/icon-192.png",
+        tag: `call-${payload.callId || "ring"}`,
+        renotify: true,
+        requireInteraction: true,
+        silent: false,
+        sound: "/pwa/ringtone.mp3",
+        vibrate: [500, 300, 500, 300, 500],
+        data: { href: payload.href || "/dashboard", callId: payload.callId, groupId: payload.groupId },
+        actions: [
+          { action: "answer", title: "Answer" },
+          { action: "decline", title: "Decline" }
+        ]
+      })
+    );
+    return;
+  }
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.message,
@@ -36,6 +57,7 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  if (event.action === "decline") return;
   const href = event.notification.data?.href || "/dashboard";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {

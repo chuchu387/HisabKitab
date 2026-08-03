@@ -7,7 +7,12 @@ import { Call } from "@/models/Call";
 import { ChatGroup } from "@/models/ChatGroup";
 import { ChatMessage } from "@/models/ChatMessage";
 import { User } from "@/models/User";
+import { notifyCallStarted } from "@/services/notifications";
 import { actionError } from "@/actions/helpers";
+
+function notifyCall(recipients: Array<{ _id: unknown; email?: string | null; name?: string | null; organizationId: string }>, call: { groupId: string; groupName?: string; initiatorName: string; mode: string; callId?: string }) {
+  notifyCallStarted(recipients, call).catch(() => undefined);
+}
 
 function serializeParticipants(participants: any[]) {
   return (participants || []).map((p: any) => ({
@@ -45,7 +50,7 @@ export async function startCall(groupId: string, mode: "audio" | "video", callee
     if (calleeId === "all") {
       const existing = await Call.findOne({ organizationId, groupId, status: { $ne: "ended" } });
       if (existing) return { ok: false, message: "There is already an active call in this group" };
-      const members = await User.find({ _id: { $in: memberIds } }).select("name").lean() as any[];
+      const members = await User.find({ _id: { $in: memberIds } }).select("name email").lean() as any[];
       const nameOf = (id: string) => members.find((m: any) => String(m._id) === id)?.name || "Member";
       const participants = [
         { userId: session.user.userId, name: initiatorName, status: "accepted" as const, joinedAt: new Date() },
@@ -64,6 +69,12 @@ export async function startCall(groupId: string, mode: "audio" | "video", callee
         messages: []
       });
       await logCallEvent(call, session.user.userId, "started", `${initiatorName} started a ${mode} call for the whole group`);
+      notifyCall(
+        members
+          .filter((m: any) => String(m._id) !== String(session.user.userId))
+          .map((m: any) => ({ _id: m._id, email: m.email, name: m.name, organizationId })),
+        { groupId, groupName: group.name, initiatorName, mode, callId: call._id.toString() }
+      );
       return { ok: true, data: { callId: call._id.toString(), participants: serializeParticipants(call.participants) } };
     }
 
@@ -75,7 +86,7 @@ export async function startCall(groupId: string, mode: "audio" | "video", callee
       participants: { $elemMatch: { userId: { $in: [session.user.userId, calleeId] } } }
     });
     if (existing) return { ok: false, message: "There is already an active call in this group" };
-    const callee = await User.findById(calleeId).select("name").lean() as any;
+    const callee = await User.findById(calleeId).select("name email").lean() as any;
     const call = await Call.create({
       organizationId,
       groupId,
@@ -90,6 +101,12 @@ export async function startCall(groupId: string, mode: "audio" | "video", callee
       messages: []
     });
     await logCallEvent(call, session.user.userId, "started", `${initiatorName} started a ${mode} call`);
+    if (callee) {
+      notifyCall(
+        [{ _id: callee._id, email: callee.email, name: callee.name, organizationId }],
+        { groupId, groupName: group.name, initiatorName, mode, callId: call._id.toString() }
+      );
+    }
     return { ok: true, data: { callId: call._id.toString(), participants: serializeParticipants(call.participants) } };
   } catch (error) {
     return actionError(error);

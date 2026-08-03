@@ -69,6 +69,42 @@ export async function notifyUserCreated(user: UserLike & { organizationId?: stri
   });
 }
 
+export async function notifyCallStarted(recipients: Array<UserLike & { organizationId?: string }>, call: { groupId: string; groupName?: string; initiatorName: string; mode: string; callId?: string }) {
+  const href = `/chat?g=${call.groupId}`;
+  const to = recipients.filter((recipient) => recipient.email).map((recipient) => ({ email: String(recipient.email), name: recipient.name }));
+  if (to.length) {
+    await sendEmail({
+      to,
+      subject: `${call.initiatorName} started a ${call.mode} call in ${call.groupName ?? "your group"}`,
+      organizationId: recipients[0]?.organizationId ?? null,
+      template: "call_started",
+      entityType: "Call",
+      entityId: call.callId,
+      html: emailLayout(
+        `Incoming ${call.mode} call`,
+        `
+          <p>${escapeHtml(call.initiatorName)} started a ${call.mode} call in <strong>${escapeHtml(call.groupName ?? "your group")}</strong>.</p>
+          <p>Open HisabKitab now to join the call while it is live.</p>
+          ${actionButton("Join Call", appUrl(href))}
+        `
+      )
+    });
+  }
+  await Promise.all(recipients.map((recipient) => {
+    if (!recipient.organizationId || !recipient._id) return Promise.resolve();
+    return sendPushToUser(recipient.organizationId, recipient._id, {
+      title: `Incoming ${call.mode} call`,
+      message: `${call.initiatorName} is calling in ${call.groupName ?? "your group"}`,
+      href,
+      type: "call",
+      callId: call.callId,
+      groupId: call.groupId,
+      callerName: call.initiatorName,
+      mode: call.mode
+    }).catch(() => undefined);
+  }));
+}
+
 export async function notifyTaskAssigned(user: UserLike & { organizationId?: string }, task: { title: string; status?: string; projectName?: string; taskUrl?: string }) {
   const href = task.taskUrl ?? appUrl("/tasks");
   if (user.organizationId && user._id) {

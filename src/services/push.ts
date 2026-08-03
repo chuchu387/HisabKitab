@@ -7,6 +7,10 @@ type PushPayload = {
   message: string;
   href?: string;
   type?: string;
+  callId?: string;
+  groupId?: string;
+  callerName?: string;
+  mode?: string;
 };
 
 export function getVapidConfig() {
@@ -29,7 +33,11 @@ export async function sendPushToUser(organizationId: string, userId: string | un
       title: payload.title,
       message: payload.message,
       href: payload.href ?? "/dashboard",
-      type: payload.type ?? "info"
+      type: payload.type ?? "info",
+      ...(payload.callId ? { callId: payload.callId } : {}),
+      ...(payload.groupId ? { groupId: payload.groupId } : {}),
+      ...(payload.callerName ? { callerName: payload.callerName } : {}),
+      ...(payload.mode ? { mode: payload.mode } : {})
     });
     await Promise.all(subscriptions.map(async (subscription) => {
       try {
