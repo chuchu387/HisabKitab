@@ -8,7 +8,7 @@ const chatMessageSchema = new Schema(
     content: { type: String, default: "" },
     type: { type: String, enum: ["message", "call"], default: "message", index: true },
     callId: { type: Schema.Types.ObjectId, ref: "Call", default: null },
-    callEvent: { type: String, enum: ["started", "joined", "ended", "declined"], default: "" },
+    callEvent: { type: String, enum: ["", "started", "joined", "ended", "declined"], default: "" },
     replyTo: { type: Schema.Types.ObjectId, ref: "ChatMessage", default: null },
     mentions: [{ type: Schema.Types.ObjectId, ref: "User" }],
     attachments: [{
