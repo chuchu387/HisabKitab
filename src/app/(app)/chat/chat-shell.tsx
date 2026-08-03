@@ -313,6 +313,18 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
                   <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => setCallPicker(null)}><X className="h-4 w-4" /></Button>
                 </div>
                 <div className="grid max-h-32 gap-1 overflow-y-auto rounded-lg border p-2">
+                  {activeGroupData.members.length > 1 && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => { setCallPicker(null); startCall(activeGroup, "all", "Everyone", callPicker); }}
+                      className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-secondary/40 disabled:opacity-50"
+                    >
+                      <Avatar name="Everyone" className="h-6 w-6 text-[10px]" />
+                      <span className="min-w-0 flex-1 truncate font-medium">Everyone in group</span>
+                      {callPicker === "video" ? <Video className="h-3.5 w-3.5 text-primary" /> : <Phone className="h-3.5 w-3.5 text-primary" />}
+                    </button>
+                  )}
                   {activeGroupData.members.map((m: any) => {
                     const memberId = m.userId?._id?.toString() || m.userId?.toString();
                     const memberName = m.userId?.name || m.name || "Member";
@@ -338,7 +350,19 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
 
             {/* Messages */}
             <div className="flex-1 space-y-2 overflow-y-auto p-3">
-              {messages.map((msg: any) => (
+              {messages.map((msg: any) => {
+                if (msg.type === "call") {
+                  return (
+                    <div key={msg._id} className="flex justify-center py-0.5">
+                      <div className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[11px] text-muted-foreground">
+                        <Phone className="h-3 w-3 text-primary" />
+                        <span className="font-medium text-foreground">{msg.content || "Call"}</span>
+                        <span>{timeAgo(msg.createdAt)}</span>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
                 <div key={msg._id} id={`msg-${msg._id}`} className="group flex gap-2.5">
                   <Avatar name={msg.senderId?.name || "U"} />
                   <div className="min-w-0 flex-1">
@@ -410,7 +434,8 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
               <div ref={messagesEnd} />
             </div>
 

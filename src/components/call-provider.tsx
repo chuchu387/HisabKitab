@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X } from "lucide-react";
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, MonitorUp, MonitorOff } from "lucide-react";
 import { endCall, getCallEvents, joinCall as joinCallAction, respondToCall, sendSignal, startCall as startCallAction } from "@/actions/calls";
 import { useRealtime, type RealtimeCall } from "@/hooks/use-realtime";
 import { startRingtone, stopRingtone } from "@/lib/ringtone";
@@ -39,7 +39,7 @@ const CallContext = createContext<{
   activeCall: ActiveCall | null;
   busy: boolean;
   joinableCalls: RealtimeCall[];
-  startCall: (groupId: string, peerId: string, peerName: string, mode: CallMode) => Promise<void>;
+  startCall: (groupId: string, target: string, targetName: string, mode: CallMode) => Promise<void>;
   joinCall: (callId: string) => Promise<void>;
 }>({ activeCall: null, busy: false, joinableCalls: [], startCall: async () => {}, joinCall: async () => {} });
 
@@ -70,11 +70,14 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
+  const [sharing, setSharing] = useState(false);
+  const [sharedStream, setSharedStream] = useState<MediaStream | null>(null);
 
   const peersRef = useRef<Map<string, PeerHandle>>(new Map());
   const orphanCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
+  const screenStreamRef = useRef<MediaStream | null>(null);
   const activeRef = useRef<ActiveCall | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastEventId = useRef<string>("");
@@ -94,6 +97,8 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     orphanCandidatesRef.current.clear();
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
     localStreamRef.current = null;
+    screenStreamRef.current?.getTracks().forEach((track) => track.stop());
+    screenStreamRef.current = null;
     for (const stream of remoteStreamsRef.current.values()) {
       stream.getTracks().forEach((track) => track.stop());
     }
@@ -109,6 +114,8 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     setParticipants([]);
     setIncoming(null);
     setActiveCall(null);
+    setSharing(false);
+    setSharedStream(null);
     if (toastMessage) toast.message(toastMessage);
   }, [dispose]);
 
@@ -205,6 +212,44 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       return null;
     }
   }, []);
+
+  const replaceVideoTrackOnPeers = useCallback((track: MediaStreamTrack | null) => {
+    for (const handle of peersRef.current.values()) {
+      const sender = handle.peer.getSenders().find((s) => s.track?.kind === "video");
+      if (sender) {
+        try { sender.replaceTrack(track); } catch {}
+      }
+    }
+  }, []);
+
+  const stopShare = useCallback(() => {
+    const screenTrack = screenStreamRef.current?.getVideoTracks()[0] ?? null;
+    const cameraTrack = localStreamRef.current?.getVideoTracks()[0] ?? null;
+    if (screenTrack) replaceVideoTrackOnPeers(cameraTrack);
+    screenStreamRef.current?.getTracks().forEach((track) => track.stop());
+    screenStreamRef.current = null;
+    setSharing(false);
+    setSharedStream(null);
+  }, [replaceVideoTrackOnPeers]);
+
+  const startShare = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      screenStreamRef.current = stream;
+      const screenTrack = stream.getVideoTracks()[0];
+      if (!screenTrack) {
+        stream.getTracks().forEach((track) => track.stop());
+        screenStreamRef.current = null;
+        return;
+      }
+      screenTrack.onended = () => stopShare();
+      replaceVideoTrackOnPeers(screenTrack);
+      setSharing(true);
+      setSharedStream(stream);
+    } catch {
+      toast.error("Screen share unavailable");
+    }
+  }, [replaceVideoTrackOnPeers, stopShare]);
 
   const hangUp = useCallback(async () => {
     const call = activeRef.current;
@@ -381,18 +426,18 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     if (activeCall) return [];
     return calls.filter(
       (call) =>
-        (call.myStatus === "none" || call.myStatus === "ended") &&
+        (call.myStatus === "none" || call.myStatus === "ended" || call.myStatus === "invited") &&
         String(call.initiatorId) !== String(userId) &&
         (call.status === "ringing" || call.status === "active")
     );
   }, [calls, userId, activeCall]);
 
-  const startCall = useCallback(async (groupId: string, peerId: string, peerName: string, mode: CallMode) => {
+  const startCall = useCallback(async (groupId: string, target: string, targetName: string, mode: CallMode) => {
     if (activeRef.current) {
       toast.error("You are already in a call");
       return;
     }
-    const result = await startCallAction(groupId, mode, peerId);
+    const result = await startCallAction(groupId, mode, target);
     if (!result.ok || !result.data) {
       toast.error(result.message ?? "Could not start call");
       return;
@@ -408,17 +453,14 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       mode,
       status: "ringing",
       role: "initiator",
-      peerName
+      peerName: targetName
     };
     endedLocally.current = false;
     startedAtRef.current = Date.now();
     setActiveCall(call);
-    setParticipants([
-      { userId, name: userName, status: "accepted" },
-      { userId: peerId, name: peerName, status: "invited" }
-    ]);
+    setParticipants(result.data.participants);
     startPolling(call);
-  }, [setupLocalStream, startPolling, userId, userName]);
+  }, [setupLocalStream, startPolling]);
 
   const accept = useCallback(async (incomingCall: IncomingCall) => {
     const result = await respondToCall(incomingCall.callId, true);
@@ -520,12 +562,12 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   const tiles = useMemo(() => {
     if (!active || active.mode !== "video") return [];
     const others = visibleParticipants.filter((p) => p.userId !== userId);
-    const tiles = [{ userId, name: userName, stream: localStream, isMe: true }];
+    const tiles = [{ userId, name: userName, stream: sharing && sharedStream ? sharedStream : localStream, isMe: true }];
     for (const p of others) {
       tiles.push({ userId: p.userId, name: p.name, stream: remoteStreams.get(p.userId) ?? null, isMe: false });
     }
     return tiles;
-  }, [active, visibleParticipants, remoteStreams, localStream, userId, userName]);
+  }, [active, visibleParticipants, remoteStreams, localStream, sharing, sharedStream, userId, userName]);
 
   return (
     <CallContext.Provider value={{ activeCall: active, busy: !!active, joinableCalls, startCall, joinCall }}>
@@ -597,9 +639,14 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
               {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
             </button>
             {active.mode === "video" && (
-              <button type="button" onClick={toggleCamera} className={cn("flex h-12 w-12 items-center justify-center rounded-full transition", cameraOn ? "bg-white/10 hover:bg-white/20" : "bg-red-600 hover:bg-red-700")} aria-label="Toggle camera">
-                {cameraOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-              </button>
+              <>
+                <button type="button" onClick={sharing ? stopShare : startShare} className={cn("flex h-12 w-12 items-center justify-center rounded-full transition", sharing ? "bg-emerald-600 hover:bg-emerald-700" : "bg-white/10 hover:bg-white/20")} aria-label={sharing ? "Stop sharing screen" : "Share screen"}>
+                  {sharing ? <MonitorOff className="h-5 w-5" /> : <MonitorUp className="h-5 w-5" />}
+                </button>
+                <button type="button" onClick={toggleCamera} disabled={sharing} className={cn("flex h-12 w-12 items-center justify-center rounded-full transition disabled:opacity-40", cameraOn ? "bg-white/10 hover:bg-white/20" : "bg-red-600 hover:bg-red-700")} aria-label="Toggle camera">
+                  {cameraOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                </button>
+              </>
             )}
             <button type="button" onClick={hangUp} className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white transition hover:bg-red-700" aria-label="End call">
               <PhoneOff className="h-6 w-6" />
