@@ -1,12 +1,22 @@
-const CACHE = "hisabkitab-v2";
-const PRECACHE = ["/", "/login", "/dashboard", "/pwa/icon-192.png", "/pwa/icon-512.png"];
+const CACHE = "hisabkitab-assets-v3";
+const PRECACHE = ["/pwa/icon-192.png", "/pwa/icon-512.png"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim()));
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener("push", (event) => {
@@ -47,24 +57,28 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  const isStatic = url.pathname.match(/\.(png|svg|jpg|jpeg|webp|gif|ico|woff2?|ttf|otf|css|js)$/) || request.destination === "image" || request.destination === "font" || request.destination === "style" || request.destination === "script";
+  const destination = request.destination;
+  const isStatic =
+    destination === "script" ||
+    destination === "style" ||
+    destination === "image" ||
+    destination === "font" ||
+    url.pathname.match(/\.(png|svg|jpg|jpeg|webp|gif|ico|woff2?|ttf|otf|css|js)$/);
 
-  if (isStatic) {
-    event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      if (response.ok && response.type === "basic") {
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
-      }
-      return response;
-    })));
-    return;
-  }
+  if (!isStatic) return;
 
-  event.respondWith(fetch(request).then((response) => {
-    if (response.ok && response.type === "basic") {
-      const copy = response.clone();
-      caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
-    }
-    return response;
-  }).catch(() => caches.match(request).then((cached) => cached || caches.match("/"))));
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const network = fetch(request)
+        .then((response) => {
+          if (response.ok && response.type === "basic") {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
+          }
+          return response;
+        })
+        .catch(() => undefined);
+      return cached || network;
+    })
+  );
 });
