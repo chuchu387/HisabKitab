@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 import { auth } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db";
+import { Call } from "@/models/Call";
 import { ChatGroup } from "@/models/ChatGroup";
 import { ChatMessage } from "@/models/ChatMessage";
 import { Notification } from "@/models/Notification";
@@ -14,6 +15,7 @@ export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.userId) return new Response("Unauthorized", { status: 401 });
   const userId = new Types.ObjectId(String(session.user.userId));
+  const organizationId = new Types.ObjectId(String(session.user.organizationId ?? ""));
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -36,10 +38,11 @@ export async function GET(request: Request) {
       const tick = async () => {
         try {
           await connectToDatabase();
-          const [unreadCount, notifications, groups] = await Promise.all([
+          const [unreadCount, notifications, groups, calls] = await Promise.all([
             Notification.countDocuments({ userId, readAt: null }),
             Notification.find({ userId }).sort({ createdAt: -1 }).limit(10).select("title message href type readAt createdAt").lean(),
-            ChatGroup.find({ "members.userId": userId }).sort({ updatedAt: -1 }).select("name description updatedAt members").lean()
+            ChatGroup.find({ "members.userId": userId }).sort({ updatedAt: -1 }).select("name description updatedAt members").lean(),
+            Call.find({ organizationId, status: { $ne: "ended" }, "participants.userId": userId }).sort({ createdAt: -1 }).limit(5).select("_id initiatorId initiatorName mode status participants createdAt").lean()
           ]);
           const previews = await Promise.all(groups.map((group: any) =>
             ChatMessage.findOne({ groupId: group._id }).sort({ createdAt: -1 }).select("content senderId createdAt").populate("senderId", "name").lean()
@@ -55,7 +58,19 @@ export async function GET(request: Request) {
               updatedAt: group.updatedAt,
               memberCount: (group.members ?? []).length,
               lastMessage: previews[index] ?? null
-            }))))
+            })))),
+            calls: JSON.parse(JSON.stringify(calls.map((call: any) => {
+              const me = (call.participants ?? []).find((p: any) => String(p.userId) === String(userId));
+              return {
+                callId: call._id.toString(),
+                initiatorId: String(call.initiatorId),
+                initiatorName: call.initiatorName ?? "",
+                mode: call.mode ?? "audio",
+                status: call.status,
+                myStatus: me?.status ?? "invited",
+                createdAt: call.createdAt
+              };
+            })))
           });
         } catch {}
       };

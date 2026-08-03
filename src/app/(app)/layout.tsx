@@ -8,6 +8,7 @@ import { Notification } from "@/models/Notification";
 import { Attendance } from "@/models/Attendance";
 import { CheckInGuard } from "@/features/attendance/checkin-guard";
 import { PushManager } from "@/components/push-manager";
+import { CallProvider } from "@/components/call-provider";
 import { nepalDateString, isCheckInOpen, isSaturday } from "@/lib/timezone";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -39,15 +40,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const checkInTime = alreadyMarked ? new Date(attendanceRecord.checkInTime).toISOString() : null;
   return (
     <div className="flex h-dvh overflow-hidden bg-background/80">
-      <Sidebar role={session.user.role} permissions={permissions} />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <Header name={session.user.name ?? ""} email={session.user.email ?? ""} role={session.user.role} permissions={permissions} notifications={JSON.parse(JSON.stringify(notifications))} unreadCount={unreadCount} />
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 lg:p-6">
-          <CheckInGuard alreadyMarked={alreadyMarked} checkedOut={checkedOut} withinWindow={withinWindow} checkInTime={checkInTime} skip={weekend}>
-            {children}
-          </CheckInGuard>
-        </main>
-      </div>
+      <CallProvider userId={session.user.userId} userName={session.user.name ?? ""}>
+        <Sidebar role={session.user.role} permissions={permissions} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <Header name={session.user.name ?? ""} email={session.user.email ?? ""} role={session.user.role} permissions={permissions} notifications={JSON.parse(JSON.stringify(notifications))} unreadCount={unreadCount} />
+          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 lg:p-6">
+            <CheckInGuard alreadyMarked={alreadyMarked} checkedOut={checkedOut} withinWindow={withinWindow} checkInTime={checkInTime} skip={weekend}>
+              {children}
+            </CheckInGuard>
+          </main>
+        </div>
+      </CallProvider>
       <PushManager />
     </div>
   );

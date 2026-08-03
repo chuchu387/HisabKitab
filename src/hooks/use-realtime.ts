@@ -20,10 +20,21 @@ export type RealtimeNotification = {
   createdAt?: string;
 };
 
+export type RealtimeCall = {
+  callId: string;
+  initiatorId: string;
+  initiatorName: string;
+  mode: "audio" | "video";
+  status: string;
+  myStatus: string;
+  createdAt?: string;
+};
+
 export function useRealtime(initial: { unreadCount: number; notifications: any[]; chatGroups: any[] }) {
   const [unreadCount, setUnreadCount] = useState(initial.unreadCount);
   const [notifications, setNotifications] = useState<RealtimeNotification[]>(initial.notifications);
   const [chatGroups, setChatGroups] = useState<RealtimeChatGroup[]>(initial.chatGroups);
+  const [calls, setCalls] = useState<RealtimeCall[]>([]);
   const initialRef = useRef(initial);
 
   useEffect(() => {
@@ -44,6 +55,7 @@ export function useRealtime(initial: { unreadCount: number; notifications: any[]
           if (data.unreadCount !== undefined) setUnreadCount(data.unreadCount);
           if (Array.isArray(data.notifications)) setNotifications(data.notifications);
           if (Array.isArray(data.chatGroups)) setChatGroups(data.chatGroups);
+          if (Array.isArray(data.calls)) setCalls(data.calls);
         } catch {}
       };
       source.onerror = () => {
@@ -59,5 +71,5 @@ export function useRealtime(initial: { unreadCount: number; notifications: any[]
     };
   }, []);
 
-  return { unreadCount, notifications, chatGroups };
+  return { unreadCount, notifications, chatGroups, calls };
 }

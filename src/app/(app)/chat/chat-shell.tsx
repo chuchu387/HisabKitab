@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { createGroup, sendMessage, toggleReaction, deleteMessage, leaveGroup, addMembers, markRead } from "@/actions/chat";
 import { toast } from "sonner";
 import { useRealtime } from "@/hooks/use-realtime";
+import { useCalls } from "@/components/call-provider";
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "🎉", "💯", "⭐", "👏", "✅", "🤔", "👀", "🚀", "💪", "✨", "🎯", "🙌", "💡"];
 
@@ -43,6 +44,8 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const [liveGroups, setLiveGroups] = useState<any[]>(groups);
   const { chatGroups: liveChatGroups } = useRealtime({ unreadCount: 0, notifications: [], chatGroups: [] });
+  const { startCall, busy } = useCalls();
+  const [callPicker, setCallPicker] = useState<null | "audio" | "video">(null);
 
   useEffect(() => {
     if (!liveChatGroups.length) return;
@@ -267,8 +270,8 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
                 <p className="text-[10px] text-muted-foreground">{activeGroupData.members.length} members{activeGroupData.description ? ` · ${activeGroupData.description}` : ""}</p>
               </div>
               <div className="flex gap-1">
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Audio call"><Phone className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Video call"><Video className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Audio call" onClick={() => setCallPicker("audio")}><Phone className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Video call" onClick={() => setCallPicker("video")}><Video className="h-3.5 w-3.5" /></Button>
                 {isAdmin && <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Add members" onClick={() => setShowAddMembers(!showAddMembers)}><UserPlus className="h-3.5 w-3.5" /></Button>}
                 <form onSubmit={async (e) => { e.preventDefault(); await leaveGroup(activeGroup); router.refresh(); }}><Button type="submit" variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" title="Leave group"><LogOut className="h-3.5 w-3.5" /></Button></form>
               </div>
@@ -292,6 +295,37 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
                   </div>
                   <Button type="submit" size="sm" className="h-8 text-xs">Add</Button>
                 </form>
+              </div>
+            )}
+
+            {/* Call Member Picker */}
+            {callPicker && activeGroupData && (
+              <div className="border-b p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <Label className="text-[10px]">{callPicker === "video" ? "Start video call with" : "Start audio call with"}</Label>
+                  <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => setCallPicker(null)}><X className="h-4 w-4" /></Button>
+                </div>
+                <div className="grid max-h-32 gap-1 overflow-y-auto rounded-lg border p-2">
+                  {activeGroupData.members.map((m: any) => {
+                    const memberId = m.userId?._id?.toString() || m.userId?.toString();
+                    const memberName = m.userId?.name || m.name || "Member";
+                    if (memberId === currentUser?.userId) return null;
+                    return (
+                      <button
+                        key={memberId}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => { setCallPicker(null); startCall(activeGroup, memberId, memberName, callPicker); }}
+                        className="flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-secondary/40 disabled:opacity-50"
+                      >
+                        <Avatar name={memberName} className="h-6 w-6 text-[10px]" />
+                        <span className="min-w-0 flex-1 truncate font-medium">{memberName}</span>
+                        {callPicker === "video" ? <Video className="h-3.5 w-3.5 text-primary" /> : <Phone className="h-3.5 w-3.5 text-primary" />}
+                      </button>
+                    );
+                  })}
+                  {activeGroupData.members.length <= 1 && <p className="text-[10px] text-muted-foreground">No other members to call</p>}
+                </div>
               </div>
             )}
 
