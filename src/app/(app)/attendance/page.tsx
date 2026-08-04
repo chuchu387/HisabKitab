@@ -24,8 +24,10 @@ export default async function AttendancePage() {
   const thisMonthCount = records.filter((r: any) => r.date.startsWith(currentMonth)).length;
   const totalDays = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const isAdmin = ["owner", "admin"].includes(session.user.role);
-  const teamToday = await Attendance.find({ organizationId: session.user.organizationId, date: today }).populate("userId", "name").lean();
-  const teamMembers = await User.find({ organizationId: session.user.organizationId, active: true }).sort({ name: 1 }).select("name _id role").lean();
+  const superAdmins = await User.find({ organizationId: session.user.organizationId, role: "super_admin" }).select("_id").lean();
+  const excluded = superAdmins.map((u: any) => u._id);
+  const teamToday = await Attendance.find({ organizationId: session.user.organizationId, date: today, userId: { $nin: excluded } }).populate("userId", "name").lean();
+  const teamMembers = await User.find({ organizationId: session.user.organizationId, active: true, role: { $ne: "super_admin" } }).sort({ name: 1 }).select("name _id role").lean();
   return (
     <PageShell title="Attendance" description="Track your daily check-ins with selfie verification">
       <div className="grid gap-4 sm:grid-cols-4">

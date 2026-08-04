@@ -45,7 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <Header name={session.user.name ?? ""} email={session.user.email ?? ""} role={session.user.role} permissions={permissions} notifications={JSON.parse(JSON.stringify(notifications))} unreadCount={unreadCount} />
           <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 lg:p-6">
-            <CheckInGuard alreadyMarked={alreadyMarked} checkedOut={checkedOut} withinWindow={withinWindow} checkInTime={checkInTime} skip={weekend}>
+            <CheckInGuard alreadyMarked={alreadyMarked} checkedOut={checkedOut} withinWindow={withinWindow} checkInTime={checkInTime} skip={weekend || session.user.role === "super_admin"}>
               {children}
             </CheckInGuard>
           </main>
