@@ -101,7 +101,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   }, []);
 
   const dispose = useCallback(() => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
     stopRingtone();
     for (const handle of peersRef.current.values()) {
       try { handle.peer.close(); } catch {}
@@ -196,7 +196,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     try {
       const offer = await handle.peer.createOffer();
       await handle.peer.setLocalDescription(offer);
-      sendTo(callId, targetId, "offer", { sdp: offer });
+      sendTo(callId, targetId, "offer", { sdp: offer.sdp });
     } catch {}
   }, [createPeer, sendTo]);
 
@@ -301,16 +301,18 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     }
     if (event.type === "offer") {
       const handle = getOrCreatePeer(call.callId, event.from);
+      if (handle.remoteDescriptionSet || handle.peer.signalingState !== "stable") return;
       await handle.peer.setRemoteDescription({ type: "offer", sdp: event.payload.sdp });
       handle.remoteDescriptionSet = true;
       await flushCandidates(handle, event.from);
       const answer = await handle.peer.createAnswer();
       await handle.peer.setLocalDescription(answer);
-      sendTo(call.callId, event.from, "answer", { sdp: answer });
+      sendTo(call.callId, event.from, "answer", { sdp: answer.sdp });
       return;
     }
     if (event.type === "answer") {
       const handle = getOrCreatePeer(call.callId, event.from);
+      if (handle.remoteDescriptionSet || handle.peer.signalingState !== "have-local-offer") return;
       await handle.peer.setRemoteDescription({ type: "answer", sdp: event.payload.sdp });
       handle.remoteDescriptionSet = true;
       await flushCandidates(handle, event.from);
@@ -359,11 +361,11 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   }, [cleanup, flushCandidates, getOrCreatePeer, hangUp, offerTo, sendTo, setupLocalStream, userId]);
 
   const startPolling = useCallback((call: ActiveCall) => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollRef.current = setInterval(async () => {
+    if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
+    const tick = async () => {
       const current = activeRef.current;
       if (!current) {
-        if (pollRef.current) clearInterval(pollRef.current);
+        if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
         return;
       }
       try {
@@ -401,7 +403,11 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
           return;
         }
       } catch {}
-    }, POLL_MS);
+      if (activeRef.current) {
+        pollRef.current = setTimeout(tick, POLL_MS);
+      }
+    };
+    pollRef.current = setTimeout(tick, 0);
   }, [cleanup, hangUp, processEvent]);
 
   useEffect(() => {
