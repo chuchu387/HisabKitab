@@ -161,6 +161,9 @@ export async function sendMessage(formData: FormData) {
       const members = await User.find({ _id: { $in: memberIds }, organizationId }).lean() as any[];
       const groupUrl = appUrl(`/chat?g=${groupId}`);
       const preview = content ? (content.length > 100 ? content.slice(0, 100) + "..." : content) : (attachments.length ? `${attachments.length} file(s)` : "");
+      const messageCount = await ChatMessage.countDocuments({ groupId });
+      const emailFirstMessages = 10;
+      const sendEmails = messageCount <= emailFirstMessages;
       for (const member of members) {
         sendPushToUser(organizationId, member._id, {
           title: `${sender?.name || "Someone"} in ${group.name}`,
@@ -168,6 +171,7 @@ export async function sendMessage(formData: FormData) {
           href: `/chat?g=${groupId}`,
           type: "chat"
         }).catch(() => {});
+        if (!sendEmails) continue;
         sendEmail({
           to: [{ email: member.email, name: member.name }],
           subject: `[${group.name}] ${sender?.name || "Someone"}: ${preview}`,
@@ -254,6 +258,24 @@ export async function markRead(groupId: string) {
     await ChatGroup.updateOne(
       { _id: groupId, organizationId, "members.userId": session.user.userId },
       { $set: { "members.$.lastReadAt": new Date() } }
+    );
+    await ChatMessage.updateMany(
+      { groupId, organizationId, senderId: { $ne: session.user.userId }, "readBy.userId": { $ne: session.user.userId } },
+      { $push: { readBy: { userId: session.user.userId, readAt: new Date() } } }
+    );
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function sendTyping(groupId: string) {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await connectToDatabase();
+    await ChatGroup.updateOne(
+      { _id: groupId, organizationId, "members.userId": session.user.userId },
+      { $set: { "members.$.lastTypedAt": new Date() } }
     );
     return { ok: true };
   } catch {

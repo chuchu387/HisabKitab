@@ -9,7 +9,8 @@ const chatGroupSchema = new Schema(
       userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
       role: { type: String, enum: ["admin", "member"], default: "member" },
       joinedAt: { type: Date, default: Date.now },
-      lastReadAt: { type: Date, default: null }
+      lastReadAt: { type: Date, default: null },
+      lastTypedAt: { type: Date, default: null }
     }],
     isDM: { type: Boolean, default: false },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true }

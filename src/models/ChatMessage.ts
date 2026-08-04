@@ -20,6 +20,10 @@ const chatMessageSchema = new Schema(
     reactions: [{
       emoji: { type: String, required: true },
       userId: { type: Schema.Types.ObjectId, ref: "User", required: true }
+    }],
+    readBy: [{
+      userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+      readAt: { type: Date, default: Date.now }
     }]
   },
   { timestamps: true }

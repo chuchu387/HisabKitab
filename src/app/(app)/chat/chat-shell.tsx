@@ -2,18 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageSquare, Plus, Send, Smile, Paperclip, Phone, Video, Reply, X, Trash2, ChevronLeft, Loader2, FileText, Download, UserPlus, AtSign, LogOut, MessageSquarePlus } from "lucide-react";
+import { MessageSquare, Plus, Send, Smile, Paperclip, Phone, Video, Reply, X, Trash2, ChevronLeft, Loader2, FileText, Download, UserPlus, AtSign, LogOut, MessageSquarePlus, CheckCheck } from "lucide-react";
 import { cn, timeAgo } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createGroup, sendMessage, toggleReaction, deleteMessage, leaveGroup, addMembers, markRead, openConversation } from "@/actions/chat";
+import { createGroup, sendMessage, toggleReaction, deleteMessage, leaveGroup, addMembers, markRead, openConversation, sendTyping } from "@/actions/chat";
 import { toast } from "sonner";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useCalls } from "@/components/call-provider";
 
-const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "🎉", "💯", "⭐", "👏", "✅", "🤔", "👀", "🚀", "💪", "✨", "🎯", "🙌", "💡"];
+const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "🎉", "💯", "⭐", "👏", "✅", "🤔", "👀", "🚀", "💪", "✨", "🎯", "🙌", "💡", "🫂", "💗", "💃", "🤭", "🌻", "🤝", "😭", "😒", "😲", "🤘", "🫶", "🥳", "😑", "🤩", "🫡", "🤫", "🤨", "💩", "🌹"];
 
 function Avatar({ name, className }: { name: string; className?: string }) {
   const colors = ["bg-primary/20 text-primary", "bg-accent/20 text-accent", "bg-blue-500/20 text-blue-600", "bg-purple-500/20 text-purple-600", "bg-pink-500/20 text-pink-600", "bg-orange-500/20 text-orange-600"];
@@ -39,6 +39,9 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(-1);
+  const [typingUsers, setTypingUsers] = useState<Array<{ userId: string; name: string }>>([]);
+  const typingSentAt = useRef(0);
+  const lastMarkedAt = useRef(0);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
@@ -85,7 +88,18 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
       const res = await fetch(`/chat/api?g=${activeGroup}`);
       if (res.ok) {
         const data = await res.json();
-        setMessages(data);
+        if (Array.isArray(data)) {
+          setMessages(data);
+        } else {
+          setMessages(data.messages ?? []);
+          setTypingUsers(data.typing ?? []);
+          const msgs = data.messages ?? [];
+          const newest = msgs.length ? new Date(msgs[msgs.length - 1]?.createdAt || 0).getTime() : 0;
+          if (newest > lastMarkedAt.current) {
+            lastMarkedAt.current = newest;
+            markRead(activeGroup);
+          }
+        }
       }
     } catch {}
   }, [activeGroup]);
@@ -96,7 +110,7 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
   }, [pollMessages]);
 
   useEffect(() => {
-    if (activeGroup) { markRead(activeGroup); setShowSidebar(false); }
+    if (activeGroup) { markRead(activeGroup); lastMarkedAt.current = 0; setShowSidebar(false); }
     setReplyTo(null);
     setSelectedFiles([]);
     setShowEmoji(false);
@@ -113,6 +127,11 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
   // Mentions handling
   function handleTextChange(value: string) {
     setComposerText(value);
+    const now = Date.now();
+    if (activeGroup && now - typingSentAt.current > 1500) {
+      typingSentAt.current = now;
+      sendTyping(activeGroup).catch(() => {});
+    }
     const cursor = textRef.current?.selectionStart || value.length;
     const before = value.slice(0, cursor);
     const atMatch = before.match(/@(\w*)$/);
@@ -321,7 +340,16 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
               <Avatar name={activeGroupData.name} />
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold">{activeGroupData.name}</h3>
-                <p className="text-[10px] text-muted-foreground">{activeGroupData.isDM ? "Private chat" : `${activeGroupData.members.length} members${activeGroupData.description ? ` · ${activeGroupData.description}` : ""}`}</p>
+                {typingUsers.length > 0 ? (
+                  <p className="flex items-center gap-1 text-[10px] font-medium text-primary">
+                    <span className="flex gap-0.5">
+                      {[0, 1, 2].map((i) => <span key={i} className="inline-block h-1 w-1 animate-bounce rounded-full bg-primary" style={{ animationDelay: `${i * 120}ms` }} />)}
+                    </span>
+                    {typingUsers.map((t) => t.name).join(", ")} {typingUsers.length > 1 ? "are" : "is"} typing...
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground">{activeGroupData.isDM ? "Private chat" : `${activeGroupData.members.length} members${activeGroupData.description ? ` · ${activeGroupData.description}` : ""}`}</p>
+                )}
               </div>
               <div className="flex gap-1">
                 {activeGroupCall && (
@@ -421,6 +449,12 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold">{msg.senderId?.name || "Unknown"}</span>
                       <span className="text-[10px] text-muted-foreground">{timeAgo(msg.createdAt)}</span>
+                      {currentUser?.userId === msg.senderId?._id && (
+                        <span className={cn("flex items-center gap-0.5 text-[10px]", (msg.readBy || []).length > 0 ? "text-primary" : "text-muted-foreground")}>
+                          <CheckCheck className={cn("h-3 w-3", (msg.readBy || []).length > 0 ? "text-primary" : "text-muted-foreground/60")} />
+                          {(msg.readBy || []).length > 0 ? "Seen" : "Not seen"}
+                        </span>
+                      )}
                       {currentUser?.userId === msg.senderId?._id && (
                         <button onClick={() => { if (confirm("Delete?")) deleteMessage(msg._id).then(() => pollMessages()); }} className="hidden group-hover:block"><Trash2 className="h-3 w-3 text-destructive" /></button>
                       )}
