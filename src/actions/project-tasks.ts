@@ -76,6 +76,13 @@ function taskManageQuery(taskId: string, projectId: string, organizationId: stri
   return query;
 }
 
+function revalidateTaskSurfaces(projectId: string, folderId?: unknown) {
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/tasks");
+  const id = folderId?.toString?.() ?? "";
+  if (id) revalidatePath(`/tasks/folders/${id}`);
+}
+
 const taskColors = ["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#ea580c", "#0891b2", "#be123c", "#4f46e5", "#0f766e", "#a16207"];
 
 function fallbackTaskColor(seed: string) {
@@ -116,8 +123,7 @@ export async function createProjectTask(projectId: string, _: ActionState, formD
     });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Created", entityType: "ProjectTask", entityId: task._id.toString(), metadata: { projectId, status: data.status } });
     await sendTaskAssignmentEmail(organizationId, projectId, task).catch(() => undefined);
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath("/tasks");
+    revalidateTaskSurfaces(projectId, data.folderId);
     await sendDueTaskNotifications({ organizationId }).catch(() => undefined);
     return { ok: true, message: "Task created" };
   } catch (error) {
@@ -160,8 +166,7 @@ export async function updateProjectTask(taskId: string, projectId: string, _: Ac
     if (addedAssignees.length) {
       await sendTaskAssignmentEmail(organizationId, projectId, { ...updated, ...data, assigneeId: assignees?.assigneeId, assigneeIds: addedAssignees }).catch(() => undefined);
     }
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath("/tasks");
+    revalidateTaskSurfaces(projectId, updated.folderId ?? data.folderId);
     await sendDueTaskNotifications({ organizationId }).catch(() => undefined);
     return { ok: true, message: "Task updated" };
   } catch (error) {
@@ -198,8 +203,7 @@ export async function moveProjectTask(taskId: string, projectId: string, status:
     }
     await ProjectTask.updateOne({ _id: task._id }, { $set: update, $push: { activity: activity(session.user.userId, "moved", { status }) } }, { runValidators: true });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Status Updated", entityType: "ProjectTask", entityId: taskId, metadata: { projectId, status } });
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath("/tasks");
+    revalidateTaskSurfaces(projectId, task.folderId);
     await sendDueTaskNotifications({ organizationId }).catch(() => undefined);
     return { ok: true, message: "Task moved" };
   } catch (error) {
@@ -242,8 +246,7 @@ export async function updateProjectTaskTimer(taskId: string, projectId: string, 
 
     await ProjectTask.updateOne({ _id: task._id }, { $set: update, $push: { activity: activity(session.user.userId, `timer_${command}`) } }, { runValidators: true });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: `Project Task Timer ${command}`, entityType: "ProjectTask", entityId: taskId, metadata: { projectId } });
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath("/tasks");
+    revalidateTaskSurfaces(projectId, task.folderId);
     await sendDueTaskNotifications({ organizationId }).catch(() => undefined);
     return { ok: true, message: command === "start" ? "Timer started" : command === "pause" ? "Timer paused" : "Task completed" };
   } catch (error) {
@@ -258,7 +261,7 @@ export async function bulkStartProjectTasks(taskIds: string[]): Promise<ActionSt
     const ids = Array.from(new Set(taskIds.filter(Boolean)));
     if (!ids.length) throw new Error("Select at least one task");
     const now = new Date();
-    const tasks = await ProjectTask.find({ _id: { $in: ids }, organizationId, status: { $ne: "complete" } }).select("_id projectId startedAt").lean() as any[];
+    const tasks = await ProjectTask.find({ _id: { $in: ids }, organizationId, status: { $ne: "complete" } }).select("_id projectId folderId startedAt").lean() as any[];
     if (tasks.length) {
       await ProjectTask.bulkWrite(tasks.map((task) => ({
         updateOne: {
@@ -271,9 +274,7 @@ export async function bulkStartProjectTasks(taskIds: string[]): Promise<ActionSt
         }
       })) as any);
     }
-    const projectIds = Array.from(new Set(tasks.map((task) => task.projectId?.toString?.()).filter(Boolean)));
-    projectIds.forEach((id) => revalidatePath(`/projects/${id}`));
-    revalidatePath("/tasks");
+    tasks.forEach((task) => revalidateTaskSurfaces(task.projectId?.toString?.() ?? "", task.folderId));
     await sendDueTaskNotifications({ organizationId }).catch(() => undefined);
     return { ok: true, message: `Started ${tasks.length} task timers` };
   } catch (error) {
@@ -300,8 +301,7 @@ export async function addProjectTaskComment(taskId: string, projectId: string, _
       { runValidators: true }
     ).lean();
     if (!updated) throw new Error("Task not found or not allowed");
-    revalidatePath(`/projects/${projectId}`);
-    revalidatePath("/tasks");
+    revalidateTaskSurfaces(projectId, (updated as any).folderId);
     return { ok: true, message: "Comment added" };
   } catch (error) {
     return actionError(error);
@@ -336,6 +336,5 @@ export async function deleteProjectTask(formData: FormData) {
   if (task?.imageId) await deleteReceipt(task.imageId.toString()).catch(() => undefined);
   for (const id of task?.attachmentIds ?? []) await deleteReceipt(id.toString()).catch(() => undefined);
   await writeAuditLog({ organizationId, userId: session.user.userId, action: "Project Task Deleted", entityType: "ProjectTask", entityId: taskId, metadata: { projectId } });
-  revalidatePath(`/projects/${projectId}`);
-  revalidatePath("/tasks");
+  revalidateTaskSurfaces(projectId, task.folderId);
 }

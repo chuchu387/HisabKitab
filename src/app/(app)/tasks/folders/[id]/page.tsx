@@ -42,6 +42,7 @@ export default async function TaskFolderPage({ params }: any) {
       breadcrumb={[{ label: "Tasks", href: "/tasks" }, { label: folder.name }]}
     >
       <TaskKanban
+        key={folder._id.toString()}
         tasks={JSON.parse(JSON.stringify(tasks))}
         projects={JSON.parse(JSON.stringify(folder.projectIds ?? []))}
         folders={JSON.parse(JSON.stringify([folder]))}

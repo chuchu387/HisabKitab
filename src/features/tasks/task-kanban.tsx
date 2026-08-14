@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock, Download, Flag, ImageIcon, ListChecks, MessageSquare, Pause, Play, Plus, TimerReset, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
@@ -48,6 +49,7 @@ export function TaskKanban({
   defaultFolderId?: string;
   title?: string;
 }) {
+  const pathname = usePathname();
   const [items, setItems] = useState(tasks);
   const [selected, setSelected] = useState<ProjectTaskLike | null>(null);
   const [draggingId, setDraggingId] = useState("");
@@ -63,7 +65,14 @@ export function TaskKanban({
   const overdueCount = items.filter((task) => isOverdue(task)).length;
   const canBulkStart = currentRole === "owner" || currentRole === "admin";
 
-  useEffect(() => setItems(tasks), [tasks]);
+  useEffect(() => {
+    setItems(tasks);
+    setSelected(null);
+    setDraggingId("");
+    setCheckedIds([]);
+    setShowCreate(false);
+    setShowFolders(false);
+  }, [tasks, defaultFolderId, projectId, pathname]);
   useEffect(() => setQueryString(window.location.search), []);
 
   function onDrop(status: string) {
@@ -163,7 +172,7 @@ export function TaskKanban({
       </div>
 
       {showFolders && <TaskFolderManager folders={folders} projects={projects} canManageProjects={taskPermissions.canManageFolderProjects} />}
-      {showCreate && <TaskCreateForm fixedProjectId={projectId} projects={projects} folders={folders} assignees={assignees} canAssign={taskPermissions.canAssignTask} defaultFolderId={defaultFolderId} />}
+      {showCreate && <TaskCreateForm key={`create-${projectId ?? "all"}-${defaultFolderId}`} fixedProjectId={projectId} projects={projects} folders={folders} assignees={assignees} canAssign={taskPermissions.canAssignTask} defaultFolderId={defaultFolderId} />}
 
       {view === "kanban" && <div className="grid gap-4 xl:grid-cols-4">
         {statuses.map((status) => {
@@ -232,6 +241,8 @@ function TaskCreateForm({ fixedProjectId, projects, folders, assignees, canAssig
   const availableFolders = fixedProjectId
     ? folders.filter((item) => (item.projectIds ?? []).some((project: any) => (project._id ?? project)?.toString?.() === fixedProjectId || String(project._id ?? project) === fixedProjectId))
     : folders;
+
+  useEffect(() => setFolderId(defaultFolderId), [defaultFolderId]);
 
   return (
     <form action={formAction} encType="multipart/form-data" className="grid gap-3 rounded-lg border bg-card p-3 sm:p-4 md:grid-cols-4">
