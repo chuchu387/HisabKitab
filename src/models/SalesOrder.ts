@@ -1,6 +1,6 @@
 import { model, models, Schema, type InferSchemaType, type Model } from "mongoose";
 
-const invoiceLineSchema = new Schema(
+const salesOrderLineSchema = new Schema(
   {
     description: { type: String, required: true, trim: true },
     quantity: { type: Number, default: 1, min: 0.01 },
@@ -10,31 +10,30 @@ const invoiceLineSchema = new Schema(
   { _id: false }
 );
 
-const invoiceSchema = new Schema(
+const salesOrderSchema = new Schema(
   {
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
-    salesOrderId: { type: Schema.Types.ObjectId, ref: "SalesOrder", default: null, index: true },
     clientId: { type: Schema.Types.ObjectId, ref: "Client", required: true, index: true },
     projectId: { type: Schema.Types.ObjectId, ref: "Project", default: null, index: true },
-    invoiceNumber: { type: String, required: true, trim: true },
-    invoiceDate: { type: Date, required: true, index: true },
-    dueDate: { type: Date, required: true, index: true },
-    status: { type: String, enum: ["draft", "sent", "partial", "paid", "void"], default: "draft", index: true },
+    orderNumber: { type: String, required: true, trim: true },
+    orderDate: { type: Date, required: true, index: true },
+    expectedInvoiceDate: { type: Date, default: null, index: true },
+    status: { type: String, enum: ["draft", "sent", "accepted", "converted", "cancelled"], default: "draft", index: true },
     vatApplicable: { type: Boolean, default: false, index: true },
-    lines: { type: [invoiceLineSchema], default: [] },
+    lines: { type: [salesOrderLineSchema], default: [] },
     subtotal: { type: Number, default: 0 },
     vatRate: { type: Number, default: 0, min: 0 },
     vatAmount: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
-    paidAmount: { type: Number, default: 0 },
+    convertedInvoiceId: { type: Schema.Types.ObjectId, ref: "Invoice", default: null, index: true },
     notes: { type: String, default: "" },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true }
   },
   { timestamps: true }
 );
 
-invoiceSchema.index({ organizationId: 1, invoiceNumber: 1 }, { unique: true });
-invoiceSchema.index({ organizationId: 1, status: 1, dueDate: 1 });
+salesOrderSchema.index({ organizationId: 1, orderNumber: 1 }, { unique: true });
+salesOrderSchema.index({ organizationId: 1, status: 1, orderDate: -1 });
 
-export type InvoiceDocument = InferSchemaType<typeof invoiceSchema> & { _id: string };
-export const Invoice = (models.Invoice || model("Invoice", invoiceSchema)) as Model<any>;
+export type SalesOrderDocument = InferSchemaType<typeof salesOrderSchema> & { _id: string };
+export const SalesOrder = (models.SalesOrder || model("SalesOrder", salesOrderSchema)) as Model<any>;

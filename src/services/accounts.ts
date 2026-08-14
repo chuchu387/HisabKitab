@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import { unstable_cache } from "next/cache";
+import { ApInvoice } from "@/models/ApInvoice";
 import { ChartAccount } from "@/models/ChartAccount";
 import { BankAccount } from "@/models/BankAccount";
 import { Expense } from "@/models/Expense";
@@ -16,7 +17,9 @@ void ExpenseCategory;
 export const defaultChartAccounts = [
   { code: "1000", name: "Cash / Bank", type: "asset", normalBalance: "debit" },
   { code: "1100", name: "Accounts Receivable", type: "asset", normalBalance: "debit" },
+  { code: "1200", name: "Input VAT Receivable", type: "asset", normalBalance: "debit" },
   { code: "2000", name: "Tax Payable", type: "liability", normalBalance: "credit" },
+  { code: "2100", name: "Accounts Payable", type: "liability", normalBalance: "credit" },
   { code: "3000", name: "Owner Equity", type: "equity", normalBalance: "credit" },
   { code: "4000", name: "Client Project Revenue", type: "revenue", normalBalance: "credit" },
   { code: "5000", name: "Project Expenses", type: "expense", normalBalance: "debit" },
@@ -48,10 +51,11 @@ export async function getDerivedLedger(organizationId: string, from?: string, to
     }
     return Object.keys(range).length ? { [field]: range } : {};
   };
-  const [payments, funds, expenses, openingBalances, bankAccounts, journals] = await Promise.all([
+  const [payments, funds, expenses, apInvoices, openingBalances, bankAccounts, journals] = await Promise.all([
     ProjectPayment.find({ organizationId: oid, ...dateMatch("paymentDate") }).populate("projectId bankAccountId invoiceId").sort({ paymentDate: 1 }).lean(),
     GeneralFund.find({ organizationId: oid, ...dateMatch("fundDate") }).populate("bankAccountId").sort({ fundDate: 1 }).lean(),
     Expense.find({ organizationId: oid, approvalStatus: "approved", ...dateMatch("expenseDate") }).populate("projectId categoryId bankAccountId").sort({ expenseDate: 1 }).lean(),
+    ApInvoice.find({ organizationId: oid, status: { $ne: "void" }, ...dateMatch("invoiceDate") }).populate("projectId").sort({ invoiceDate: 1 }).lean(),
     OpeningBalance.find({ organizationId: oid }).sort({ createdAt: 1 }).lean(),
     BankAccount.find({ organizationId: oid, active: true }).sort({ name: 1 }).lean(),
     ManualJournalEntry.find({ organizationId: oid, ...dateMatch("entryDate") }).sort({ entryDate: 1 }).lean()
@@ -86,6 +90,15 @@ export async function getDerivedLedger(organizationId: string, from?: string, to
     entries.push(line(expense.expenseDate, "Expense", expense._id, accountCode, accountName, memo, expense.amount, 0));
     entries.push(line(expense.expenseDate, "Expense", expense._id, "1000", cashAccountName(expense.bankAccountId), memo, 0, expense.amount));
     if ((expense.tdsAmount ?? 0) > 0) entries.push(line(expense.expenseDate, "Expense", expense._id, "2000", "Tax Payable", `TDS: ${expense.description}`, 0, expense.tdsAmount));
+  }
+  for (const invoice of apInvoices as any[]) {
+    const projectType = invoice.projectId?.projectType;
+    const accountCode = invoice.projectId ? (projectType === "internal" ? "5200" : "5000") : "5100";
+    const accountName = invoice.projectId ? (projectType === "internal" ? "Internal Project Expenses" : "Project Expenses") : "General Expenses";
+    const memo = `AP invoice: ${invoice.vendorName} ${invoice.billNumber}`;
+    entries.push(line(invoice.invoiceDate, "ApInvoice", invoice._id, accountCode, accountName, memo, invoice.subtotal ?? 0, 0));
+    if ((invoice.vatAmount ?? 0) > 0) entries.push(line(invoice.invoiceDate, "ApInvoice", invoice._id, "1200", "Input VAT Receivable", memo, invoice.vatAmount ?? 0, 0));
+    entries.push(line(invoice.invoiceDate, "ApInvoice", invoice._id, "2100", "Accounts Payable", memo, 0, invoice.total ?? 0));
   }
   for (const journal of journals as any[]) {
     for (const item of journal.lines ?? []) {

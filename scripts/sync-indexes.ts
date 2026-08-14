@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { connectToDatabase } from "@/lib/db";
 import { Attendance } from "@/models/Attendance";
 import { AttendanceSetting } from "@/models/AttendanceSetting";
+import { ApInvoice } from "@/models/ApInvoice";
 import { AuditLog } from "@/models/AuditLog";
 import { BankAccount } from "@/models/BankAccount";
 import { BankReconciliation } from "@/models/BankReconciliation";
@@ -32,9 +33,11 @@ import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { ProjectTask } from "@/models/ProjectTask";
 import { Proposal } from "@/models/Proposal";
+import { PurchaseOrder } from "@/models/PurchaseOrder";
 import { PushSubscription } from "@/models/PushSubscription";
 import { SalarySetting } from "@/models/SalarySetting";
 import { SalesTarget } from "@/models/SalesTarget";
+import { SalesOrder } from "@/models/SalesOrder";
 import { Commission } from "@/models/Commission";
 import { TaskFolder } from "@/models/TaskFolder";
 import { User } from "@/models/User";
@@ -77,6 +80,9 @@ async function main() {
     ChartAccount,
     FiscalYear,
     Invoice,
+    SalesOrder,
+    PurchaseOrder,
+    ApInvoice,
     BankAccount,
     BankReconciliation,
     OpeningBalance,

@@ -134,6 +134,58 @@ export const invoiceSchema = z.object({
   path: ["dueDate"]
 });
 
+export const salesOrderSchema = z.object({
+  clientId: objectIdSchema,
+  projectId: z.string().optional().nullable(),
+  orderNumber: z.string().min(2).max(60),
+  orderDate: z.coerce.date(),
+  expectedInvoiceDate: z.preprocess((value) => value === "" ? null : value, z.coerce.date().nullable().optional()).default(null),
+  status: z.enum(["draft", "sent", "accepted", "converted", "cancelled"]).default("draft"),
+  description: z.string().min(2).max(500),
+  quantity: z.coerce.number().positive(),
+  rate: z.coerce.number().min(0),
+  vatApplicable: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
+  vatRate: z.coerce.number().min(0).max(100).default(13),
+  notes: z.string().max(1000).optional().default("")
+});
+
+export const purchaseOrderSchema = z.object({
+  vendorName: z.string().min(2).max(160),
+  vendorPan: z.string().max(60).optional().default(""),
+  projectId: z.string().optional().nullable(),
+  orderNumber: z.string().min(2).max(60),
+  orderDate: z.coerce.date(),
+  expectedBillDate: z.preprocess((value) => value === "" ? null : value, z.coerce.date().nullable().optional()).default(null),
+  status: z.enum(["draft", "sent", "approved", "received", "converted", "cancelled"]).default("draft"),
+  description: z.string().min(2).max(500),
+  quantity: z.coerce.number().positive(),
+  rate: z.coerce.number().min(0),
+  taxable: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
+  vatRate: z.coerce.number().min(0).max(100).default(13),
+  notes: z.string().max(1000).optional().default("")
+});
+
+export const apInvoiceSchema = z.object({
+  purchaseOrderId: z.string().optional().nullable(),
+  projectId: z.string().optional().nullable(),
+  vendorName: z.string().min(2).max(160),
+  vendorPan: z.string().max(60).optional().default(""),
+  billNumber: z.string().min(2).max(80),
+  invoiceDate: z.coerce.date(),
+  dueDate: z.coerce.date(),
+  status: z.enum(["draft", "posted", "partial", "paid", "void"]).default("posted"),
+  description: z.string().min(2).max(500),
+  quantity: z.coerce.number().positive(),
+  rate: z.coerce.number().min(0),
+  taxable: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
+  vatRate: z.coerce.number().min(0).max(100).default(13),
+  paidAmount: z.coerce.number().min(0).default(0),
+  notes: z.string().max(1000).optional().default("")
+}).refine((value) => value.dueDate >= value.invoiceDate, {
+  message: "Due date must be after invoice date",
+  path: ["dueDate"]
+});
+
 export const fiscalYearSchema = z.object({
   name: z.string().min(4).max(30),
   startDate: z.coerce.date(),

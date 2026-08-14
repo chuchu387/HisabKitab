@@ -50,7 +50,7 @@ export default async function InvoicesPage({ searchParams }: any) {
     return acc;
   }, { total: 0, paid: 0, vat: 0, due: 0 });
   return (
-    <PageShell title="Invoices" description="Create and track client invoices. Email sending is intentionally disabled for invoices.">
+    <PageShell title="AR Invoices" description="Create and track client accounts receivable invoices. Email sending is intentionally disabled for invoices.">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Invoice Total" value={totals.total} currency />
         <StatCard label="Paid" value={totals.paid} currency />

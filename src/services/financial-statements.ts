@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import { unstable_cache } from "next/cache";
+import { ApInvoice } from "@/models/ApInvoice";
 import { Expense } from "@/models/Expense";
 import { GeneralFund } from "@/models/GeneralFund";
 import { Project } from "@/models/Project";
@@ -45,6 +46,7 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
     allProjectPaymentsToDate,
     allGeneralFundsToDate,
     allExpensesToDate,
+    apInvoicesToDate,
     bankAccounts,
     clientProjects
   ] = await Promise.all([
@@ -92,6 +94,10 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
     ]),
     GeneralFund.aggregate([{ $match: { organizationId: oid, fundDate: throughEnd } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
     Expense.aggregate([{ $match: { organizationId: oid, expenseDate: throughEnd, approvalStatus: "approved" } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
+    ApInvoice.aggregate([
+      { $match: { organizationId: oid, invoiceDate: throughEnd, status: { $ne: "void" } } },
+      { $group: { _id: null, total: { $sum: "$total" }, paid: { $sum: "$paidAmount" }, inputVat: { $sum: "$vatAmount" } } }
+    ]),
     BankAccount.find({ organizationId: oid }).select("openingBalance").lean(),
     Project.find({ organizationId: oid, projectType: "client", totalBudget: { $gt: 0 } }).select("name code totalBudget receivedAmount").lean()
   ]);
@@ -126,11 +132,13 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
   const outputVatCollectedToDate = round(allProjectPaymentsToDate.reduce((sum: number, row: any) => sum + (row.vat ?? 0), 0));
   const allGeneralFundsTotal = round(allGeneralFundsToDate[0]?.total ?? 0);
   const allExpensesTotal = round(allExpensesToDate[0]?.total ?? 0);
+  const accountsPayable = round(Math.max((apInvoicesToDate[0]?.total ?? 0) - (apInvoicesToDate[0]?.paid ?? 0), 0));
+  const inputVatReceivableToDate = round(apInvoicesToDate[0]?.inputVat ?? 0);
   const bankOpeningBalance = round((bankAccounts as any[]).reduce((sum, account) => sum + (account.openingBalance ?? 0), 0));
   const cashAtBank = round(bankOpeningBalance + allPaymentsTotal + allGeneralFundsTotal - allExpensesTotal);
   const accountsReceivable = round(receivableRows.reduce((sum, project) => sum + project.due, 0));
-  const totalAssets = round(cashAtBank + accountsReceivable);
-  const totalLiabilities = round(estimatedTaxPayable + outputVatCollectedToDate);
+  const totalAssets = round(cashAtBank + accountsReceivable + inputVatReceivableToDate);
+  const totalLiabilities = round(estimatedTaxPayable + outputVatCollectedToDate + accountsPayable);
   const ownerEquity = round(totalAssets - totalLiabilities);
 
   return {
@@ -156,6 +164,8 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
       bankOpeningBalance,
       cashAtBank,
       accountsReceivable,
+      accountsPayable,
+      inputVatReceivableToDate,
       totalAssets,
       totalLiabilities,
       ownerEquity
@@ -163,12 +173,13 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
     balanceSheet: {
       assets: [
         { account: "Cash / Bank Balance", amount: cashAtBank },
-        { account: "Accounts Receivable", amount: accountsReceivable }
+        { account: "Accounts Receivable", amount: accountsReceivable },
+        { account: "Input VAT Receivable", amount: inputVatReceivableToDate }
       ],
       liabilities: [
         { account: "Output VAT Payable", amount: outputVatCollectedToDate },
         { account: "Estimated Tax Provision", amount: estimatedTaxPayable },
-        { account: "Accounts Payable", amount: 0 }
+        { account: "Accounts Payable", amount: accountsPayable }
       ],
       equity: [
         { account: "Owner/Other Funds To Date", amount: allGeneralFundsTotal },
@@ -193,7 +204,7 @@ export async function getFinancialStatements(filters: FinancialStatementFilters)
       { account: "Net Cash Movement In Period", amount: round(cashReceived + ownerFunds - totalExpenses) },
       { account: "Cash / Bank Balance At Period End", amount: cashAtBank }
     ],
-    trialBalance: closingTrialBalance(cashAtBank, accountsReceivable, totalLiabilities, ownerEquity),
+    trialBalance: closingTrialBalance(cashAtBank, accountsReceivable, inputVatReceivableToDate, accountsPayable, totalLiabilities - accountsPayable, ownerEquity),
     expenseByCategory: periodExpenseByCategory,
     expenseByProject: periodExpenseByProject,
     receivables: receivableRows
@@ -231,11 +242,13 @@ function round(value: number) {
   return Number.isFinite(numeric) ? Number(numeric.toFixed(2)) : 0;
 }
 
-function closingTrialBalance(cashAtBank: number, accountsReceivable: number, taxPayable: number, ownerEquity: number) {
+function closingTrialBalance(cashAtBank: number, accountsReceivable: number, inputVatReceivable: number, accountsPayable: number, taxPayable: number, ownerEquity: number) {
   return [
     { accountCode: "1000", accountName: "Cash / Bank", debit: cashAtBank >= 0 ? cashAtBank : 0, credit: cashAtBank < 0 ? Math.abs(cashAtBank) : 0 },
     { accountCode: "1100", accountName: "Accounts Receivable", debit: accountsReceivable, credit: 0 },
+    { accountCode: "1200", accountName: "Input VAT Receivable", debit: inputVatReceivable, credit: 0 },
     { accountCode: "2000", accountName: "Tax Payable", debit: 0, credit: taxPayable },
+    { accountCode: "2100", accountName: "Accounts Payable", debit: 0, credit: accountsPayable },
     { accountCode: "3000", accountName: "Owner Equity / Retained Earnings", debit: ownerEquity < 0 ? Math.abs(ownerEquity) : 0, credit: ownerEquity >= 0 ? ownerEquity : 0 }
   ].filter((row) => row.debit !== 0 || row.credit !== 0);
 }
