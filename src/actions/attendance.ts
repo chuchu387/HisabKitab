@@ -11,7 +11,7 @@ import { Organization } from "@/models/Organization";
 import { AttendanceSetting } from "@/models/AttendanceSetting";
 import { getReceiptBucket } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
-import { nepalDateString, isCheckInOpen } from "@/lib/timezone";
+import { NEPAL_OFFSET_MS, nepalDateString, isCheckInOpen } from "@/lib/timezone";
 
 export async function markAttendance(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
@@ -133,19 +133,34 @@ export async function getAttendanceReport(organizationId: string, month: string)
   await connectToDatabase();
   const superAdmins = await User.find({ organizationId, role: "super_admin" }).select("_id").lean();
   const excluded = superAdmins.map((u: any) => u._id);
-  const users = await User.find({ organizationId, active: true, role: { $ne: "super_admin" } }).sort({ name: 1 }).select("name _id role").lean();
+  const users: any[] = await User.find({ organizationId, active: true, role: { $ne: "super_admin" } }).sort({ name: 1 }).select("name _id role createdAt").lean();
   const records = await Attendance.find({ organizationId, userId: { $nin: excluded }, date: { $regex: `^${month}` } }).sort({ date: -1 }).lean();
   const leaves = await Leave.find({ organizationId, date: { $regex: `^${month}` }, status: "approved" }).lean();
+  const settings: any = await AttendanceSetting.findOne({ organizationId }).lean();
   const [y, m] = month.split("-").map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const today = nepalDateString();
   const cappedDays = month === today.slice(0, 7) ? Math.min(daysInMonth, parseInt(today.slice(8), 10)) : daysInMonth;
+  const workingDays = new Set((settings?.workingDays?.length ? settings.workingDays : [0, 1, 2, 3, 4, 5]).map(Number));
+  const holidays = new Set(settings?.holidays ?? []);
+  const isWorking = (d: number) => workingDays.has(new Date(Date.UTC(y, m - 1, d)).getUTCDay()) && !holidays.has(`${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+
+  const enrichedUsers = users.map((u: any) => {
+    const joinMs = u.createdAt ? new Date(u.createdAt).getTime() : 0;
+    let expectedDays = 0;
+    for (let d = 1; d <= cappedDays; d++) {
+      if (!isWorking(d)) continue;
+      if (Date.UTC(y, m - 1, d) + NEPAL_OFFSET_MS < joinMs) continue;
+      expectedDays++;
+    }
+    return { ...u, expectedDays };
+  });
+
   let totalDays = 0;
   for (let d = 1; d <= cappedDays; d++) {
-    if (new Date(Date.UTC(y, m - 1, d)).getUTCDay() !== 6) totalDays++;
+    if (isWorking(d)) totalDays++;
   }
-  const settings = await AttendanceSetting.findOne({ organizationId }).lean();
-  return JSON.parse(JSON.stringify({ users, records, leaves, totalDays, settings }));
+  return JSON.parse(JSON.stringify({ users: enrichedUsers, records, leaves, totalDays, settings, holidays: [...holidays], workingDays: [...workingDays], cappedDays }));
 }
 
 export async function getTodayAttendance(organizationId: string, userId: string) {

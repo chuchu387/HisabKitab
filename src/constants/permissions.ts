@@ -74,6 +74,7 @@ export const featureLabels: Record<FeatureKey, string> = {
 
 export const defaultPermissions: Record<string, Partial<Permissions>> = {
   owner: featureKeys.reduce((acc, k) => ({ ...acc, [k]: true }), {} as Permissions),
+  super_admin: featureKeys.reduce((acc, k) => ({ ...acc, [k]: true }), {} as Permissions),
   admin: {
     attendanceView: true,
     attendanceManage: true,

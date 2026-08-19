@@ -22,10 +22,23 @@ function officeStartMin(s: any): number {
 }
 
 export function AttendanceReportView({ data, month }: { data: any; month: string }) {
-  const { users, records, leaves, totalDays, settings } = data;
+  const { users, records, leaves, totalDays, settings, cappedDays, holidays, workingDays } = data;
   const leaveDates = useMemo(() => new Set(leaves.map((l: any) => l.date + ":" + l.userId?.toString())), [leaves]);
+  const holidaySet = useMemo(() => new Set(holidays ?? []), [holidays]);
+  const workSet = useMemo(() => new Set((workingDays?.length ? workingDays : [0, 1, 2, 3, 4, 5]).map(Number)), [workingDays]);
   const startMin = officeStartMin(settings);
   const absentIfLateMin = Number(settings?.absentIfLateMinutes ?? 0);
+
+  const isExpectedDay = useCallback(
+    (date: string) => {
+      const [yy, mm, dd] = date.split("-").map(Number);
+      if (!dd || dd > (cappedDays ?? 31)) return false;
+      if (!workSet.has(new Date(Date.UTC(yy, mm - 1, dd)).getUTCDay())) return false;
+      if (holidaySet.has(date)) return false;
+      return true;
+    },
+    [cappedDays, holidaySet, workSet]
+  );
 
   const report = useMemo(() => {
     const byUser = new Map<string, Set<string>>();
@@ -81,10 +94,12 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
       const totalH = Math.floor(totalMs / 3600000);
       const totalM = Math.round((totalMs % 3600000) / 60000);
       const presentCount = byUser.get(u._id)?.size ?? 0;
+      const expected = u.expectedDays ?? totalDays;
+      const leaveCount = leaves.filter((l: any) => l.userId?.toString() === u._id && isExpectedDay(l.date)).length;
       return {
         ...u,
         present: presentCount,
-        absent: totalDays - presentCount,
+        absent: Math.max(0, expected - presentCount - leaveCount),
         late: lateByUser.get(u._id) ?? 0,
         otDays: otCount,
         otHours: otH > 0 || otM > 0 ? `${otH}h ${otM}m` : "—",
@@ -92,7 +107,7 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
         ips: ipMap.get(u._id) ?? []
       };
     });
-  }, [users, records, leaveDates, totalDays, startMin, absentIfLateMin]);
+  }, [users, records, leaveDates, leaves, totalDays, startMin, absentIfLateMin, isExpectedDay]);
 
   const [prev, next] = useMemo(() => {
     const [y, m] = month.split("-").map(Number);
@@ -103,6 +118,7 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
   }, [month]);
 
   const overallPresent = report.reduce((s: number, r: any) => s + r.present, 0);
+  const overallAbsent = report.reduce((s: number, r: any) => s + r.absent, 0);
   const overallLate = report.reduce((s: number, r: any) => s + r.late, 0);
   const overallOT = report.reduce((s: number, r: any) => s + r.otDays, 0);
   const totalHoursMs = records.reduce((s: number, r: any) => s + (r.checkOutTime ? Math.max(0, durationMs(r)) : 0), 0);
@@ -142,12 +158,12 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
 
       <div className="grid gap-4 sm:grid-cols-5">
         <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Present</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{overallPresent}</p></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Absent{hasLeaves ? "*" : ""}</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{totalDays * users.length - overallPresent}</p></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Absent{hasLeaves ? "*" : ""}</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{overallAbsent}</p></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Late</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{overallLate}</p></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">OT Days</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold text-accent">{overallOT}</p></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-xs font-medium text-muted-foreground">Total Hours</CardTitle></CardHeader><CardContent><p className="text-2xl font-bold">{totalH}h {totalM}m</p></CardContent></Card>
       </div>
-      {hasLeaves && <p className="text-xs text-muted-foreground">* Absent excludes approved leave days</p>}
+      {hasLeaves && <p className="text-xs text-muted-foreground">* Absent excludes approved leave days. Saturdays, holidays, and days before a member joined are never counted as Absent.</p>}
 
       <Card>
         <CardHeader><CardTitle>Member Breakdown</CardTitle></CardHeader>
