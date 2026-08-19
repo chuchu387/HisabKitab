@@ -46,9 +46,12 @@ export const organizationSchema = z.object({
   vatEffectiveDate: z.preprocess((value) => value === "" ? null : value, z.coerce.date().nullable().optional()),
   status: z.enum(organizationStatuses).default("active"),
   attendanceMode: z.enum(["selfie", "device"]).default("selfie"),
+  deviceVendor: z.enum(["zkt", "hikvision"]).default("zkt"),
   deviceSn: z.string().max(60).optional().default(""),
   pushSecret: z.string().max(100).optional().default(""),
   deviceUrl: z.string().max(200).optional().default(""),
+  deviceUsername: z.string().max(60).optional().default(""),
+  devicePassword: z.string().max(100).optional().default(""),
   pollEnabled: z.coerce.boolean().default(false)
 });
 

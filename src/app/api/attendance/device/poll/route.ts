@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { Organization } from "@/models/Organization";
 import { processPunches } from "@/services/device-attendance";
+import { syncHikvisionOrg, getHikDeviceInfo } from "@/services/hikvision-attendance";
 
 export async function GET(request: NextRequest) {
   const secret = process.env.REMINDER_CRON_SECRET ?? process.env.CRON_SECRET;
@@ -15,6 +16,12 @@ export async function GET(request: NextRequest) {
   const orgs: any[] = await Organization.find({ attendanceMode: "device", "device.pollEnabled": true, "device.deviceUrl": { $ne: "" } }).lean();
   const summary: any[] = [];
   for (const org of orgs) {
+    if (org.device.deviceVendor === "hikvision") {
+      const info = await getHikDeviceInfo(org);
+      const result = await syncHikvisionOrg(org);
+      summary.push({ org: org.name, url: org.device.deviceUrl, vendor: "hikvision", device: info, ...result });
+      continue;
+    }
     const url = org.device.deviceUrl.replace(/\/+$/, "");
     if (!/^https?:\/\//i.test(url)) {
       summary.push({ org: org.name, url, error: "Invalid device URL scheme" });

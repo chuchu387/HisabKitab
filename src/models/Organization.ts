@@ -17,9 +17,12 @@ const organizationSchema = new Schema(
     status: { type: String, enum: organizationStatuses, default: "active", index: true },
     attendanceMode: { type: String, enum: ["selfie", "device"], default: "selfie", index: true },
     device: {
+      deviceVendor: { type: String, enum: ["zkt", "hikvision"], default: "zkt" },
       deviceSn: { type: String, default: "", trim: true },
       pushSecret: { type: String, default: "", trim: true },
       deviceUrl: { type: String, default: "", trim: true },
+      deviceUsername: { type: String, default: "", trim: true },
+      devicePassword: { type: String, default: "", trim: true },
       pollEnabled: { type: Boolean, default: false }
     }
   },

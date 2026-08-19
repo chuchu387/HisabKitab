@@ -32,9 +32,12 @@ export async function createOrganization(_: ActionState, formData: FormData): Pr
       status: data.status,
       attendanceMode: data.attendanceMode,
       device: {
+        deviceVendor: data.deviceVendor,
         deviceSn: data.deviceSn ?? "",
         pushSecret: data.pushSecret ?? "",
         deviceUrl: data.deviceUrl ?? "",
+        deviceUsername: data.deviceUsername ?? "",
+        devicePassword: data.devicePassword ?? "",
         pollEnabled: data.pollEnabled
       }
     });
@@ -59,10 +62,10 @@ export async function updateOrganization(id: string, _: ActionState, formData: F
     await requireRole(["super_admin"]);
     await connectToDatabase();
     const data = parseForm(organizationSchema, formData);
-    const { deviceSn, pushSecret, deviceUrl, pollEnabled, ...orgFields } = data;
+    const { deviceSn, pushSecret, deviceUrl, pollEnabled, deviceVendor, deviceUsername, devicePassword, ...orgFields } = data;
     await Organization.findByIdAndUpdate(
       id,
-      { ...orgFields, code: data.code.toUpperCase(), device: { deviceSn, pushSecret, deviceUrl, pollEnabled } },
+      { ...orgFields, code: data.code.toUpperCase(), device: { deviceVendor, deviceSn, pushSecret, deviceUrl, deviceUsername, devicePassword, pollEnabled } },
       { runValidators: true }
     );
     revalidatePath("/organizations");
