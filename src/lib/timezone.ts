@@ -8,6 +8,10 @@ export function nepalDateString(): string {
   return nepalNow().toISOString().slice(0, 10);
 }
 
+export function nepalDateEndMs(date: string): number {
+  return new Date(`${date}T23:59:59+05:45`).getTime();
+}
+
 export function nepalHour(): number {
   return nepalNow().getUTCHours();
 }

@@ -5,10 +5,17 @@ import { ChevronLeft, ChevronRight, Clock, XCircle, Download } from "lucide-reac
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatNepalTime } from "@/lib/timezone";
+import { formatNepalTime, nepalDateEndMs } from "@/lib/timezone";
 
 const LATE_THRESHOLD = 10;
 const OT_THRESHOLD_MS = 8 * 60 * 60 * 1000;
+
+function durationMs(r: any): number {
+  const start = new Date(r.checkInTime).getTime();
+  const rawEnd = new Date(r.checkOutTime).getTime();
+  const end = Math.min(rawEnd, nepalDateEndMs(r.date));
+  return Math.max(0, end - start);
+}
 
 export function AttendanceReportView({ data, month }: { data: any; month: string }) {
   const { users, records, leaves, totalDays } = data;
@@ -36,7 +43,7 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
         lateByUser.set(uid, (lateByUser.get(uid) ?? 0) + 1);
       }
       if (r.checkOutTime) {
-        const ms = new Date(r.checkOutTime).getTime() - new Date(r.checkInTime).getTime();
+        const ms = durationMs(r);
         if (ms > 0) {
           hoursByUser.set(uid, (hoursByUser.get(uid) ?? 0) + ms);
           if (ms > OT_THRESHOLD_MS) {
@@ -56,7 +63,7 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
       const otMs = records
         .filter((r: any) => r.userId?.toString() === u._id && r.checkOutTime)
         .reduce((s: number, r: any) => {
-          const ms = new Date(r.checkOutTime).getTime() - new Date(r.checkInTime).getTime();
+          const ms = durationMs(r);
           return s + (ms > OT_THRESHOLD_MS ? ms - OT_THRESHOLD_MS : 0);
         }, 0);
       const otH = Math.floor(otMs / 3600000);
@@ -87,7 +94,7 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
   const overallPresent = report.reduce((s: number, r: any) => s + r.present, 0);
   const overallLate = report.reduce((s: number, r: any) => s + r.late, 0);
   const overallOT = report.reduce((s: number, r: any) => s + r.otDays, 0);
-  const totalHoursMs = records.reduce((s: number, r: any) => s + (r.checkOutTime ? Math.max(0, new Date(r.checkOutTime).getTime() - new Date(r.checkInTime).getTime()) : 0), 0);
+  const totalHoursMs = records.reduce((s: number, r: any) => s + (r.checkOutTime ? Math.max(0, durationMs(r)) : 0), 0);
   const totalH = Math.floor(totalHoursMs / 3600000);
   const totalM = Math.round((totalHoursMs % 3600000) / 60000);
   const hasLeaves = leaves.length > 0;

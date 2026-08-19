@@ -133,7 +133,11 @@ export async function getAttendanceReport(organizationId: string, month: string)
   const [y, m] = month.split("-").map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const today = nepalDateString();
-  const totalDays = month === today.slice(0, 7) ? Math.min(daysInMonth, parseInt(today.slice(8))) : daysInMonth;
+  const cappedDays = month === today.slice(0, 7) ? Math.min(daysInMonth, parseInt(today.slice(8), 10)) : daysInMonth;
+  let totalDays = 0;
+  for (let d = 1; d <= cappedDays; d++) {
+    if (new Date(Date.UTC(y, m - 1, d)).getUTCDay() !== 6) totalDays++;
+  }
   return JSON.parse(JSON.stringify({ users, records, leaves, totalDays }));
 }
 

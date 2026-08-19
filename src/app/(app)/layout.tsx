@@ -9,7 +9,7 @@ import { Attendance } from "@/models/Attendance";
 import { CheckInGuard } from "@/features/attendance/checkin-guard";
 import { PushManager } from "@/components/push-manager";
 import { CallProvider } from "@/components/call-provider";
-import { nepalDateString, isCheckInOpen, isSaturday } from "@/lib/timezone";
+import { nepalDateString, nepalDateEndMs, isCheckInOpen, isSaturday } from "@/lib/timezone";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
@@ -29,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (session.user.organizationId) {
     await Attendance.updateMany(
       { organizationId: session.user.organizationId, userId: session.user.userId, date: { $lt: today }, checkOutTime: null },
-      { $set: { checkOutTime: new Date(new Date(today + "T00:00:00").getTime() - 60000) } }
+      { $set: { checkOutTime: new Date(nepalDateEndMs(today)) } }
     );
   }
   const attendanceRecord: any = session.user.organizationId
