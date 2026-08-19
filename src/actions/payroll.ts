@@ -8,6 +8,7 @@ import { Commission } from "@/models/Commission";
 import { Payroll } from "@/models/Payroll";
 import { SalarySetting } from "@/models/SalarySetting";
 import { User } from "@/models/User";
+import { AttendanceSetting } from "@/models/AttendanceSetting";
 
 function monthRange(month: string) {
   const [year, m] = month.split("-").map(Number);
@@ -16,15 +17,19 @@ function monthRange(month: string) {
   return { start, end };
 }
 
-function workingDaysInMonth(month: string) {
+async function workingDaysInMonth(month: string, organizationId: string) {
   const { start, end } = monthRange(month);
   const now = new Date();
   const lastDay = end.getTime() < now.getTime() ? end : now;
+  const settings: any = await AttendanceSetting.findOne({ organizationId }).lean();
+  const working = settings?.workingDays?.length ? settings.workingDays.map(Number) : [0, 1, 2, 3, 4, 5];
+  const holidays = new Set((settings?.holidays ?? []).map(String));
   let count = 0;
   const cursor = new Date(start);
   while (cursor.getTime() <= lastDay.getTime()) {
     const day = cursor.getUTCDay();
-    if (day !== 0 && day !== 6) count++;
+    const date = cursor.toISOString().slice(0, 10);
+    if (working.includes(day) && !holidays.has(date)) count++;
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return Math.max(count, 1);
@@ -44,7 +49,7 @@ export async function generatePayroll(formData: FormData): Promise<{ ok: boolean
     const userIds = formData.getAll("userIds").map(String);
     if (!userIds.length) return { ok: false, message: "Select at least one staff member" };
     const { start, end } = monthRange(month);
-    const workingDays = workingDaysInMonth(month);
+    const workingDays = await workingDaysInMonth(month, organizationId);
 
     const [users, settings, commissions, attendance] = await Promise.all([
       User.find({ organizationId, active: true, _id: { $in: userIds } }).sort({ name: 1 }).select("name role").lean() as unknown as any[],

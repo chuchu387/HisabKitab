@@ -20,7 +20,11 @@ export async function markAttendance(formData: FormData): Promise<{ ok: boolean;
     await connectToDatabase();
     const org: any = await Organization.findById(organizationId).select("attendanceMode").lean();
     if (org?.attendanceMode === "device") return { ok: false, message: "Attendance is handled by the fingerprint device" };
-    if (!isCheckInOpen()) return { ok: false, message: "Check-in is only available between 8AM and midnight (Nepal time)." };
+    const settings: any = await AttendanceSetting.findOne({ organizationId }).lean();
+    if (!isCheckInOpen(settings)) {
+      const start = settings?.officeStartTime ?? "08:00";
+      return { ok: false, message: `Check-in is available from ${start} (Nepal time) on working days only.` };
+    }
     const today = nepalDateString();
     const existing = await Attendance.findOne({ organizationId, userId: session.user.userId, date: today });
     if (existing) return { ok: false, message: "Attendance already marked today" };

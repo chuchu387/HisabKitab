@@ -15,6 +15,7 @@ export function CheckInGuard({
   checkedOut,
   withinWindow,
   checkInTime,
+  officeStartTime,
   skip,
   children
 }: {
@@ -22,6 +23,7 @@ export function CheckInGuard({
   checkedOut: boolean;
   withinWindow: boolean;
   checkInTime: string | null;
+  officeStartTime?: string;
   skip?: boolean;
   children: React.ReactNode;
 }) {
@@ -127,9 +129,9 @@ export function CheckInGuard({
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Check-in is only allowed between <strong>8:00 AM</strong> and <strong>midnight</strong> (Nepal time).
+              Check-in opens at <strong>{officeStartTime ?? "08:00"}</strong> (Nepal time) on working days.
             </p>
-            <p className="text-xs text-muted-foreground">Please come back during check-in hours.</p>
+            <p className="text-xs text-muted-foreground">Please come back once check-in opens.</p>
           </CardContent>
         </Card>
       </div>

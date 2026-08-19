@@ -7,8 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatNepalTime, nepalDateEndMs, NEPAL_OFFSET_MS } from "@/lib/timezone";
 
-const OT_THRESHOLD_MS = 8 * 60 * 60 * 1000;
-
 function durationMs(r: any): number {
   const start = new Date(r.checkInTime).getTime();
   const rawEnd = new Date(r.checkOutTime).getTime();
@@ -21,13 +19,26 @@ function officeStartMin(s: any): number {
   return h * 60 + m;
 }
 
+function officeEndMin(s: any): number {
+  const [h, m] = String(s?.officeEndTime || "18:00").split(":").map(Number);
+  return h * 60 + m;
+}
+
+function fmtNum(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
 export function AttendanceReportView({ data, month }: { data: any; month: string }) {
   const { users, records, leaves, totalDays, settings, cappedDays, holidays, workingDays } = data;
   const leaveDates = useMemo(() => new Set(leaves.map((l: any) => l.date + ":" + l.userId?.toString())), [leaves]);
   const holidaySet = useMemo(() => new Set(holidays ?? []), [holidays]);
   const workSet = useMemo(() => new Set((workingDays?.length ? workingDays : [0, 1, 2, 3, 4, 5]).map(Number)), [workingDays]);
   const startMin = officeStartMin(settings);
+  const endMin = officeEndMin(settings);
+  const otThresholdMs = Math.max(60, (endMin - startMin) * 60 * 1000);
+  const graceMin = Number(settings?.graceMinutes ?? 0);
   const absentIfLateMin = Number(settings?.absentIfLateMinutes ?? 0);
+  const halfDayAfterMin = Number(settings?.halfDayAfterMinutes ?? 0);
 
   const isExpectedDay = useCallback(
     (date: string) => {
@@ -42,6 +53,7 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
 
   const report = useMemo(() => {
     const byUser = new Map<string, Set<string>>();
+    const halfByUser = new Map<string, number>();
     const lateByUser = new Map<string, number>();
     const otByUser = new Map<string, number>();
     const hoursByUser = new Map<string, number>();
@@ -57,19 +69,22 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
       if (!lateByUser.has(uid)) lateByUser.set(uid, 0);
       const npt = new Date(new Date(r.checkInTime).getTime() + NEPAL_OFFSET_MS);
       const mins = npt.getUTCHours() * 60 + npt.getUTCMinutes();
-      const lateMins = mins - startMin;
+      const lateMins = mins - (startMin + graceMin);
       const beyond = absentIfLateMin > 0 && lateMins > absentIfLateMin;
+      const halfDay = !beyond && halfDayAfterMin > 0 && lateMins > halfDayAfterMin;
       if (lateMins > 0 && !beyond) {
         lateByUser.set(uid, (lateByUser.get(uid) ?? 0) + 1);
       }
       if (beyond) {
         byUser.get(uid)!.delete(r.date);
+      } else if (halfDay) {
+        halfByUser.set(uid, (halfByUser.get(uid) ?? 0) + 1);
       }
       if (r.checkOutTime) {
         const ms = durationMs(r);
         if (ms > 0) {
           hoursByUser.set(uid, (hoursByUser.get(uid) ?? 0) + ms);
-          if (ms > OT_THRESHOLD_MS) {
+          if (ms > otThresholdMs) {
             otByUser.set(uid, (otByUser.get(uid) ?? 0) + 1);
           }
         }
@@ -87,13 +102,13 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
         .filter((r: any) => r.userId?.toString() === u._id && r.checkOutTime)
         .reduce((s: number, r: any) => {
           const ms = durationMs(r);
-          return s + (ms > OT_THRESHOLD_MS ? ms - OT_THRESHOLD_MS : 0);
+          return s + (ms > otThresholdMs ? ms - otThresholdMs : 0);
         }, 0);
       const otH = Math.floor(otMs / 3600000);
       const otM = Math.round((otMs % 3600000) / 60000);
       const totalH = Math.floor(totalMs / 3600000);
       const totalM = Math.round((totalMs % 3600000) / 60000);
-      const presentCount = byUser.get(u._id)?.size ?? 0;
+      const presentCount = (byUser.get(u._id)?.size ?? 0) + (halfByUser.get(u._id) ?? 0) * 0.5;
       const expected = u.expectedDays ?? totalDays;
       const leaveCount = leaves.filter((l: any) => l.userId?.toString() === u._id && isExpectedDay(l.date)).length;
       return {
@@ -107,7 +122,7 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
         ips: ipMap.get(u._id) ?? []
       };
     });
-  }, [users, records, leaveDates, leaves, totalDays, startMin, absentIfLateMin, isExpectedDay]);
+  }, [users, records, leaveDates, leaves, totalDays, startMin, graceMin, absentIfLateMin, halfDayAfterMin, otThresholdMs, isExpectedDay]);
 
   const [prev, next] = useMemo(() => {
     const [y, m] = month.split("-").map(Number);
@@ -128,7 +143,7 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
 
   const exportCSV = useCallback(() => {
     const rows = [["Member", "Role", "Present", "Absent", "Late", "Overtime Days", "Total Hours", "Overtime Hours", "IPs"]];
-    report.forEach((u: any) => rows.push([u.name, u.role ?? "staff", u.present, u.absent, u.late, u.otDays, u.totalHours, u.otHours, u.ips.join("; ")]));
+    report.forEach((u: any) => rows.push([u.name, u.role ?? "staff", fmtNum(u.present), fmtNum(u.absent), u.late, u.otDays, u.totalHours, u.otHours, u.ips.join("; ")]));
     const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -186,8 +201,8 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
                 <tr key={u._id} className="border-b last:border-0">
                   <td className="py-2 pr-3 font-medium">{u.name}</td>
                   <td className="py-2 pr-3 text-xs text-muted-foreground">{u.role ?? "staff"}</td>
-                  <td className="py-2 pr-3 text-right">{u.present}</td>
-                  <td className={`py-2 pr-3 text-right ${u.absent > 0 ? "text-destructive" : ""}`}>{u.absent}</td>
+                  <td className="py-2 pr-3 text-right">{fmtNum(u.present)}</td>
+                  <td className={`py-2 pr-3 text-right ${u.absent > 0 ? "text-destructive" : ""}`}>{fmtNum(u.absent)}</td>
                   <td className={`py-2 pr-3 text-right ${u.late > 0 ? "text-accent" : ""}`}>{u.late}</td>
                   <td className="py-2 pr-3 text-right text-accent">{u.otDays > 0 ? u.otDays : "—"}</td>
                   <td className="py-2 pr-3 text-right">{u.totalHours}</td>

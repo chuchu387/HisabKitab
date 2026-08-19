@@ -16,9 +16,18 @@ export function nepalHour(): number {
   return nepalNow().getUTCHours();
 }
 
-export function isCheckInOpen(): boolean {
-  const h = nepalHour();
-  return h >= 8;
+export function isCheckInOpen(settings?: { officeStartTime?: string; workingDays?: number[]; holidays?: string[] }): boolean {
+  const now = new Date(Date.now() + NEPAL_OFFSET_MS);
+  const today = now.toISOString().slice(0, 10);
+  const working = settings?.workingDays?.length ? settings.workingDays : [0, 1, 2, 3, 4, 5];
+  if (!working.includes(now.getUTCDay())) return false;
+  if ((settings?.holidays ?? []).includes(today)) return false;
+  const hour = Number((settings?.officeStartTime ?? "08:00").split(":")[0]);
+  return now.getUTCHours() >= hour;
+}
+
+export function officeStartTimeLabel(settings?: { officeStartTime?: string }): string {
+  return settings?.officeStartTime ?? "08:00";
 }
 
 export function isSaturday(): boolean {

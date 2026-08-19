@@ -30,13 +30,22 @@ export function AttendanceSettingsForm({ settings }: { settings: any }) {
     <form action={formAction} className="space-y-5 rounded-lg border bg-card p-4 shadow-sm sm:p-5">
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Office Start" name="officeStartTime" type="time" defaultValue={settings?.officeStartTime ?? "10:00"} />
-        <Field label="Office End" name="officeEndTime" type="time" defaultValue={settings?.officeEndTime ?? "18:00"} />
-        <Field label="Grace Minutes" name="graceMinutes" type="number" min="0" defaultValue={settings?.graceMinutes ?? 15} />
+        <div className="space-y-2">
+          <Field label="Office End" name="officeEndTime" type="time" defaultValue={settings?.officeEndTime ?? "18:00"} />
+          <p className="text-[11px] text-muted-foreground -mt-1">Hours beyond office hours count as overtime in reports.</p>
+        </div>
+        <div className="space-y-2">
+          <Field label="Grace Minutes" name="graceMinutes" type="number" min="0" defaultValue={settings?.graceMinutes ?? 15} />
+          <p className="text-[11px] text-muted-foreground -mt-1">Arrivals within this many minutes after start count as on time.</p>
+        </div>
         <div className="space-y-2">
           <Field label="Absent if late by more than (minutes)" name="absentIfLateMinutes" type="number" min="0" defaultValue={settings?.absentIfLateMinutes ?? 0} />
           <p className="text-[11px] text-muted-foreground -mt-1">0 = disabled. If a staff checks in more than this many minutes late, the day counts as Absent instead of Present.</p>
         </div>
-        <Field label="Half Day After Minutes" name="halfDayAfterMinutes" type="number" min="0" defaultValue={settings?.halfDayAfterMinutes ?? 240} />
+        <div className="space-y-2">
+          <Field label="Half Day After Minutes" name="halfDayAfterMinutes" type="number" min="0" defaultValue={settings?.halfDayAfterMinutes ?? 240} />
+          <p className="text-[11px] text-muted-foreground -mt-1">Arrivals more than this many minutes late count as a half day (0.5 Present / 0.5 Absent). 0 = disabled.</p>
+        </div>
         <Field label="Reminder Start Hour" name="reminderStartHour" type="number" min="0" max="23" defaultValue={settings?.reminderStartHour ?? 10} />
         <Field label="Reminder End Hour" name="reminderEndHour" type="number" min="0" max="23" defaultValue={settings?.reminderEndHour ?? 17} />
         <Field label="Max Reminders Per Day" name="reminderMaxPerDay" type="number" min="0" max="24" defaultValue={settings?.reminderMaxPerDay ?? 8} />
