@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireFeature } from "@/lib/permissions";
+import { requireFeature, requireTenant } from "@/lib/permissions";
 import { Expense } from "@/models/Expense";
 import { Project } from "@/models/Project";
 import { expenseSchema } from "@/validations/schemas";
@@ -16,7 +16,42 @@ import { notifyExpenseApproval, notifyExpenseSubmitted } from "@/services/notifi
 import { nextVoucherNumber } from "@/services/vouchers";
 import { User } from "@/models/User";
 import { ExpenseApprovalHistory } from "@/models/ExpenseApprovalHistory";
+import { formatDate } from "@/lib/utils";
+import { fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
+import { buildExpenseFilterQuery } from "@/services/expense-filters";
 import type { ActionState } from "@/types";
+
+export type ExpenseExportRow = {
+  date: string;
+  voucher: string;
+  fy: string;
+  category: string;
+  project: string;
+  description: string;
+  amount: number;
+};
+
+export async function getExpensesForExport(params: Record<string, string | string[] | undefined>): Promise<{ rows: ExpenseExportRow[]; total: number }> {
+  try {
+    const { session, organizationId } = await requireTenant();
+    await connectToDatabase();
+    const { query } = await buildExpenseFilterQuery(params, organizationId, session);
+    const expenses: any[] = await Expense.find(query).populate("categoryId projectId").sort({ expenseDate: -1 }).lean();
+    const rows = expenses.map((expense) => ({
+      date: formatDate(expense.expenseDate),
+      voucher: String(expense.voucherNumber || "-"),
+      fy: fiscalYearLabelForDate(expense.expenseDate),
+      category: expense.categoryId?.name ?? "-",
+      project: expense.projectId?.name ?? "General",
+      description: String(expense.description || ""),
+      amount: Number(expense.amount) || 0
+    }));
+    const total = rows.reduce((sum, row) => sum + row.amount, 0);
+    return { rows, total };
+  } catch {
+    return { rows: [], total: 0 };
+  }
+}
 
 function ownableQuery(id: string, organizationId: string, session: Awaited<ReturnType<typeof requireFeature>>["session"]) {
   const query: Record<string, unknown> = { _id: id, organizationId };

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { Types } from "mongoose";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,13 +12,14 @@ import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
 import { FilterForm } from "@/components/filter-form";
 import { connectToDatabase } from "@/lib/db";
 import { requireTenant } from "@/lib/permissions";
-import { money, safeObjectId } from "@/lib/utils";
+import { money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
-import { FiscalYear } from "@/models/FiscalYear";
 import { Project } from "@/models/Project";
 import { User } from "@/models/User";
-import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter, fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
+import { fiscalYearLabelForDate } from "@/services/fiscal-year-filter";
+import { buildExpenseFilterQuery } from "@/services/expense-filters";
+import { ExpenseExportButtons } from "@/features/expenses/expense-export";
 
 void User;
 
@@ -27,45 +27,9 @@ export default async function ExpensesPage({ searchParams }: any) {
   const { organizationId, session } = await requireTenant();
   await connectToDatabase();
   const params = await searchParams;
-  const organizationObjectId = new Types.ObjectId(organizationId);
-  const query: any = { organizationId: organizationObjectId };
-  const q = typeof params?.q === "string" ? params.q : "";
-  const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();
-  const fiscalYearOptions = buildFiscalYearFilterOptions(savedFiscalYears as any[]);
+  const { query, fiscalYearOptions } = await buildExpenseFilterQuery(params, organizationId, session);
   const selectedFY = typeof params?.fy === "string" ? params.fy : "all";
-  const fyRange = dateRangeForFiscalYearFilter(fiscalYearOptions, selectedFY, params?.from, params?.to);
-  if (q) query.description = new RegExp(q, "i");
-  if (session.user.role === "staff") {
-    query.createdBy = new Types.ObjectId(session.user.userId);
-  } else if (params?.submittedBy) {
-    const submittedBy = safeObjectId(params.submittedBy);
-    if (submittedBy) query.createdBy = submittedBy;
-  }
-  if (fyRange.from || fyRange.to) {
-    query.expenseDate = {};
-    if (fyRange.from) query.expenseDate.$gte = fyRange.from;
-    if (fyRange.to) {
-      const end = fyRange.to;
-      end.setHours(23, 59, 59, 999);
-      query.expenseDate.$lte = end;
-    }
-    if (!Object.keys(query.expenseDate).length) delete query.expenseDate;
-  }
-  if (params?.projectId === "general") {
-    query.projectId = null;
-  } else if (params?.projectId) {
-    const projectId = safeObjectId(params.projectId);
-    if (projectId) query.projectId = projectId;
-  }
-  if (params?.expenseType === "project") query.projectId = { $ne: null };
-  if (params?.expenseType === "general") query.projectId = null;
-  if (params?.approvalStatus === "approved") query.approvalStatus = "approved";
-  if (params?.approvalStatus === "pending") query.$or = [{ approvalStatus: "pending" }, { approvalStatus: { $exists: false } }];
-  if (params?.approvalStatus === "rejected") query.approvalStatus = "rejected";
-  if (params?.categoryId) {
-    const categoryId = safeObjectId(params.categoryId);
-    if (categoryId) query.categoryId = categoryId;
-  }
+  const q = typeof params?.q === "string" ? params.q : "";
   const pageSize = parsePageSize(params?.pageSize);
   const page = parsePage(params?.page);
   const skip = (page - 1) * pageSize;
@@ -136,6 +100,9 @@ export default async function ExpensesPage({ searchParams }: any) {
         <StatCard label="Approved Total" value={approvedTotal} currency />
         <StatCard label="Pending Total" value={pendingTotal} currency />
         <StatCard label="Expense Count" value={totalCount} />
+      </div>
+      <div className="flex items-center justify-end">
+        <ExpenseExportButtons searchParams={params} />
       </div>
       {session.user.role !== "staff" && pendingInbox.length > 0 && (
         <Card className="border-accent/30 bg-accent/5">
