@@ -15,6 +15,7 @@ const attendanceSettingSchema = z.object({
   graceMinutes: z.coerce.number().min(0).max(240),
   absentIfLateMinutes: z.coerce.number().min(0).max(600),
   halfDayAfterMinutes: z.coerce.number().min(0).max(720),
+  minWorkMinutes: z.coerce.number().min(0).max(1440),
   reminderStartHour: z.coerce.number().min(0).max(23),
   reminderEndHour: z.coerce.number().min(0).max(23),
   reminderMaxPerDay: z.coerce.number().min(0).max(24),

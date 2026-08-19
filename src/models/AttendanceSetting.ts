@@ -8,6 +8,7 @@ const attendanceSettingSchema = new Schema(
     graceMinutes: { type: Number, default: 15, min: 0 },
     absentIfLateMinutes: { type: Number, default: 0, min: 0 },
     halfDayAfterMinutes: { type: Number, default: 240, min: 0 },
+    minWorkMinutes: { type: Number, default: 180, min: 0 },
     workingDays: [{ type: Number, min: 0, max: 6 }],
     holidays: [{ type: String, trim: true }],
     reminderStartHour: { type: Number, default: 10, min: 0, max: 23 },

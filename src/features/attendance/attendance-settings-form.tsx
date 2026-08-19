@@ -46,6 +46,10 @@ export function AttendanceSettingsForm({ settings }: { settings: any }) {
           <Field label="Half Day After Minutes" name="halfDayAfterMinutes" type="number" min="0" defaultValue={settings?.halfDayAfterMinutes ?? 240} />
           <p className="text-[11px] text-muted-foreground -mt-1">Arrivals more than this many minutes late count as a half day (0.5 Present / 0.5 Absent). 0 = disabled.</p>
         </div>
+        <div className="space-y-2">
+          <Field label="Minimum Work Minutes" name="minWorkMinutes" type="number" min="0" defaultValue={settings?.minWorkMinutes ?? 180} />
+          <p className="text-[11px] text-muted-foreground -mt-1">Staff cannot check out before working this long. 0 = no minimum.</p>
+        </div>
         <Field label="Reminder Start Hour" name="reminderStartHour" type="number" min="0" max="23" defaultValue={settings?.reminderStartHour ?? 10} />
         <Field label="Reminder End Hour" name="reminderEndHour" type="number" min="0" max="23" defaultValue={settings?.reminderEndHour ?? 17} />
         <Field label="Max Reminders Per Day" name="reminderMaxPerDay" type="number" min="0" max="24" defaultValue={settings?.reminderMaxPerDay ?? 8} />

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Camera, CircleCheck, CircleMinus, LogOut } from "lucide-react";
+import { Camera, CalendarOff, CircleCheck, CircleMinus, LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatNepalTime } from "@/lib/timezone";
 
-export function AttendanceTeam({ members, teamToday }: { members: { _id: string; name: string; role?: string }[]; teamToday: any[] }) {
+export function AttendanceTeam({ members, teamToday, leavesToday = [], halfDayAfterMinutes = 240 }: { members: { _id: string; name: string; role?: string }[]; teamToday: any[]; leavesToday?: any[]; halfDayAfterMinutes?: number }) {
   const recordMap = new Map(teamToday.map((a: any) => [a.userId?._id?.toString(), a]));
+  const leaveMap = new Map(leavesToday.map((l: any) => [l.userId?._id?.toString() ?? l.userId?.toString(), true]));
   const [viewing, setViewing] = useState<string | null>(null);
   return (
     <Card>
@@ -19,10 +20,14 @@ export function AttendanceTeam({ members, teamToday }: { members: { _id: string;
             const record = recordMap.get(member._id);
             const checkedIn = !!record;
             const checkedOut = checkedIn && !!record.checkOutTime;
+            const onLeave = !!leaveMap.get(member._id);
+            const halfDay = checkedOut && halfDayAfterMinutes > 0 && new Date(record.checkOutTime).getTime() - new Date(record.checkInTime).getTime() < halfDayAfterMinutes * 60000;
             return (
-              <div key={member._id} className={`flex items-center gap-3 rounded-lg border p-3 ${checkedIn ? "border-primary/30 bg-primary/5" : "bg-card"}`}>
+              <div key={member._id} className={`flex items-center gap-3 rounded-lg border p-3 ${checkedIn ? "border-primary/30 bg-primary/5" : onLeave ? "border-purple-500/30 bg-purple-500/5" : "bg-card"}`}>
                 {checkedIn ? (
                   checkedOut ? <LogOut className="h-5 w-5 shrink-0 text-muted-foreground" /> : <CircleCheck className="h-5 w-5 shrink-0 text-primary" />
+                ) : onLeave ? (
+                  <CalendarOff className="h-5 w-5 shrink-0 text-purple-500" />
                 ) : (
                   <CircleMinus className="h-5 w-5 shrink-0 text-muted-foreground/50" />
                 )}
@@ -34,10 +39,14 @@ export function AttendanceTeam({ members, teamToday }: { members: { _id: string;
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {checkedIn
-                      ? `${formatNepalTime(record.checkInTime)} ${checkedOut ? `- ${formatNepalTime(record.checkOutTime)}` : "(active)"}`
-                      : "Not checked in"}
+                    {onLeave && !checkedIn
+                      ? "On leave"
+                      : checkedIn
+                        ? `${formatNepalTime(record.checkInTime)} ${checkedOut ? `- ${formatNepalTime(record.checkOutTime)}` : "(active)"}`
+                        : "Not checked in"}
                   </p>
+                  {(onLeave && !checkedIn) && <span className="mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-tight bg-purple-100 text-purple-700">Leave</span>}
+                  {halfDay && <span className="mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-tight bg-amber-100 text-amber-700">Half day</span>}
                 </div>
                 {record?.selfieId && (
                   <button type="button" onClick={() => setViewing(record.selfieId)} className="shrink-0 text-muted-foreground hover:text-foreground" title="View selfie">

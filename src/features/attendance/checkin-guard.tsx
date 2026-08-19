@@ -8,14 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { markAttendance, checkOutAttendance } from "@/actions/attendance";
 
-const MIN_WORK_MS = 3 * 60 * 60 * 1000;
-
 export function CheckInGuard({
   alreadyMarked,
   checkedOut,
   withinWindow,
   checkInTime,
   officeStartTime,
+  minWorkMinutes,
   skip,
   children
 }: {
@@ -24,10 +23,12 @@ export function CheckInGuard({
   withinWindow: boolean;
   checkInTime: string | null;
   officeStartTime?: string;
+  minWorkMinutes?: number;
   skip?: boolean;
   children: React.ReactNode;
 }) {
   if (skip) return <>{children}</>;
+  const minWorkMs = (minWorkMinutes ?? 180) * 60000;
   const [view, setView] = useState<"idle" | "checkin" | "checkout" | "blocked">(
     !alreadyMarked ? (withinWindow ? "checkin" : "blocked") : !checkedOut ? "checkout" : "idle"
   );
@@ -44,8 +45,8 @@ export function CheckInGuard({
     if (!checkInTime) return;
     function tick() {
       const elapsed = Date.now() - new Date(checkInTime!).getTime();
-      if (elapsed >= MIN_WORK_MS) { setRemaining(null); return; }
-      const mins = Math.ceil((MIN_WORK_MS - elapsed) / 60000);
+      if (elapsed >= minWorkMs) { setRemaining(null); return; }
+      const mins = Math.ceil((minWorkMs - elapsed) / 60000);
       const h = Math.floor(mins / 60);
       const m = mins % 60;
       setRemaining(h > 0 ? `${h}h ${m}m` : `${m}m`);

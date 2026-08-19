@@ -2,6 +2,8 @@ import { connectToDatabase } from "@/lib/db";
 import { requireSession } from "@/lib/permissions";
 import { Attendance } from "@/models/Attendance";
 import { User } from "@/models/User";
+import { Leave } from "@/models/Leave";
+import { AttendanceSetting } from "@/models/AttendanceSetting";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AttendanceHistory } from "@/features/attendance/attendance-history";
@@ -9,6 +11,7 @@ import { AttendanceCalendar } from "@/features/attendance/attendance-calendar";
 import { AttendanceTeam } from "@/features/attendance/attendance-team";
 import { AdminOverride } from "@/features/attendance/admin-override";
 import { nepalDateString, formatNepalTime, formatNepalDate } from "@/lib/timezone";
+import { finalizeOpenAttendance } from "@/services/attendance-finalize";
 
 async function getAttendanceRecords(organizationId: string, userId: string) {
   await connectToDatabase();
@@ -18,16 +21,22 @@ async function getAttendanceRecords(organizationId: string, userId: string) {
 
 export default async function AttendancePage() {
   const session = await requireSession();
-  const records = await getAttendanceRecords(session.user.organizationId!, session.user.userId!);
+  await connectToDatabase();
+  const organizationId = session.user.organizationId!;
+  const settings: any = await AttendanceSetting.findOne({ organizationId }).lean();
+  await finalizeOpenAttendance(organizationId, settings);
+  const records = await getAttendanceRecords(organizationId, session.user.userId!);
   const today = nepalDateString();
   const currentMonth = today.slice(0, 7);
   const thisMonthCount = records.filter((r: any) => r.date.startsWith(currentMonth)).length;
   const totalDays = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const isAdmin = ["owner", "admin"].includes(session.user.role);
-  const superAdmins = await User.find({ organizationId: session.user.organizationId, role: "super_admin" }).select("_id").lean();
+  const superAdmins = await User.find({ organizationId, role: "super_admin" }).select("_id").lean();
   const excluded = superAdmins.map((u: any) => u._id);
-  const teamToday = await Attendance.find({ organizationId: session.user.organizationId, date: today, userId: { $nin: excluded } }).populate("userId", "name").lean();
-  const teamMembers = await User.find({ organizationId: session.user.organizationId, active: true, role: { $ne: "super_admin" } }).sort({ name: 1 }).select("name _id role").lean();
+  const teamToday = await Attendance.find({ organizationId, date: today, userId: { $nin: excluded } }).populate("userId", "name").lean();
+  const teamMembers = await User.find({ organizationId, active: true, role: { $ne: "super_admin" } }).sort({ name: 1 }).select("name _id role").lean();
+  const leavesToday = await Leave.find({ organizationId, date: today, status: "approved" }).select("userId").lean();
+  const onLeaveIds = new Set(leavesToday.map((l: any) => l.userId.toString()));
   return (
     <PageShell title="Attendance" description="Track your daily check-ins with selfie verification">
       <div className="grid gap-4 sm:grid-cols-4">
@@ -66,13 +75,13 @@ export default async function AttendancePage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Team Today</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{teamToday.length}/{teamMembers.length}</p>
-            <p className="text-xs text-muted-foreground">members checked in</p>
+            <p className="text-2xl font-bold">{teamToday.length}/{teamMembers.length - onLeaveIds.size}</p>
+            <p className="text-xs text-muted-foreground">members checked in (excluding leave)</p>
           </CardContent>
         </Card>
       </div>
       <div className="space-y-4">
-        <AttendanceTeam members={JSON.parse(JSON.stringify(teamMembers))} teamToday={JSON.parse(JSON.stringify(teamToday))} />
+        <AttendanceTeam members={JSON.parse(JSON.stringify(teamMembers))} teamToday={JSON.parse(JSON.stringify(teamToday))} leavesToday={JSON.parse(JSON.stringify(leavesToday))} halfDayAfterMinutes={settings?.halfDayAfterMinutes ?? 240} />
         {isAdmin && <AdminOverride members={JSON.parse(JSON.stringify(teamMembers))} />}
       </div>
       <div className="grid gap-6 lg:grid-cols-2">

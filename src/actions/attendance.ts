@@ -12,6 +12,7 @@ import { AttendanceSetting } from "@/models/AttendanceSetting";
 import { getReceiptBucket } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
 import { NEPAL_OFFSET_MS, nepalDateString, isCheckInOpen } from "@/lib/timezone";
+import { finalizeOpenAttendance } from "@/services/attendance-finalize";
 
 export async function markAttendance(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
@@ -69,8 +70,6 @@ export async function markAttendance(formData: FormData): Promise<{ ok: boolean;
   }
 }
 
-const MIN_WORK_MS = 3 * 60 * 60 * 1000;
-
 export async function checkOutAttendance(): Promise<{ ok: boolean; message: string }> {
   try {
     const { session, organizationId } = await requireTenant();
@@ -78,14 +77,16 @@ export async function checkOutAttendance(): Promise<{ ok: boolean; message: stri
     await connectToDatabase();
     const org: any = await Organization.findById(organizationId).select("attendanceMode").lean();
     if (org?.attendanceMode === "device") return { ok: false, message: "Attendance is handled by the fingerprint device" };
+    const settings: any = await AttendanceSetting.findOne({ organizationId }).lean();
+    const minWorkMinutes = settings?.minWorkMinutes ?? 180;
     const today = nepalDateString();
     const record = await Attendance.findOne({ organizationId, userId: session.user.userId, date: today });
     if (!record) return { ok: false, message: "No check-in found for today" };
     if (record.checkOutTime) return { ok: false, message: "Already checked out today" };
     const elapsed = Date.now() - new Date(record.checkInTime).getTime();
-    if (elapsed < MIN_WORK_MS) {
-      const remaining = Math.ceil((MIN_WORK_MS - elapsed) / 60000);
-      return { ok: false, message: `Must work at least 3 hours. You can check out in ${remaining} minutes.` };
+    if (minWorkMinutes > 0 && elapsed < minWorkMinutes * 60000) {
+      const remaining = Math.ceil((minWorkMinutes * 60000 - elapsed) / 60000);
+      return { ok: false, message: `Must work at least ${minWorkMinutes} minutes. You can check out in ${remaining} minutes.` };
     }
     record.checkOutTime = new Date();
     await record.save();
@@ -138,9 +139,10 @@ export async function getAttendanceReport(organizationId: string, month: string)
   const superAdmins = await User.find({ organizationId, role: "super_admin" }).select("_id").lean();
   const excluded = superAdmins.map((u: any) => u._id);
   const users: any[] = await User.find({ organizationId, active: true, role: { $ne: "super_admin" } }).sort({ name: 1 }).select("name _id role createdAt").lean();
+  const settings: any = await AttendanceSetting.findOne({ organizationId }).lean();
+  await finalizeOpenAttendance(organizationId, settings);
   const records = await Attendance.find({ organizationId, userId: { $nin: excluded }, date: { $regex: `^${month}` } }).sort({ date: -1 }).lean();
   const leaves = await Leave.find({ organizationId, date: { $regex: `^${month}` }, status: "approved" }).lean();
-  const settings: any = await AttendanceSetting.findOne({ organizationId }).lean();
   const [y, m] = month.split("-").map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const today = nepalDateString();
@@ -169,6 +171,8 @@ export async function getAttendanceReport(organizationId: string, month: string)
 
 export async function getTodayAttendance(organizationId: string, userId: string) {
   await connectToDatabase();
+  const settings: any = await AttendanceSetting.findOne({ organizationId }).lean();
+  await finalizeOpenAttendance(organizationId, settings);
   const today = nepalDateString();
   return Attendance.findOne({ organizationId, userId, date: today }).lean();
 }

@@ -16,6 +16,10 @@ export async function GET(request: NextRequest) {
   const summary: any[] = [];
   for (const org of orgs) {
     const url = org.device.deviceUrl.replace(/\/+$/, "");
+    if (!/^https?:\/\//i.test(url)) {
+      summary.push({ org: org.name, url, error: "Invalid device URL scheme" });
+      continue;
+    }
     const sn = encodeURIComponent(org.device.deviceSn || "");
     try {
       const res = await fetch(`${url}/iclock/cdata?SN=${sn}&table=ATTLOG&options=timestamp,count=200`, { signal: AbortSignal.timeout(15000) });
