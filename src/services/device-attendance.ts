@@ -52,7 +52,12 @@ export async function processPunches(org: any, punches: PunchInput[], deviceSn: 
   let checkedOut = 0;
   let ignored = 0;
   let unmatched = 0;
-  for (const p of punches) {
+  const sorted = [...punches].sort((a, b) => {
+    const at = a.stamp ? new Date(a.stamp).getTime() : 0;
+    const bt = b.stamp ? new Date(b.stamp).getTime() : 0;
+    return at - bt;
+  });
+  for (const p of sorted) {
     const stamp = p.stamp ? new Date(p.stamp) : new Date();
     if (isNaN(stamp.getTime())) continue;
     const res = await processPunch(org, p.pin, stamp, deviceSn);

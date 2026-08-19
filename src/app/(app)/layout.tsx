@@ -10,7 +10,7 @@ import { Organization } from "@/models/Organization";
 import { CheckInGuard } from "@/features/attendance/checkin-guard";
 import { PushManager } from "@/components/push-manager";
 import { CallProvider } from "@/components/call-provider";
-import { nepalDateString, nepalDateEndMs, isCheckInOpen, isSaturday } from "@/lib/timezone";
+import { nepalDateString, nepalDateEndMs, isCheckInOpen, NEPAL_OFFSET_MS } from "@/lib/timezone";
 import { AttendanceSetting } from "@/models/AttendanceSetting";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -28,8 +28,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const today = nepalDateString();
   const settings: any = session.user.organizationId ? await AttendanceSetting.findOne({ organizationId: session.user.organizationId }).lean() : null;
   const withinWindow = isCheckInOpen(settings);
-  const weekend = isSaturday();
+  const todayDay = new Date(Date.now() + NEPAL_OFFSET_MS).getUTCDay();
+  const workingDays = settings?.workingDays?.length ? settings.workingDays.map(Number) : [0, 1, 2, 3, 4, 5];
   const holidayToday = !!settings?.holidays?.includes(today);
+  const nonWorkingToday = holidayToday || !workingDays.includes(todayDay);
   let deviceMode = false;
   if (session.user.organizationId) {
     const org: any = await Organization.findById(session.user.organizationId).select("attendanceMode").lean();
@@ -54,7 +56,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <Header name={session.user.name ?? ""} email={session.user.email ?? ""} role={session.user.role} permissions={permissions} notifications={JSON.parse(JSON.stringify(notifications))} unreadCount={unreadCount} />
           <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4 lg:p-6">
-            <CheckInGuard alreadyMarked={alreadyMarked} checkedOut={checkedOut} withinWindow={withinWindow} checkInTime={checkInTime} officeStartTime={settings?.officeStartTime ?? "08:00"} skip={weekend || holidayToday || deviceMode || session.user.role === "super_admin"}>
+            <CheckInGuard alreadyMarked={alreadyMarked} checkedOut={checkedOut} withinWindow={withinWindow} checkInTime={checkInTime} officeStartTime={settings?.officeStartTime ?? "08:00"} skip={nonWorkingToday || deviceMode || session.user.role === "super_admin"}>
               {children}
             </CheckInGuard>
           </main>
