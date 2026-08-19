@@ -23,6 +23,7 @@ export async function createUser(_: ActionState, formData: FormData): Promise<Ac
       role: data.role,
       active: data.active,
       taskPermissions,
+      devicePin: data.devicePin ?? "",
       organizationId,
       createdBy: session.user.userId,
       password: await bcrypt.hash(String(data.password), 12)
@@ -41,7 +42,7 @@ export async function updateUser(id: string, _: ActionState, formData: FormData)
     const { session, organizationId } = await requireFeature("usersManage");
     await connectToDatabase();
     const data = parseForm(userSchema, formData);
-    const update: Record<string, unknown> = { name: data.name, email: data.email, role: data.role, active: data.active, taskPermissions: taskPermissionsFrom(data) };
+    const update: Record<string, unknown> = { name: data.name, email: data.email, role: data.role, active: data.active, taskPermissions: taskPermissionsFrom(data), devicePin: data.devicePin ?? "" };
     if (data.password) update.password = await bcrypt.hash(data.password, 12);
     await User.findOneAndUpdate({ _id: id, organizationId }, update, { runValidators: true });
     await writeAuditLog({ organizationId, userId: session.user.userId, action: "User Updated", entityType: "User", entityId: id, metadata: { email: data.email, role: data.role } });

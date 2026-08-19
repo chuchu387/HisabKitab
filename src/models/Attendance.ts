@@ -8,6 +8,8 @@ const attendanceSchema = new Schema(
     checkInTime: { type: Date, required: true },
     checkOutTime: { type: Date, default: null },
     selfieId: { type: Schema.Types.ObjectId, default: null },
+    method: { type: String, enum: ["selfie", "device"], default: "selfie" },
+    deviceId: { type: String, default: "" },
     ipAddress: { type: String, default: "" },
     note: { type: String, default: "" },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true }

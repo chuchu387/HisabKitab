@@ -29,7 +29,14 @@ export async function createOrganization(_: ActionState, formData: FormData): Pr
       address: data.address,
       generalBudget: data.generalBudget,
       createdBy: session.user.userId,
-      status: data.status
+      status: data.status,
+      attendanceMode: data.attendanceMode,
+      device: {
+        deviceSn: data.deviceSn ?? "",
+        pushSecret: data.pushSecret ?? "",
+        deviceUrl: data.deviceUrl ?? "",
+        pollEnabled: data.pollEnabled
+      }
     });
     await User.create({
       organizationId: organization._id,
@@ -52,7 +59,12 @@ export async function updateOrganization(id: string, _: ActionState, formData: F
     await requireRole(["super_admin"]);
     await connectToDatabase();
     const data = parseForm(organizationSchema, formData);
-    await Organization.findByIdAndUpdate(id, { ...data, code: data.code.toUpperCase() }, { runValidators: true });
+    const { deviceSn, pushSecret, deviceUrl, pollEnabled, ...orgFields } = data;
+    await Organization.findByIdAndUpdate(
+      id,
+      { ...orgFields, code: data.code.toUpperCase(), device: { deviceSn, pushSecret, deviceUrl, pollEnabled } },
+      { runValidators: true }
+    );
     revalidatePath("/organizations");
     return { ok: true, message: "Organization updated" };
   } catch (error) {

@@ -44,7 +44,12 @@ export const organizationSchema = z.object({
   vatRegistered: z.coerce.boolean().default(false),
   defaultVatRate: z.preprocess((value) => value === "" ? 13 : value, z.coerce.number().min(0).default(13)),
   vatEffectiveDate: z.preprocess((value) => value === "" ? null : value, z.coerce.date().nullable().optional()),
-  status: z.enum(organizationStatuses).default("active")
+  status: z.enum(organizationStatuses).default("active"),
+  attendanceMode: z.enum(["selfie", "device"]).default("selfie"),
+  deviceSn: z.string().max(60).optional().default(""),
+  pushSecret: z.string().max(100).optional().default(""),
+  deviceUrl: z.string().max(200).optional().default(""),
+  pollEnabled: z.coerce.boolean().default(false)
 });
 
 export const createOrganizationSchema = organizationSchema.extend({
@@ -73,7 +78,8 @@ export const userSchema = z.object({
   canCreateTask: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
   canAssignTask: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
   canCreateFolder: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
-  canManageFolderProjects: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false))
+  canManageFolderProjects: z.preprocess((value) => value === "on" || value === "true" || value === true, z.boolean().default(false)),
+  devicePin: z.string().max(40).optional().default("")
 });
 
 export const projectSchema = z

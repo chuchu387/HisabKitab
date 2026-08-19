@@ -17,6 +17,7 @@ const userSchema = new Schema(
       canManageFolderProjects: { type: Boolean, default: false }
     },
     permissions: { type: Schema.Types.Mixed, default: {} },
+    devicePin: { type: String, default: "", trim: true },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null }
   },
   { timestamps: true }
@@ -24,5 +25,6 @@ const userSchema = new Schema(
 
 userSchema.index({ organizationId: 1, role: 1 });
 userSchema.index({ organizationId: 1, active: 1, name: 1 });
+userSchema.index({ organizationId: 1, devicePin: 1 });
 export type UserDocument = InferSchemaType<typeof userSchema> & { _id: string };
 export const User = (models.User || model("User", userSchema)) as Model<any>;

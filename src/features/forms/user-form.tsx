@@ -19,6 +19,7 @@ export function UserForm({ user }: { user?: any }) {
       <Field name="name" label="Name" defaultValue={user?.name} />
       <Field name="email" label="Email" type="email" defaultValue={user?.email} />
       <Field name="password" label={user ? "New Password" : "Password"} type="password" required={!user} />
+      <Field name="devicePin" label="Device PIN (fingerprint)" defaultValue={user?.devicePin} placeholder="PIN/employee ID on the biometric device" />
       <div className="space-y-2">
         <Label htmlFor="role">Role</Label>
         <Select id="role" name="role" defaultValue={user?.role ?? "staff"}>
