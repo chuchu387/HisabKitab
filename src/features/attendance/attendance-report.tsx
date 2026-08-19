@@ -5,9 +5,8 @@ import { ChevronLeft, ChevronRight, Clock, XCircle, Download } from "lucide-reac
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatNepalTime, nepalDateEndMs } from "@/lib/timezone";
+import { formatNepalTime, nepalDateEndMs, NEPAL_OFFSET_MS } from "@/lib/timezone";
 
-const LATE_THRESHOLD = 10;
 const OT_THRESHOLD_MS = 8 * 60 * 60 * 1000;
 
 function durationMs(r: any): number {
@@ -17,9 +16,16 @@ function durationMs(r: any): number {
   return Math.max(0, end - start);
 }
 
+function officeStartMin(s: any): number {
+  const [h, m] = String(s?.officeStartTime || "10:00").split(":").map(Number);
+  return h * 60 + m;
+}
+
 export function AttendanceReportView({ data, month }: { data: any; month: string }) {
-  const { users, records, leaves, totalDays } = data;
+  const { users, records, leaves, totalDays, settings } = data;
   const leaveDates = useMemo(() => new Set(leaves.map((l: any) => l.date + ":" + l.userId?.toString())), [leaves]);
+  const startMin = officeStartMin(settings);
+  const absentIfLateMin = Number(settings?.absentIfLateMinutes ?? 0);
 
   const report = useMemo(() => {
     const byUser = new Map<string, Set<string>>();
@@ -36,11 +42,15 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
         byUser.get(uid)!.add(r.date);
       }
       if (!lateByUser.has(uid)) lateByUser.set(uid, 0);
-      const [hStr, mStr] = new Date(r.checkInTime).toLocaleString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kathmandu" }).split(":");
-      const h = parseInt(hStr, 10);
-      const m = parseInt(mStr, 10);
-      if (h > LATE_THRESHOLD || (h === LATE_THRESHOLD && m > 0)) {
+      const npt = new Date(new Date(r.checkInTime).getTime() + NEPAL_OFFSET_MS);
+      const mins = npt.getUTCHours() * 60 + npt.getUTCMinutes();
+      const lateMins = mins - startMin;
+      const beyond = absentIfLateMin > 0 && lateMins > absentIfLateMin;
+      if (lateMins > 0 && !beyond) {
         lateByUser.set(uid, (lateByUser.get(uid) ?? 0) + 1);
+      }
+      if (beyond) {
+        byUser.get(uid)!.delete(r.date);
       }
       if (r.checkOutTime) {
         const ms = durationMs(r);
@@ -70,10 +80,11 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
       const otM = Math.round((otMs % 3600000) / 60000);
       const totalH = Math.floor(totalMs / 3600000);
       const totalM = Math.round((totalMs % 3600000) / 60000);
+      const presentCount = byUser.get(u._id)?.size ?? 0;
       return {
         ...u,
-        present: byUser.get(u._id)?.size ?? 0,
-        absent: totalDays - (byUser.get(u._id)?.size ?? 0),
+        present: presentCount,
+        absent: totalDays - presentCount,
         late: lateByUser.get(u._id) ?? 0,
         otDays: otCount,
         otHours: otH > 0 || otM > 0 ? `${otH}h ${otM}m` : "—",
@@ -81,7 +92,7 @@ export function AttendanceReportView({ data, month }: { data: any; month: string
         ips: ipMap.get(u._id) ?? []
       };
     });
-  }, [users, records, leaveDates, totalDays]);
+  }, [users, records, leaveDates, totalDays, startMin, absentIfLateMin]);
 
   const [prev, next] = useMemo(() => {
     const [y, m] = month.split("-").map(Number);

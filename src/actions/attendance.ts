@@ -8,6 +8,7 @@ import { Attendance } from "@/models/Attendance";
 import { Leave } from "@/models/Leave";
 import { User } from "@/models/User";
 import { Organization } from "@/models/Organization";
+import { AttendanceSetting } from "@/models/AttendanceSetting";
 import { getReceiptBucket } from "@/services/gridfs";
 import { writeAuditLog } from "@/services/audit";
 import { nepalDateString, isCheckInOpen } from "@/lib/timezone";
@@ -143,7 +144,8 @@ export async function getAttendanceReport(organizationId: string, month: string)
   for (let d = 1; d <= cappedDays; d++) {
     if (new Date(Date.UTC(y, m - 1, d)).getUTCDay() !== 6) totalDays++;
   }
-  return JSON.parse(JSON.stringify({ users, records, leaves, totalDays }));
+  const settings = await AttendanceSetting.findOne({ organizationId }).lean();
+  return JSON.parse(JSON.stringify({ users, records, leaves, totalDays, settings }));
 }
 
 export async function getTodayAttendance(organizationId: string, userId: string) {

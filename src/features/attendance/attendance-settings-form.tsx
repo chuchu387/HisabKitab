@@ -32,6 +32,10 @@ export function AttendanceSettingsForm({ settings }: { settings: any }) {
         <Field label="Office Start" name="officeStartTime" type="time" defaultValue={settings?.officeStartTime ?? "10:00"} />
         <Field label="Office End" name="officeEndTime" type="time" defaultValue={settings?.officeEndTime ?? "18:00"} />
         <Field label="Grace Minutes" name="graceMinutes" type="number" min="0" defaultValue={settings?.graceMinutes ?? 15} />
+        <div className="space-y-2">
+          <Field label="Absent if late by more than (minutes)" name="absentIfLateMinutes" type="number" min="0" defaultValue={settings?.absentIfLateMinutes ?? 0} />
+          <p className="text-[11px] text-muted-foreground -mt-1">0 = disabled. If a staff checks in more than this many minutes late, the day counts as Absent instead of Present.</p>
+        </div>
         <Field label="Half Day After Minutes" name="halfDayAfterMinutes" type="number" min="0" defaultValue={settings?.halfDayAfterMinutes ?? 240} />
         <Field label="Reminder Start Hour" name="reminderStartHour" type="number" min="0" max="23" defaultValue={settings?.reminderStartHour ?? 10} />
         <Field label="Reminder End Hour" name="reminderEndHour" type="number" min="0" max="23" defaultValue={settings?.reminderEndHour ?? 17} />

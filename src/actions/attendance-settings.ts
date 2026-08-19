@@ -13,6 +13,7 @@ const attendanceSettingSchema = z.object({
   officeStartTime: z.string().regex(/^\d{2}:\d{2}$/),
   officeEndTime: z.string().regex(/^\d{2}:\d{2}$/),
   graceMinutes: z.coerce.number().min(0).max(240),
+  absentIfLateMinutes: z.coerce.number().min(0).max(600),
   halfDayAfterMinutes: z.coerce.number().min(0).max(720),
   reminderStartHour: z.coerce.number().min(0).max(23),
   reminderEndHour: z.coerce.number().min(0).max(23),
