@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createOrganization, updateOrganization } from "@/actions/organizations";
+import { testDeviceConnection } from "@/actions/devices";
 
 const initialState = { ok: false, message: "" };
 
@@ -16,6 +17,20 @@ export function OrganizationForm({ organization }: { organization?: any }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const [mode, setMode] = useState(organization?.attendanceMode ?? "selfie");
   const [vendor, setVendor] = useState(organization?.device?.deviceVendor ?? "zkt");
+  const [testBusy, setTestBusy] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+
+  async function handleTestConnection() {
+    if (!organization) {
+      setTestResult("Save the organization first, then test the connection.");
+      return;
+    }
+    setTestBusy(true);
+    setTestResult(null);
+    const res = await testDeviceConnection(organization._id.toString());
+    setTestResult(res.message);
+    setTestBusy(false);
+  }
   return (
     <form action={formAction} className="grid gap-4 rounded-lg border bg-card/95 p-4 sm:p-5 shadow-sm shadow-foreground/5 md:grid-cols-2">
       <Field name="name" label="Name" defaultValue={organization?.name} />
@@ -71,6 +86,16 @@ export function OrganizationForm({ organization }: { organization?: any }) {
             <input type="checkbox" name="pollEnabled" defaultChecked={organization?.device?.pollEnabled} className="h-4 w-4" />
             Enable scheduled polling
           </label>
+          {vendor === "hikvision" && (
+            <div className="sm:col-span-2">
+              <Button type="button" variant="outline" size="sm" onClick={handleTestConnection} disabled={testBusy}>
+                {testBusy ? "Testing connection..." : "Test device connection"}
+              </Button>
+              {testResult && (
+                <p className={`mt-1.5 text-xs ${testResult.startsWith("Could not") ? "text-destructive" : "text-muted-foreground"}`}>{testResult}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
       <div className="space-y-2 md:col-span-2">
