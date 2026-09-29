@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
-import { useActionState, useState } from "react";
-import { resetPassword } from "@/actions/auth";
+import { useState, type FormEvent } from "react";
 import { ActionMessage } from "@/components/action-message";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,11 +12,36 @@ import { Spinner } from "@/components/ui/loading";
 const initialState = { ok: false, message: "" };
 
 export function ResetPasswordForm({ token }: { token: string }) {
-  const [state, formAction, pending] = useActionState(resetPassword, initialState);
+  const [state, setState] = useState(initialState);
+  const [pending, setPending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setState(initialState);
+    const formData = new FormData(event.currentTarget);
+    try {
+      const response = await fetch("/api/password/reset", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token: formData.get("token"),
+          password: formData.get("password"),
+          confirmPassword: formData.get("confirmPassword")
+        })
+      });
+      const result = await response.json().catch(() => ({ ok: false, message: "Unable to reset password right now" }));
+      setState({ ok: Boolean(result.ok), message: result.message ?? "Unable to reset password right now" });
+    } catch {
+      setState({ ok: false, message: "Unable to reset password right now" });
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
-    <form action={formAction} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       <input type="hidden" name="token" value={token} />
       <PasswordField
         id="password"
