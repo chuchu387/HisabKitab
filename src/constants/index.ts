@@ -147,6 +147,7 @@ export const navItems = [
   { href: "/opening-balances", label: "Opening", icon: HandCoins, roles: ["owner"] },
   { href: "/journal-entries", label: "Journals", icon: BookOpenCheck, roles: ["owner"] },
   { href: "/invoices", label: "AR Invoices", icon: FileText, roles: ["owner", "admin"] },
+  { href: "/vat", label: "VAT Register", icon: ReceiptText, roles: ["owner", "admin"] },
   { href: "/tax", label: "Tax", icon: Landmark, roles: ["owner", "admin"] },
   { href: "/fiscal-years", label: "Fiscal Years", icon: CalendarRange, roles: ["owner"] },
   { href: "/reports", label: "Reports", icon: ListChecks, roles: ["owner", "admin", "staff"] },
@@ -162,7 +163,7 @@ export const navGroups = [
   { title: "Sales", hrefs: ["/leads", "/sales/pipeline", "/sales/proposals", "/sales/products", "/sales/campaigns", "/sales/targets", "/sales/commissions", "/sales/activities", "/sales/tasks", "/sales/reports"] },
   { title: "Accounting", hrefs: ["/expenses", "/project-payments", "/sales-orders", "/payment-reminders", "/general-funds", "/vendors", "/purchase-orders", "/ap-invoices", "/expense-contributors"] },
   { title: "Work", hrefs: ["/clients", "/projects", "/tasks", "/categories"] },
-  { title: "Accounts", hrefs: ["/accounts", "/data-health", "/chart-of-accounts", "/ledger", "/bank-accounts", "/reconciliation", "/opening-balances", "/journal-entries", "/invoices", "/tax", "/fiscal-years"] },
+  { title: "Accounts", hrefs: ["/accounts", "/data-health", "/chart-of-accounts", "/ledger", "/bank-accounts", "/reconciliation", "/opening-balances", "/journal-entries", "/invoices", "/vat", "/tax", "/fiscal-years"] },
   { title: "Reports", hrefs: ["/reports", "/email-logs", "/audit-logs"] },
   { title: "Admin", hrefs: ["/organizations", "/users", "/permissions", "/settings"] }
 ];

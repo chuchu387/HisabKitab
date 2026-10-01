@@ -193,6 +193,7 @@ export const navFeatureMap: Record<string, FeatureKey> = {
   "/opening-balances": "accountingView",
   "/journal-entries": "accountingView",
   "/invoices": "accountingView",
+  "/vat": "accountingView",
   "/tax": "accountingView",
   "/fiscal-years": "accountingView",
   "/data-health": "accountingView",
