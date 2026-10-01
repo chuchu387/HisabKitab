@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { vatEffectiveDateLabel } from "@/utils/vat";
 
 const initialState = { ok: false, message: "" };
 
@@ -15,8 +16,19 @@ export function SalesOrderForm({ clients, projects, organization }: { clients: a
   const [state, formAction, pending] = useActionState(createSalesOrder, initialState);
   const today = new Date().toISOString().slice(0, 10);
   const vatRegistered = Boolean(organization?.vatRegistered);
+  const vatEffectiveDate = vatEffectiveDateLabel(organization?.vatEffectiveDate);
   return (
     <form action={formAction} className="grid gap-4 rounded-lg border bg-card p-4 shadow-sm md:grid-cols-3">
+      {!vatRegistered && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 md:col-span-3">
+          VAT is disabled for this organization. Enable VAT registration in Settings to calculate VAT on sales orders.
+        </div>
+      )}
+      {vatRegistered && vatEffectiveDate && today < vatEffectiveDate && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 md:col-span-3">
+          VAT will apply to sales orders dated {vatEffectiveDate} or later.
+        </div>
+      )}
       <Field name="orderNumber" label="SO No." placeholder="SO-0001" />
       <Field name="orderDate" label="Order Date" type="date" defaultValue={today} />
       <Field name="expectedInvoiceDate" label="Expected Invoice Date" type="date" required={false} />

@@ -15,6 +15,7 @@ import { writeAuditLog } from "@/services/audit";
 import { assertFiscalYearOpen } from "@/services/fiscal-years";
 import { paymentAccountingStages } from "@/services/project-payment-accounting";
 import { nextVoucherNumber } from "@/services/vouchers";
+import { isVatApplicableForDate } from "@/utils/vat";
 import type { ActionState } from "@/types";
 
 export async function createInvoice(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -176,8 +177,7 @@ export async function recordInvoicePayment(_: ActionState, formData: FormData): 
 }
 
 function isVatApplicable(requested: boolean, organization: any, invoiceDate: Date) {
-  const effectiveDate = organization?.vatEffectiveDate ? new Date(organization.vatEffectiveDate) : null;
-  return Boolean(requested && organization?.vatRegistered && (!effectiveDate || invoiceDate >= effectiveDate));
+  return isVatApplicableForDate(requested, organization, invoiceDate);
 }
 
 function invoiceAuditSnapshot(invoice: any) {

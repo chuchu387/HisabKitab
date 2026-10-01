@@ -12,6 +12,7 @@ import { salesOrderSchema } from "@/validations/schemas";
 import { actionError, parseForm } from "@/actions/helpers";
 import { writeAuditLog } from "@/services/audit";
 import { assertFiscalYearOpen } from "@/services/fiscal-years";
+import { isVatApplicableForDate } from "@/utils/vat";
 import type { ActionState } from "@/types";
 
 export async function createSalesOrder(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -137,8 +138,7 @@ async function validateReferences(organizationId: string, clientId: string, proj
 
 async function calculateTotals(organizationId: string, data: { quantity: number; rate: number; vatApplicable: boolean; vatRate?: number; orderDate: Date }) {
   const organization = await Organization.findById(organizationId).select("vatRegistered defaultVatRate vatEffectiveDate").lean() as any;
-  const effectiveDate = organization?.vatEffectiveDate ? new Date(organization.vatEffectiveDate) : null;
-  const vatApplicable = Boolean(data.vatApplicable && organization?.vatRegistered && (!effectiveDate || data.orderDate >= effectiveDate));
+  const vatApplicable = isVatApplicableForDate(data.vatApplicable, organization, data.orderDate);
   const vatRate = vatApplicable ? Number(data.vatRate || organization?.defaultVatRate || 13) : 0;
   const subtotal = round(Number(data.quantity) * Number(data.rate));
   const vatAmount = round(subtotal * (vatRate / 100));

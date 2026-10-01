@@ -18,6 +18,7 @@ import { notifyProjectPayment } from "@/services/notifications";
 import { nextVoucherNumber } from "@/services/vouchers";
 import { User } from "@/models/User";
 import { paymentAccountingStages, paymentBreakdown } from "@/services/project-payment-accounting";
+import { isVatApplicableForDate } from "@/utils/vat";
 import type { ActionState } from "@/types";
 
 export async function createProjectPayment(_: ActionState, formData: FormData): Promise<ActionState> {
@@ -52,8 +53,7 @@ export async function createProjectPayment(_: ActionState, formData: FormData): 
         invoiceId = existingInvoice._id.toString();
       } else {
         const organization = (await Organization.findById(organizationId).select("vatRegistered defaultVatRate vatEffectiveDate").lean()) as any;
-        const effectiveDate = organization?.vatEffectiveDate ? new Date(organization.vatEffectiveDate) : null;
-        const vatApplicable = Boolean(organization?.vatRegistered && (!effectiveDate || data.paymentDate >= effectiveDate));
+        const vatApplicable = isVatApplicableForDate(true, organization, data.paymentDate);
         const vatRate = vatApplicable ? Number(organization?.defaultVatRate ?? 13) : 0;
         const subtotal = data.amount;
         const vatAmount = Number((subtotal * (vatRate / 100)).toFixed(2));

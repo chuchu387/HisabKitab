@@ -8,6 +8,7 @@ import { OpeningBalance } from "@/models/OpeningBalance";
 import { Organization } from "@/models/Organization";
 import { ProjectPayment } from "@/models/ProjectPayment";
 import { getFinancialStatements } from "@/services/financial-statements";
+import { vatEffectiveStartOfDay } from "@/utils/vat";
 
 export type HealthSeverity = "critical" | "warning" | "info";
 
@@ -109,7 +110,7 @@ export async function getDataHealth(organizationId: string) {
 
 async function countVatMissingInvoices(organizationId: string, organization: any) {
   if (!organization?.vatRegistered) return 0;
-  const effectiveDate = organization.vatEffectiveDate ? new Date(organization.vatEffectiveDate) : null;
+  const effectiveDate = vatEffectiveStartOfDay(organization.vatEffectiveDate);
   const query: Record<string, unknown> = { organizationId, status: { $ne: "void" }, vatApplicable: { $ne: true } };
   if (effectiveDate) query.invoiceDate = { $gte: effectiveDate };
   return Invoice.countDocuments(query);
