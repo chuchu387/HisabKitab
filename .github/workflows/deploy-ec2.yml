@@ -1,12 +1,13 @@
-name: Deploy to EC2
+name: Deploy to Hostinger VPS
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
 
 concurrency:
-  group: deploy-ec2-main
+  group: deploy-hostinger-main
   cancel-in-progress: true
 
 jobs:
