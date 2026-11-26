@@ -6,9 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageShell } from "@/components/page-shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/stat-card";
-import { generatePayroll } from "@/actions/payroll";
 import { connectToDatabase } from "@/lib/db";
-import { requireFeature, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Payroll } from "@/models/Payroll";
 
@@ -21,21 +20,20 @@ const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => {
 const statusBadge: Record<string, "default" | "success" | "warning"> = { draft: "warning", approved: "default", paid: "success" };
 
 export default async function PayrollPage({ searchParams }: any) {
-  await requireFeature("payrollView");
-  const { organizationId, session } = await requireTenant();
+  const { organizationId, session, permissions } = await requireFeature("payrollView");
   await connectToDatabase();
   const params = await searchParams;
   const month = typeof params?.month === "string" && /^\d{4}-\d{2}$/.test(params.month) ? params.month : MONTH_OPTIONS[0].value;
   const status = typeof params?.status === "string" ? params.status : "";
-  const isManager = ["owner", "admin"].includes(session.user.role);
+  const isManager = session.user.role === "owner" || Boolean(permissions?.payrollManage);
   const query: any = { organizationId, month };
   if (status) query.status = status;
-  if (session.user.role === "staff") query.userId = session.user.userId;
+  if (!isManager) query.userId = session.user.userId;
 
   const [payslips, totals] = await Promise.all([
     Payroll.find(query).populate("userId", "name").sort({ createdAt: 1 }).lean(),
     Payroll.aggregate([
-      { $match: { organizationId, month } },
+      { $match: query },
       {
         $group: {
           _id: null,

@@ -14,7 +14,7 @@ import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { leadSourceLabels, leadStatusColors, leadStatusLabels } from "@/constants";
 import { formatDate, money, waLink } from "@/lib/utils";
 
-export function LeadsTable({ leads, projects = [], assignees = [], pagination }: { leads: any[]; projects?: any[]; assignees?: any[]; pagination: any }) {
+export function LeadsTable({ leads, projects = [], assignees = [], pagination, canManage = false }: { leads: any[]; projects?: any[]; assignees?: any[]; pagination: any; canManage?: boolean }) {
   const router = useRouter();
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
   const [showAssign, setShowAssign] = useState(false);
@@ -84,7 +84,7 @@ export function LeadsTable({ leads, projects = [], assignees = [], pagination }:
   }
 
   const columns = [
-    {
+    ...(canManage ? [{
       header: "Select",
       cell: (lead: any) => (
         <input
@@ -94,7 +94,7 @@ export function LeadsTable({ leads, projects = [], assignees = [], pagination }:
           className="h-4 w-4 rounded border-input accent-primary"
         />
       )
-    },
+    }] : []),
     { header: "Name", cell: (lead: any) => <Link className="font-medium hover:text-primary" href={`/leads/${lead._id}`}>{lead.name}</Link> },
     { header: "Company", cell: (lead: any) => lead.company || "-" },
     { header: "Contact", cell: (lead: any) => <div>{lead.email ? <a href={`mailto:${lead.email}`} className="block text-primary hover:underline">{lead.email}</a> : null}{lead.phone ? <a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a> : lead.email ? null : "-"}</div> },
@@ -107,14 +107,14 @@ export function LeadsTable({ leads, projects = [], assignees = [], pagination }:
     { header: "Follow-up", cell: (lead: any) => lead.followUpDate ? formatDate(lead.followUpDate) : "-" },
     { header: "Actions", cell: (lead: any) => <div className="flex gap-2">
       {waLink(lead.phone) && <Button asChild variant="outline" size="sm" aria-label="WhatsApp"><a href={waLink(lead.phone, `Hello ${lead.name}`)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon className="h-4 w-4" /></a></Button>}
-      <Button asChild variant="outline" size="sm"><Link href={`/leads/${lead._id}/edit`}>Edit</Link></Button>
-      <form action={deleteLead}><input type="hidden" name="id" value={lead._id.toString()} /><ConfirmButton label="Delete" /></form>
+      {canManage && <Button asChild variant="outline" size="sm"><Link href={`/leads/${lead._id}/edit`}>Edit</Link></Button>}
+      {canManage && <form action={deleteLead}><input type="hidden" name="id" value={lead._id.toString()} /><ConfirmButton label="Delete" /></form>}
     </div> }
   ];
 
   return (
     <div className="space-y-3">
-      {checkedIds.length > 0 && (
+      {canManage && checkedIds.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
           <p className="text-sm font-medium">{checkedIds.length} lead{checkedIds.length === 1 ? "" : "s"} selected</p>
           <div className="flex flex-wrap items-center gap-2">
@@ -165,7 +165,7 @@ export function LeadsTable({ leads, projects = [], assignees = [], pagination }:
           </div>
         </div>
       )}
-      {!checkedIds.length && (
+      {canManage && !checkedIds.length && (
         <div className="flex items-center justify-end">
           <Button type="button" variant="outline" size="sm" onClick={toggleAll}>Select All</Button>
         </div>

@@ -20,7 +20,7 @@ void ExpenseCategory;
 void User;
 
 export default async function ProjectDetailPage({ params, searchParams }: any) {
-  const { organizationId, session } = await requireFeature("projectsView");
+  const { organizationId, session, permissions } = await requireFeature("projectsView");
   await connectToDatabase();
   const routeParams = await params;
   const queryParams = await searchParams;
@@ -35,7 +35,7 @@ export default async function ProjectDetailPage({ params, searchParams }: any) {
     User.findOne({ _id: session.user.userId, organizationId }).select("taskPermissions").lean()
   ]);
   if (!financials.project) notFound();
-  const canManage = ["owner", "admin"].includes(session.user.role);
+  const canManage = session.user.role === "owner" || Boolean(permissions?.projectsManage);
   const fallbackTaskPermissions = session.user.role === "staff"
     ? { canCreateTask: true, canAssignTask: false, canCreateFolder: false, canManageFolderProjects: false }
     : { canCreateTask: true, canAssignTask: true, canCreateFolder: true, canManageFolderProjects: true };

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
-import { requireFeature, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { Payroll } from "@/models/Payroll";
 import { PayslipEditor } from "@/features/payroll/payslip-editor";
@@ -24,14 +24,13 @@ function EarningsRow({ label, amount }: { label: string; amount: number }) {
 }
 
 export default async function PayslipPage({ params }: any) {
-  await requireFeature("payrollView");
-  const { organizationId, session } = await requireTenant();
+  const { organizationId, session, permissions } = await requireFeature("payrollView");
   await connectToDatabase();
   const { id } = await params;
   const payslip = await Payroll.findOne({ _id: id, organizationId }).populate("userId", "name role").lean() as any;
   if (!payslip) notFound();
-  const isManager = ["owner", "admin"].includes(session.user.role);
-  if (session.user.role === "staff" && String(payslip.userId._id) !== String(session.user.userId)) notFound();
+  const isManager = session.user.role === "owner" || Boolean(permissions?.payrollManage);
+  if (!isManager && String(payslip.userId._id) !== String(session.user.userId)) notFound();
 
   return (
     <PageShell title="Payslip" action={

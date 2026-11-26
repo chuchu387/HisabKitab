@@ -18,7 +18,7 @@ import { ProjectPayment } from "@/models/ProjectPayment";
 import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
 export default async function ProjectsPage({ searchParams }: any) {
-  const { organizationId, session } = await requireFeature("projectsView");
+  const { organizationId, session, permissions } = await requireFeature("projectsView");
   await connectToDatabase();
   const params = await searchParams;
   const q = typeof params?.q === "string" ? params.q : "";
@@ -56,7 +56,7 @@ export default async function ProjectsPage({ searchParams }: any) {
     ]),
     Project.countDocuments(query)
   ]);
-  const canManage = ["owner", "admin"].includes(session.user.role);
+  const canManage = session.user.role === "owner" || Boolean(permissions?.projectsManage);
   return (
     <PageShell title="Projects" action={canManage && <Button asChild><Link href="/projects/new"><Plus className="h-4 w-4" />Create</Link></Button>}>
       <FilterForm className="filter-bar"><SearchBar placeholder="Search projects" defaultValue={q} /><Button variant="outline">Filter</Button></FilterForm>

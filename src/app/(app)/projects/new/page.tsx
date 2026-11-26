@@ -5,7 +5,7 @@ import { requireFeature } from "@/lib/permissions";
 import { Client } from "@/models/Client";
 
 export default async function NewProjectPage() {
-  const { organizationId } = await requireFeature("projectsView");
+  const { organizationId } = await requireFeature("projectsManage");
   await connectToDatabase();
   const clients = await Client.find({ organizationId, active: true }).sort({ name: 1 }).select("name code").lean();
   return <PageShell title="Create Project" breadcrumb={[{ label: "Projects", href: "/projects" }, { label: "Create" }]}><ProjectForm clients={JSON.parse(JSON.stringify(clients))} /></PageShell>;

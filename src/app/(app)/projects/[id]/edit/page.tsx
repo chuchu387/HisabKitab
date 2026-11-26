@@ -8,7 +8,7 @@ import { Client } from "@/models/Client";
 import { Project } from "@/models/Project";
 
 export default async function EditProjectPage({ params }: any) {
-  const { organizationId } = await requireFeature("projectsView");
+  const { organizationId } = await requireFeature("projectsManage");
   await connectToDatabase();
   const routeParams = await params;
   if (!isObjectId(routeParams.id)) notFound();

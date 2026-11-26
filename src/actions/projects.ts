@@ -14,7 +14,7 @@ import type { ActionState } from "@/types";
 
 export async function createProject(_: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireFeature("projectsView");
+    const { session, organizationId } = await requireFeature("projectsManage");
     await connectToDatabase();
     const data = parseForm(projectSchema, formData);
     await assertClientAccess(data.clientId, organizationId);
@@ -31,7 +31,7 @@ export async function createProject(_: ActionState, formData: FormData): Promise
 
 export async function updateProject(id: string, _: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { session, organizationId } = await requireFeature("projectsView");
+    const { session, organizationId } = await requireFeature("projectsManage");
     await connectToDatabase();
     const data = parseForm(projectSchema, formData);
     await assertClientAccess(data.clientId, organizationId);
@@ -54,7 +54,7 @@ async function assertClientAccess(clientId: string | null | undefined, organizat
 }
 
 export async function deleteProject(formData: FormData) {
-  const { session, organizationId } = await requireFeature("projectsView");
+  const { session, organizationId } = await requireFeature("projectsManage");
   await connectToDatabase();
   const id = String(formData.get("id"));
   await Project.findOneAndDelete({ _id: id, organizationId });

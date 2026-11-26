@@ -18,7 +18,7 @@ import { User } from "@/models/User";
 import { leadStatusLabels } from "@/constants";
 
 export default async function LeadsPage({ searchParams }: any) {
-  const { organizationId } = await requireFeature("leadsView");
+  const { organizationId, session, permissions } = await requireFeature("leadsView");
   await connectToDatabase();
   const params = await searchParams;
   const q = typeof params?.q === "string" ? params.q : "";
@@ -54,8 +54,9 @@ export default async function LeadsPage({ searchParams }: any) {
     d.setHours(0, 0, 0, 0);
     return d.getTime() === today.getTime();
   }).length;
+  const canManage = session.user.role === "owner" || Boolean(permissions?.leadsManage);
   return (
-    <PageShell title="Leads" description="Track potential clients from first contact to conversion." action={<div className="flex gap-2"><Button asChild><Link href="/leads/new"><Plus className="h-4 w-4" />Create</Link></Button></div>}>
+    <PageShell title="Leads" description="Track potential clients from first contact to conversion." action={canManage ? <div className="flex gap-2"><Button asChild><Link href="/leads/new"><Plus className="h-4 w-4" />Create</Link></Button></div> : null}>
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader><CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total Leads</CardTitle></CardHeader>
@@ -98,14 +99,14 @@ export default async function LeadsPage({ searchParams }: any) {
         </select>
         <Button variant="outline">Filter</Button>
       </FilterForm>
-      <div className="flex items-start gap-3">
-        <LeadImportForm className="flex-1" />
-        <a href="/leads-sample.csv" download className="shrink-0 rounded-lg border bg-card p-4 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-secondary hover:text-foreground">
-          <Download className="mb-1 h-5 w-5" />
-          Download<br />Sample CSV
-        </a>
-      </div>
-      <LeadsTable leads={JSON.parse(JSON.stringify(leads))} projects={JSON.parse(JSON.stringify(projects))} assignees={JSON.parse(JSON.stringify(assignees))} pagination={{ basePath: "/leads", searchParams: params }} />
+      {canManage && <div className="flex items-start gap-3">
+          <LeadImportForm className="flex-1" />
+          <a href="/leads-sample.csv" download className="shrink-0 rounded-lg border bg-card p-4 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-secondary hover:text-foreground">
+            <Download className="mb-1 h-5 w-5" />
+            Download<br />Sample CSV
+          </a>
+        </div>}
+      <LeadsTable leads={JSON.parse(JSON.stringify(leads))} projects={JSON.parse(JSON.stringify(projects))} assignees={JSON.parse(JSON.stringify(assignees))} pagination={{ basePath: "/leads", searchParams: params }} canManage={canManage} />
     </PageShell>
   );
 }

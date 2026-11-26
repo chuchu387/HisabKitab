@@ -7,7 +7,7 @@ import { User } from "@/models/User";
 import { ChatShell } from "./chat-shell";
 
 export default async function ChatPage({ searchParams }: any) {
-  const { session, organizationId } = await requireFeature("chatAccess");
+  const { session, organizationId, permissions } = await requireFeature("chatAccess");
   await connectToDatabase();
   const oid = new Types.ObjectId(organizationId);
   const userId = session.user.userId;
@@ -46,7 +46,7 @@ export default async function ChatPage({ searchParams }: any) {
       showCreate={showCreate}
       currentUser={JSON.parse(JSON.stringify({ ...currentUser, userId }))}
       staff={JSON.parse(JSON.stringify(staff))}
-      isAdmin={["owner", "admin"].includes(session.user.role)}
+      isAdmin={session.user.role === "owner" || Boolean(permissions?.chatManage)}
     />
   );
 }

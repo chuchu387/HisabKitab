@@ -16,15 +16,14 @@ import { Proposal } from "@/models/Proposal";
 import { Campaign } from "@/models/Campaign";
 import { Project } from "@/models/Project";
 import { Product } from "@/models/Product";
-import { addLeadActivity, convertLeadToClient, updateLeadFollowUp, updateLeadStatus } from "@/actions/leads";
-import { leadStatusLabels, leadStatusColors, leadSourceLabels, leadActivityTypes, leadTaskStatuses } from "@/constants";
+import { updateLeadStatus } from "@/actions/leads";
+import { leadStatusLabels, leadStatusColors, leadSourceLabels } from "@/constants";
 import { ActivityForm } from "./activity-form";
 import { ConvertForm } from "./convert-form";
-import { FollowUpForm } from "./followup-form";
 import { LogEmail } from "@/features/leads/log-email";
 
 export default async function LeadDetailPage({ params }: any) {
-  const { session, organizationId } = await requireFeature("leadsView");
+  const { session, organizationId, permissions } = await requireFeature("leadsView");
   await connectToDatabase();
   const routeParams = await params;
   const leadObjectId = safeObjectId(routeParams.id);
@@ -41,7 +40,7 @@ export default async function LeadDetailPage({ params }: any) {
     lead.projectId ? Project.findOne({ _id: lead.projectId, organizationId }).lean() : null,
     lead.productId ? Product.findOne({ _id: lead.productId, organizationId }).lean() : null
   ]);
-  const canManage = ["owner", "admin"].includes(session.user.role);
+  const canManage = session.user.role === "owner" || Boolean(permissions?.leadsManage);
   const isConverted = lead.convertedToClientId || lead.status === "won" || lead.status === "lost";
   const assigneeNames = assignedNames(lead);
   return (
@@ -51,7 +50,7 @@ export default async function LeadDetailPage({ params }: any) {
         <InfoCard label="Source" value={leadSourceLabels[lead.source as keyof typeof leadSourceLabels] || lead.source} />
         <InfoCard label="Estimated Value" value={lead.estimatedValue ? money(lead.estimatedValue) : "-"} />
         <InfoCard label="Assigned To" value={assigneeNames || "-"} />
-        <InfoCard label="Email" value={lead.email ? <div className="flex items-center gap-2"><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a><LogEmail leadId={lead._id.toString()} email={lead.email} /></div> : "-"} />
+        <InfoCard label="Email" value={lead.email ? <div className="flex items-center gap-2"><a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a>{canManage && <LogEmail leadId={lead._id.toString()} email={lead.email} />}</div> : "-"} />
         <InfoCard label="Phone" value={lead.phone ? <div className="flex items-center gap-2"><a href={`tel:${lead.phone}`} className="text-primary hover:underline">{lead.phone}</a><WaButton phone={lead.phone} name={lead.name} /></div> : "-"} />
         <InfoCard label="Follow-up Date" value={lead.followUpDate ? formatDate(lead.followUpDate) : "-"} />
         <InfoCard label="Created" value={formatDate(lead.createdAt)} />
@@ -74,7 +73,6 @@ export default async function LeadDetailPage({ params }: any) {
             <div className="flex flex-wrap gap-2">
               {(["new", "contacted", "meeting_scheduled", "proposal_sent", "negotiation", "won", "lost"] as const).map((status) => {
                 const isCurrent = lead.status === status;
-                const colorMap: Record<string, string> = { new: "info", contacted: "warning", meeting_scheduled: "info", proposal_sent: "warning", negotiation: "warning", won: "success", lost: "muted" };
                 return (
                   <form key={status} action={updateLeadStatus.bind(null, lead._id.toString(), status)}>
                     <Button type="submit" variant={isCurrent ? "default" : "outline"} size="sm" disabled={isCurrent}>{leadStatusLabels[status]}</Button>
@@ -97,11 +95,11 @@ export default async function LeadDetailPage({ params }: any) {
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Activity Timeline</h2>
-        <Card>
-          <CardContent className="p-4 sm:p-5">
-            <ActivityForm leadId={lead._id.toString()} />
-          </CardContent>
-        </Card>
+        {canManage && <Card>
+            <CardContent className="p-4 sm:p-5">
+              <ActivityForm leadId={lead._id.toString()} />
+            </CardContent>
+          </Card>}
         <div className="space-y-2">
           {activities.map((activity: any) => (
             <Card key={activity._id}>
