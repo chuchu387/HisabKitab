@@ -1,13 +1,13 @@
 import { Types } from "mongoose";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { ChatGroup } from "@/models/ChatGroup";
 import { ChatMessage } from "@/models/ChatMessage";
 import { User } from "@/models/User";
 import { ChatShell } from "./chat-shell";
 
 export default async function ChatPage({ searchParams }: any) {
-  const { session, organizationId } = await requireTenant();
+  const { session, organizationId } = await requireFeature("chatAccess");
   await connectToDatabase();
   const oid = new Types.ObjectId(organizationId);
   const userId = session.user.userId;

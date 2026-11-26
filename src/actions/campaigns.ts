@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Campaign } from "@/models/Campaign";
 import { Lead } from "@/models/Lead";
 
 export async function saveCampaign(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("campaignsView");
     await connectToDatabase();
     const id = formData.get("id") as string;
     const data: any = { name: formData.get("name"), organizationId, createdBy: session.user.userId };
@@ -27,7 +27,8 @@ export async function saveCampaign(formData: FormData): Promise<{ ok: boolean; m
   }
 }
 
-export async function getCampaignStats(organizationId: string) {
+export async function getCampaignStats() {
+  const { organizationId } = await requireFeature("campaignsView");
   await connectToDatabase();
   const campaigns = await Campaign.find({ organizationId, active: true }).sort({ name: 1 }).lean() as any[];
   const stats = await Promise.all(campaigns.map(async (c) => {

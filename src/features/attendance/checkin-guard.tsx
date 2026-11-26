@@ -27,22 +27,26 @@ export function CheckInGuard({
   skip?: boolean;
   children: React.ReactNode;
 }) {
-  if (skip) return <>{children}</>;
   const minWorkMs = (minWorkMinutes ?? 180) * 60000;
   const [view, setView] = useState<"idle" | "checkin" | "checkout" | "blocked">(
-    !alreadyMarked ? (withinWindow ? "checkin" : "blocked") : !checkedOut ? "checkout" : "idle"
+    skip ? "idle" : !alreadyMarked ? (withinWindow ? "checkin" : "blocked") : !checkedOut ? "checkout" : "idle"
   );
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [captured, setCaptured] = useState<Blob | null>(null);
   const [pending, setPending] = useState(false);
-  const [done, setDone] = useState(alreadyMarked);
   const router = useRouter();
   const [remaining, setRemaining] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!checkInTime) return;
+    if (skip) setView("idle");
+    else if (!alreadyMarked) setView(withinWindow ? "checkin" : "blocked");
+    else setView(checkedOut ? "idle" : "checkout");
+  }, [alreadyMarked, checkedOut, skip, withinWindow]);
+
+  useEffect(() => {
+    if (skip || !checkInTime) return;
     function tick() {
       const elapsed = Date.now() - new Date(checkInTime!).getTime();
       if (elapsed >= minWorkMs) { setRemaining(null); return; }
@@ -54,13 +58,13 @@ export function CheckInGuard({
     tick();
     const id = setInterval(tick, 30000);
     return () => clearInterval(id);
-  }, [checkInTime]);
+  }, [checkInTime, minWorkMs, skip]);
 
   useEffect(() => {
-    if (view === "checkin" && stream && videoRef.current) {
+    if (!skip && view === "checkin" && stream && videoRef.current) {
       videoRef.current.srcObject = stream;
     }
-  }, [view, stream]);
+  }, [skip, view, stream]);
 
   const startCamera = useCallback(async () => {
     try {
@@ -98,7 +102,6 @@ export function CheckInGuard({
     const result = await markAttendance(formData);
     if (!result.ok) { toast.error(result.message); setPending(false); return; }
     toast.success(result.message);
-    setDone(true);
     setCaptured(null);
     stopCamera();
     setView(checkedOut ? "idle" : "checkout");
@@ -118,7 +121,7 @@ export function CheckInGuard({
     window.close();
   }
 
-  if (view === "idle") return <>{children}</>;
+  if (skip || view === "idle") return <>{children}</>;
 
   if (view === "blocked") {
     return (

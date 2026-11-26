@@ -147,7 +147,7 @@ async function downloadPdf(rows: ExpenseExportRow[], total: number) {
     page = doc.addPage([PAGE_W, PAGE_H]);
     y = PAGE_H - MARGIN;
   }
-  let x = MARGIN + totalWidth - COLS[COLS.length - 1].width;
+  const x = MARGIN + totalWidth - COLS[COLS.length - 1].width;
   page.drawText("TOTAL", { x: x + 2, y: y - 2, size: 9, font: bold, color: black });
   page.drawText(money(total), { x: x + COLS[COLS.length - 1].width - 2 - font.widthOfTextAtSize(money(total), 9), y: y - 2, size: 9, font: bold, color: black });
   page.drawLine({ start: { x: MARGIN, y: y - 6 }, end: { x: MARGIN + totalWidth, y: y - 6 }, thickness: 0.8, color: black });

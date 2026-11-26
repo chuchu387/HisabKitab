@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mongo } from "mongoose";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { isObjectId } from "@/lib/utils";
 import { getReceiptBucket } from "@/services/gridfs";
 
 export async function GET(_: NextRequest, { params }: any) {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("expensesView");
   const bucket = await getReceiptBucket();
   if (!isObjectId(params.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const id = new mongo.ObjectId(params.id);
@@ -21,7 +21,7 @@ export async function GET(_: NextRequest, { params }: any) {
 }
 
 export async function DELETE(_: NextRequest, { params }: any) {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("expensesManage");
   const bucket = await getReceiptBucket();
   if (!isObjectId(params.id)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const id = new mongo.ObjectId(params.id);

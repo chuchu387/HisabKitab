@@ -6,12 +6,12 @@ import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { ContributorCharts } from "@/features/expense-contributors/contributor-charts";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, isObjectId, money } from "@/lib/utils";
 import { getExpenseContributorDetail } from "@/services/accounting";
 
 export default async function ExpenseContributorDetailPage({ params, searchParams }: any) {
-  const { organizationId, session } = await requireTenant();
+  const { organizationId, session } = await requireFeature("expensesView");
   await connectToDatabase();
   const routeParams = await params;
   const queryParams = await searchParams;

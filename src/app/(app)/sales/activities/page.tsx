@@ -4,13 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import { LeadActivity } from "@/models/LeadActivity";
 import { Lead } from "@/models/Lead";
 
 export default async function ActivitiesPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("salesTasks");
   await connectToDatabase();
   const params = await searchParams;
   const typeFilter = typeof params?.type === "string" ? params.type : "";

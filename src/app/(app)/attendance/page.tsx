@@ -1,5 +1,5 @@
 import { connectToDatabase } from "@/lib/db";
-import { requireSession } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Attendance } from "@/models/Attendance";
 import { User } from "@/models/User";
 import { Leave } from "@/models/Leave";
@@ -20,9 +20,9 @@ async function getAttendanceRecords(organizationId: string, userId: string) {
 }
 
 export default async function AttendancePage() {
-  const session = await requireSession();
+  const { session, organizationId, permissions } = await requireFeature("attendanceView");
   await connectToDatabase();
-  const organizationId = session.user.organizationId!;
+  const canManage = session.user.role === "owner" || Boolean(permissions?.attendanceManage);
   const settings: any = await AttendanceSetting.findOne({ organizationId }).lean();
   await finalizeOpenAttendance(organizationId, settings);
   const records = await getAttendanceRecords(organizationId, session.user.userId!);
@@ -30,17 +30,16 @@ export default async function AttendancePage() {
   const currentMonth = today.slice(0, 7);
   const thisMonthCount = records.filter((r: any) => r.date.startsWith(currentMonth)).length;
   const totalDays = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-  const isAdmin = ["owner", "admin"].includes(session.user.role);
-  const superAdmins = await User.find({ organizationId, role: "super_admin" }).select("_id").lean();
+  const superAdmins = canManage ? await User.find({ organizationId, role: "super_admin" }).select("_id").lean() : [];
   const excluded = superAdmins.map((u: any) => u._id);
-  const teamToday = await Attendance.find({ organizationId, date: today, userId: { $nin: excluded } }).populate("userId", "name").lean();
-  const teamMembers = await User.find({ organizationId, active: true, role: { $ne: "super_admin" } }).sort({ name: 1 }).select("name _id role").lean();
-  const leavesToday = await Leave.find({ organizationId, date: today, status: "approved" }).select("userId").lean();
+  const teamToday = canManage ? await Attendance.find({ organizationId, date: today, userId: { $nin: excluded } }).populate("userId", "name").lean() : [];
+  const teamMembers = canManage ? await User.find({ organizationId, active: true, role: { $ne: "super_admin" } }).sort({ name: 1 }).select("name _id role").lean() : [];
+  const leavesToday = canManage ? await Leave.find({ organizationId, date: today, status: "approved" }).select("userId").lean() : [];
   const onLeaveIds = new Set(leavesToday.map((l: any) => l.userId.toString()));
   return (
     <PageShell title="Attendance" description="Track your daily check-ins with selfie verification">
       <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
+        {canManage && <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
           </CardHeader>
@@ -48,7 +47,7 @@ export default async function AttendancePage() {
             <p className="text-2xl font-bold">{thisMonthCount} / {totalDays}</p>
             <p className="text-xs text-muted-foreground">days marked</p>
           </CardContent>
-        </Card>
+        </Card>}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle>
@@ -80,10 +79,10 @@ export default async function AttendancePage() {
           </CardContent>
         </Card>
       </div>
-      <div className="space-y-4">
+      {canManage && <div className="space-y-4">
         <AttendanceTeam members={JSON.parse(JSON.stringify(teamMembers))} teamToday={JSON.parse(JSON.stringify(teamToday))} leavesToday={JSON.parse(JSON.stringify(leavesToday))} halfDayAfterMinutes={settings?.halfDayAfterMinutes ?? 240} />
-        {isAdmin && <AdminOverride members={JSON.parse(JSON.stringify(teamMembers))} />}
-      </div>
+        <AdminOverride members={JSON.parse(JSON.stringify(teamMembers))} />
+      </div>}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>

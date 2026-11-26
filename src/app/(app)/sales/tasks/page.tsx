@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/page-shell";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import { LeadTask } from "@/models/LeadTask";
 import { deleteLeadTask, updateLeadTaskStatus } from "@/actions/lead-tasks";
@@ -16,7 +16,7 @@ import { leadTaskStatusLabels, leadTaskStatusColors } from "@/constants";
 const stages = ["to_contact", "contacted", "follow_up", "proposal", "converted", "closed"] as const;
 
 export default async function SalesTasksKanbanPage() {
-  const { organizationId, session } = await requireTenant();
+  const { organizationId, session } = await requireFeature("salesTasks");
   await connectToDatabase();
   const oid = new Types.ObjectId(organizationId);
   const tasks = await LeadTask.find({ organizationId: oid }).sort({ createdAt: -1 }).populate("leadId", "name").populate("assigneeId", "name").lean() as any[];

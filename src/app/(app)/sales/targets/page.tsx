@@ -1,14 +1,14 @@
 import { PageShell } from "@/components/page-shell";
 import { TargetManager } from "@/features/crm/target-manager";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { getSalesData } from "@/actions/commissions";
 
 export default async function TargetsPage() {
-  const { organizationId } = await requireTenant();
+  await requireFeature("targetsView");
   await connectToDatabase();
   const month = new Date().toISOString().slice(0, 7);
-  const data = await getSalesData(organizationId, month);
+  const data = await getSalesData(month, "targetsView");
   return (
     <PageShell title="Sales Targets">
       <TargetManager users={data.users} targets={data.targets} month={month} />

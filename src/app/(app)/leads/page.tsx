@@ -9,7 +9,7 @@ import { SearchBar } from "@/components/search-bar";
 import { LeadImportForm } from "@/features/forms/lead-import-form";
 import { LeadsTable } from "@/features/leads/leads-table";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Lead } from "@/models/Lead";
 import { Project } from "@/models/Project";
@@ -18,7 +18,7 @@ import { User } from "@/models/User";
 import { leadStatusLabels } from "@/constants";
 
 export default async function LeadsPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("leadsView");
   await connectToDatabase();
   const params = await searchParams;
   const q = typeof params?.q === "string" ? params.q : "";

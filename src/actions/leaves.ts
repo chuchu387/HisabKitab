@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Leave } from "@/models/Leave";
 
 export async function requestLeave(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("attendanceView");
     await connectToDatabase();
     const date = formData.get("date") as string;
     const reason = formData.get("reason") as string;
@@ -24,8 +24,7 @@ export async function requestLeave(formData: FormData): Promise<{ ok: boolean; m
 
 export async function approveLeave(id: string, status: "approved" | "rejected"): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
-    if (!["owner", "admin"].includes(session.user.role)) return { ok: false, message: "Not authorized" };
+    const { session, organizationId } = await requireFeature("attendanceManage");
     await connectToDatabase();
     await Leave.findOneAndUpdate({ _id: id, organizationId }, { status, approvedBy: session.user.userId });
     revalidatePath("/attendance/leaves");
@@ -36,6 +35,8 @@ export async function approveLeave(id: string, status: "approved" | "rejected"):
 }
 
 export async function getLeaves(organizationId: string, month: string) {
+  const access = await requireFeature("attendanceManage");
+  organizationId = access.organizationId;
   await connectToDatabase();
   const leaves = await Leave.find({ organizationId, date: { $regex: `^${month}` } }).populate("userId", "name role").populate("approvedBy", "name").sort({ date: -1 }).lean();
   return JSON.parse(JSON.stringify(leaves));

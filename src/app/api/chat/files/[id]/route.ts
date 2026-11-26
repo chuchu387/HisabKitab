@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { mongo } from "mongoose";
 import { getReceiptBucket } from "@/services/gridfs";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 
 export async function GET(_: Request, { params }: any) {
   try {
-    const { organizationId } = await requireTenant();
+    const { organizationId } = await requireFeature("chatAccess");
     const { id } = await params;
     const bucket = await getReceiptBucket();
     const files = await bucket.find({ _id: new mongo.ObjectId(id) }).toArray();

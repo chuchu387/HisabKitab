@@ -2,7 +2,7 @@
 
 import { Types } from "mongoose";
 import { connectToDatabase } from "@/lib/db";
-import { requireFeature, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Call } from "@/models/Call";
 import { ChatGroup } from "@/models/ChatGroup";
 import { ChatMessage } from "@/models/ChatMessage";
@@ -115,7 +115,7 @@ export async function startCall(groupId: string, mode: "audio" | "video", callee
 
 export async function joinCall(callId: string): Promise<{ ok: boolean; message?: string; data?: { participants: Array<{ userId: string; name: string; status: string }> } }> {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
     const call = await Call.findOne({ _id: callId, organizationId });
     if (!call) return { ok: false, message: "Call not found" };
@@ -145,7 +145,7 @@ export async function joinCall(callId: string): Promise<{ ok: boolean; message?:
 
 export async function respondToCall(callId: string, accept: boolean): Promise<{ ok: boolean; message?: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
     const call = await Call.findOne({ _id: callId, organizationId });
     if (!call) return { ok: false, message: "Call not found" };
@@ -176,27 +176,38 @@ export async function respondToCall(callId: string, accept: boolean): Promise<{ 
 
 export async function sendSignal(callId: string, to: string | null, type: string, payload: unknown): Promise<{ ok: boolean; message?: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
-    const call = await Call.findOne({ _id: callId, organizationId, status: { $ne: "ended" } });
-    if (!call) return { ok: false, message: "Call not found or ended" };
-    const participant = call.participants.find((p: any) => p.userId.toString() === session.user.userId);
-    if (!participant || participant.status !== "accepted") return { ok: false, message: "Not in this call" };
-    call.messages.push({
+    const allowedTypes = new Set(["offer", "answer", "ice", "ended", "left"]);
+    if (!allowedTypes.has(type)) return { ok: false, message: "Unsupported call signal" };
+    if (to && !Types.ObjectId.isValid(to)) return { ok: false, message: "Invalid signal recipient" };
+    if (JSON.stringify(payload ?? {}).length > 64 * 1024) return { ok: false, message: "Call signal is too large" };
+    const query: Record<string, unknown> = {
+      _id: callId,
+      organizationId,
+      status: { $ne: "ended" },
+      participants: { $elemMatch: { userId: session.user.userId, status: "accepted" } }
+    };
+    if (to) query.participants = { $all: [{ $elemMatch: { userId: session.user.userId, status: "accepted" } }, { $elemMatch: { userId: to } }] };
+    const message = {
       from: session.user.userId,
       to: to ? new Types.ObjectId(to) : null,
       type,
       payload
-    });
+    };
+    const update: Record<string, unknown> = {
+      $push: { messages: { $each: [message], $slice: -500 } }
+    };
     if (type === "ended") {
-      call.status = "ended";
-      call.endedAt = new Date();
-      call.endedBy = session.user.userId;
-      participant.status = "ended";
+      update.$set = { status: "ended", endedAt: new Date(), endedBy: session.user.userId, "participants.$[me].status": "ended" };
     } else if (type === "left") {
-      participant.status = "ended";
+      update.$set = { "participants.$[me].status": "ended" };
     }
-    await call.save();
+    const options = type === "ended" || type === "left"
+      ? { arrayFilters: [{ "me.userId": session.user.userId }] }
+      : undefined;
+    const result = await Call.updateOne(query, update, options);
+    if (!result.matchedCount) return { ok: false, message: "Call not found, ended, or access denied" };
     return { ok: true };
   } catch (error) {
     return actionError(error);
@@ -205,7 +216,7 @@ export async function sendSignal(callId: string, to: string | null, type: string
 
 export async function endCall(callId: string): Promise<{ ok: boolean; message?: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
     const call = await Call.findOne({ _id: callId, organizationId });
     if (!call) return { ok: false, message: "Call not found" };
@@ -239,7 +250,7 @@ export async function getCallEvents(callId: string, afterId: string | null): Pro
   message?: string;
 }> {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
     const call = await Call.findOne({ _id: callId, organizationId, "participants.userId": session.user.userId }).lean() as any;
     if (!call) return { ok: false, message: "Call not found" };

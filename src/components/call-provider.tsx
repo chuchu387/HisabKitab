@@ -136,8 +136,9 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     return () => dispose();
   }, [dispose]);
 
-  const sendTo = useCallback((callId: string, targetId: string | null, type: string, payload: unknown) => {
-    return sendSignal(callId, targetId, type, payload).catch(() => undefined);
+  const sendTo = useCallback(async (callId: string, targetId: string | null, type: string, payload: unknown) => {
+    const result = await sendSignal(callId, targetId, type, payload);
+    if (!result.ok) throw new Error(result.message ?? "Call signaling failed");
   }, []);
 
   const createPeer = useCallback((callId: string, targetId: string, stream: MediaStream | null): PeerHandle => {
@@ -145,7 +146,9 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     if (stream) stream.getTracks().forEach((track) => peer.addTrack(track, stream));
     peer.onicecandidate = (event) => {
       if (!event.candidate) return;
-      sendTo(callId, targetId, "ice", { candidate: event.candidate.toJSON() });
+      void sendTo(callId, targetId, "ice", { candidate: event.candidate.toJSON() }).catch((error) => {
+        console.error("ICE candidate signaling failed", error);
+      });
     };
     peer.ontrack = (event) => {
       const stream = event.streams[0];
@@ -161,6 +164,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     };
     peer.onconnectionstatechange = () => {
       if (["failed", "closed"].includes(peer.connectionState)) {
+        if (peer.connectionState === "failed") toast.error("Call connection failed. Check the network and try again.");
         peersRef.current.delete(targetId);
         try { peer.close(); } catch {}
         const stream = remoteStreamsRef.current.get(targetId);
@@ -196,8 +200,12 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     try {
       const offer = await handle.peer.createOffer();
       await handle.peer.setLocalDescription(offer);
-      sendTo(callId, targetId, "offer", { sdp: offer.sdp });
-    } catch {}
+      await sendTo(callId, targetId, "offer", { sdp: offer.sdp });
+    } catch (error) {
+      console.error("Call offer failed", error);
+      peersRef.current.delete(targetId);
+      try { handle.peer.close(); } catch {}
+    }
   }, [createPeer, sendTo]);
 
   const setupLocalStream = useCallback(async (mode: CallMode) => {
@@ -217,6 +225,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
           setLocalStream(stream);
           setCameraOn(false);
           setMicOn(true);
+          toast.warning("Camera is unavailable. Continuing with audio only.");
           return stream;
         } catch {
           return null;
@@ -307,7 +316,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       await flushCandidates(handle, event.from);
       const answer = await handle.peer.createAnswer();
       await handle.peer.setLocalDescription(answer);
-      sendTo(call.callId, event.from, "answer", { sdp: answer.sdp });
+      await sendTo(call.callId, event.from, "answer", { sdp: answer.sdp });
       return;
     }
     if (event.type === "answer") {
@@ -360,7 +369,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     }
   }, [cleanup, flushCandidates, getOrCreatePeer, hangUp, offerTo, sendTo, setupLocalStream, userId]);
 
-  const startPolling = useCallback((call: ActiveCall) => {
+  const startPolling = useCallback(() => {
     if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
     const tick = async () => {
       const current = activeRef.current;
@@ -417,7 +426,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     } else if (activeCall.status === "active") {
       stopRingtone();
     }
-  }, [activeCall?.status, activeCall?.role, activeCall?.callId]);
+  }, [activeCall]);
 
   useEffect(() => {
     if (!incoming || activeRef.current) return;
@@ -443,7 +452,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     if (activeRef.current && !calls.some((call) => call.callId === activeRef.current!.callId)) {
       cleanup(endedLocally.current ? undefined : "Call ended");
     }
-  }, [calls, userId, incoming?.callId, cleanup]);
+  }, [calls, userId, incoming, cleanup]);
 
   useEffect(() => {
     if (activeRef.current || incoming) {
@@ -519,7 +528,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     startedAtRef.current = Date.now();
     setActiveCall(call);
     setParticipants(result.data.participants);
-    startPolling(call);
+    startPolling();
   }, [setupLocalStream, startPolling]);
 
   const accept = useCallback(async (incomingCall: IncomingCall) => {
@@ -559,7 +568,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
         { userId: incomingCall.initiatorId, name: incomingCall.initiatorName, status: "accepted" },
         { userId, name: userName, status: "accepted" }
       ]);
-      startPolling(call);
+      startPolling();
     } catch (error) {
       console.error("accept call failed", error);
       toast.error(error instanceof Error ? error.message : "Could not join the call");
@@ -605,7 +614,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       endedLocally.current = false;
       setActiveCall(call);
       setParticipants(result.data.participants);
-      startPolling(call);
+      startPolling();
     } catch (error) {
       console.error("join call failed", error);
       toast.error(error instanceof Error ? error.message : "Could not join the call");

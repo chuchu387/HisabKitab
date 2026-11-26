@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireFeature, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { ChatGroup } from "@/models/ChatGroup";
 import { ChatMessage } from "@/models/ChatMessage";
 import { User } from "@/models/User";
@@ -15,7 +15,7 @@ import { Types, mongo } from "mongoose";
 
 export async function openConversation(targetUserId: string): Promise<{ ok: boolean; message?: string; data?: { groupId: string } }> {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
     const oid = new Types.ObjectId(organizationId);
     const target = await User.findOne({ _id: targetUserId, organizationId: oid, active: true }).select("name").lean() as any;
@@ -79,7 +79,7 @@ export async function createGroup(formData: FormData) {
 
 export async function addMembers(groupId: string, formData: FormData) {
   try {
-    const { session, organizationId } = await requireFeature("chatManage");
+    const { organizationId } = await requireFeature("chatManage");
     await connectToDatabase();
     const group = await ChatGroup.findOne({ _id: groupId, organizationId });
     if (!group) throw new Error("Group not found");
@@ -238,7 +238,7 @@ export async function deleteMessage(messageId: string) {
 
 export async function leaveGroup(groupId: string) {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
     await ChatGroup.updateOne(
       { _id: groupId, organizationId },
@@ -253,7 +253,7 @@ export async function leaveGroup(groupId: string) {
 
 export async function markRead(groupId: string) {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
     await ChatGroup.updateOne(
       { _id: groupId, organizationId, "members.userId": session.user.userId },
@@ -271,7 +271,7 @@ export async function markRead(groupId: string) {
 
 export async function sendTyping(groupId: string) {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
     await ChatGroup.updateOne(
       { _id: groupId, organizationId, "members.userId": session.user.userId },

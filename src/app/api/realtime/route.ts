@@ -5,6 +5,8 @@ import { Call } from "@/models/Call";
 import { ChatGroup } from "@/models/ChatGroup";
 import { ChatMessage } from "@/models/ChatMessage";
 import { Notification } from "@/models/Notification";
+import { User } from "@/models/User";
+import { resolvePermissions } from "@/constants/permissions";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,7 +17,11 @@ export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.userId) return new Response("Unauthorized", { status: 401 });
   const userId = new Types.ObjectId(String(session.user.userId));
-  const organizationId = session.user.organizationId ? new Types.ObjectId(String(session.user.organizationId)) : null;
+  await connectToDatabase();
+  const currentUser = await User.findOne({ _id: userId, active: true }).select("role permissions organizationId").lean() as any;
+  if (!currentUser) return new Response("Unauthorized", { status: 401 });
+  const organizationId = currentUser.organizationId ? new Types.ObjectId(String(currentUser.organizationId)) : null;
+  const canUseChat = resolvePermissions(currentUser.role, currentUser.permissions || {}).chatAccess;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -54,7 +60,9 @@ export async function GET(request: Request) {
           const [unreadCount, notifications, groups] = await Promise.all([
             Notification.countDocuments({ userId, readAt: null }),
             Notification.find({ userId }).sort({ createdAt: -1 }).limit(10).select("title message href type readAt createdAt").lean(),
-            ChatGroup.find({ "members.userId": userId }).sort({ updatedAt: -1 }).select("name description updatedAt members").lean()
+            canUseChat
+              ? ChatGroup.find({ organizationId, "members.userId": userId }).sort({ updatedAt: -1 }).select("name description updatedAt members isDM").lean()
+              : []
           ]);
           const groupIds = groups.map((g: any) => g._id);
           const calls = groupIds.length

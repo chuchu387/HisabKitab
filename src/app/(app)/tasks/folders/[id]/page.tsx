@@ -3,7 +3,7 @@ import { PageShell } from "@/components/page-shell";
 import { TaskKanban } from "@/features/tasks/task-kanban";
 import { connectToDatabase } from "@/lib/db";
 import { isObjectId } from "@/lib/utils";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Project } from "@/models/Project";
 import { ProjectTask } from "@/models/ProjectTask";
 import { TaskFolder } from "@/models/TaskFolder";
@@ -14,7 +14,7 @@ void Project;
 void User;
 
 export default async function TaskFolderPage({ params }: any) {
-  const { organizationId, session } = await requireTenant();
+  const { organizationId, session } = await requireFeature("projectsView");
   await connectToDatabase();
   const routeParams = await params;
   const folderId = routeParams.id;

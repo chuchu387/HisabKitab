@@ -2,15 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
+import type { FeatureKey } from "@/constants/permissions";
 import { Commission } from "@/models/Commission";
 import { Lead } from "@/models/Lead";
 import { SalesTarget } from "@/models/SalesTarget";
 import { User } from "@/models/User";
 
 export async function calculateCommission(leadId: string) {
-  const { session, organizationId } = await requireTenant();
-  if (!["owner", "admin"].includes(session.user.role)) return;
+  const { session, organizationId } = await requireFeature("commissionsView");
   await connectToDatabase();
   const lead = await Lead.findOne({ _id: leadId, organizationId }).lean() as any;
   if (!lead || lead.status !== "won" || !lead.dealValue) return;
@@ -28,7 +28,7 @@ export async function calculateCommission(leadId: string) {
 }
 
 export async function payCommission(id: string): Promise<{ ok: boolean }> {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("commissionsView");
   await connectToDatabase();
   await Commission.findOneAndUpdate({ _id: id, organizationId }, { status: "paid", paidAt: new Date() });
   revalidatePath("/sales/commissions");
@@ -37,8 +37,7 @@ export async function payCommission(id: string): Promise<{ ok: boolean }> {
 
 export async function saveSalesTarget(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
-    if (!["owner", "admin"].includes(session.user.role)) return { ok: false, message: "Not authorized" };
+    const { session, organizationId } = await requireFeature("targetsView");
     await connectToDatabase();
     const id = formData.get("id") as string;
     const data: any = {
@@ -62,12 +61,14 @@ export async function saveSalesTarget(formData: FormData): Promise<{ ok: boolean
   }
 }
 
-export async function getSalesData(organizationId: string, month: string) {
+export async function getSalesData(month: string, feature: Extract<FeatureKey, "targetsView" | "commissionsView">) {
+  if (feature !== "targetsView" && feature !== "commissionsView") throw new Error("Invalid sales data permission");
+  const { organizationId } = await requireFeature(feature);
   await connectToDatabase();
   const users = await User.find({ organizationId, active: true }).sort({ name: 1 }).select("name _id").lean();
-  const targets = await SalesTarget.find({ organizationId, month }).lean() as any[];
-  const commissions = await Commission.find({ organizationId }).populate("leadId", "name").lean() as any[];
-  const wonLeads = await Lead.find({ organizationId, status: "won" }).lean() as any[];
+  const targets = feature === "targetsView" ? await SalesTarget.find({ organizationId, month }).lean() as any[] : [];
+  const commissions = feature === "commissionsView" ? await Commission.find({ organizationId }).populate("leadId", "name").lean() as any[] : [];
+  const wonLeads = feature === "commissionsView" ? await Lead.find({ organizationId, status: "won" }).lean() as any[] : [];
   return {
     users: JSON.parse(JSON.stringify(users)),
     targets: JSON.parse(JSON.stringify(targets)),

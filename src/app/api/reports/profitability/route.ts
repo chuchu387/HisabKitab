@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { Invoice } from "@/models/Invoice";
@@ -9,7 +9,7 @@ import { Project } from "@/models/Project";
 import { ProjectPayment } from "@/models/ProjectPayment";
 
 export async function GET(request: NextRequest) {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("reportsView");
   await connectToDatabase();
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from") ? new Date(searchParams.get("from") as string) : null;

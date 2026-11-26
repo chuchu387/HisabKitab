@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { deleteProject } from "@/actions/projects";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { Project } from "@/models/Project";
@@ -18,7 +18,7 @@ import { ProjectPayment } from "@/models/ProjectPayment";
 import { paymentAccountingStages } from "@/services/project-payment-accounting";
 
 export default async function ProjectsPage({ searchParams }: any) {
-  const { organizationId, session } = await requireTenant();
+  const { organizationId, session } = await requireFeature("projectsView");
   await connectToDatabase();
   const params = await searchParams;
   const q = typeof params?.q === "string" ? params.q : "";

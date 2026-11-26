@@ -8,7 +8,7 @@ import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { ReportVisuals } from "@/features/reports/report-visuals";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { dateInput, formatDate, money } from "@/lib/utils";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
 import { FiscalYear } from "@/models/FiscalYear";
@@ -17,7 +17,7 @@ import { getCachedReports } from "@/services/accounting";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter } from "@/services/fiscal-year-filter";
 
 export default async function ReportsPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("reportsView");
   await connectToDatabase();
   const params = await searchParams;
   const savedFiscalYears = await FiscalYear.find({ organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean();

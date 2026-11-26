@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/page-shell";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, isObjectId, money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { ExpenseApprovalHistory } from "@/models/ExpenseApprovalHistory";
@@ -17,7 +17,7 @@ void Project;
 void User;
 
 export default async function ExpenseDetailPage({ params }: any) {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("expensesView");
   await connectToDatabase();
   const routeParams = await params;
   if (!isObjectId(routeParams.id)) notFound();

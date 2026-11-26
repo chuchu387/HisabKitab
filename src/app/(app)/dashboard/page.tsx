@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { BudgetExpenseChart, DonutChart, SimpleBarChart, TrendChart } from "@/components/charts";
 import { FilterForm } from "@/components/filter-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireSession } from "@/lib/permissions";
+import { requireSession, resolveUserPermissions } from "@/lib/permissions";
 import { dateInput } from "@/lib/utils";
 import { money } from "@/lib/utils";
 import { FiscalYear } from "@/models/FiscalYear";
@@ -14,16 +14,25 @@ import { getCachedAccountingSummary, getCachedDashboardCharts } from "@/services
 import { getCachedFinancialStatements } from "@/services/financial-statements";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter } from "@/services/fiscal-year-filter";
 import { Attendance } from "@/models/Attendance";
-import { User } from "@/models/User";
 import { nepalDateString, formatNepalTime } from "@/lib/timezone";
 import { getSalesStats } from "@/services/sales-stats";
 
 export default async function DashboardPage({ searchParams }: any) {
   const session = await requireSession();
   await connectToDatabase();
+  const permissions = await resolveUserPermissions(session.user.userId, session.user.role);
+  const canAttendance = permissions.attendanceView;
+  const canManageAttendance = permissions.attendanceManage;
+  const canSales = permissions.leadsView || permissions.salesPipeline || permissions.salesTasks || permissions.salesReports;
+  const canProjects = permissions.projectsView || permissions.accountingView || permissions.reportsView;
+  const canMoneyIn = permissions.paymentsView || permissions.generalFunds || permissions.accountingView || permissions.reportsView;
+  const canMoneyOut = permissions.expensesView || permissions.accountingView || permissions.reportsView;
+  const canFinancialOverview = permissions.accountingView || permissions.reportsView;
+  const canFinancialData = canProjects || canMoneyIn || canMoneyOut;
+  const canCharts = permissions.accountingView || permissions.reportsView;
   const params = await searchParams;
   const organizationCount = session.user.role === "super_admin" ? await Organization.countDocuments() : 0;
-  const savedFiscalYears = session.user.organizationId ? await FiscalYear.find({ organizationId: session.user.organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean() : [];
+  const savedFiscalYears = session.user.organizationId && canFinancialData ? await FiscalYear.find({ organizationId: session.user.organizationId }).sort({ startDate: -1 }).select("name startDate endDate status").lean() : [];
   const fiscalYearOptions = buildFiscalYearFilterOptions(savedFiscalYears as any[]);
   const selectedFY = typeof params?.fy === "string" ? params.fy : (fiscalYearOptions[0]?.value ?? "all");
   const fyRange = dateRangeForFiscalYearFilter(fiscalYearOptions, selectedFY, params?.from, params?.to);
@@ -31,17 +40,17 @@ export default async function DashboardPage({ searchParams }: any) {
     from: fyRange.from ? dateInput(fyRange.from) : undefined,
     to: fyRange.to ? dateInput(fyRange.to) : undefined
   };
-  const baseSummary = session.user.organizationId
+  const baseSummary = session.user.organizationId && canFinancialData
     ? await getCachedAccountingSummary(session.user.organizationId, filters)
     : { totalProjects: 0, activeProjects: 0, totalBudget: 0, totalReceived: 0, generalBudget: 0, projectExpenses: 0, clientProjectExpenses: 0, internalProjectExpenses: 0, generalExpenses: 0, totalExpenses: 0, dueAmount: 0, remainingBudget: 0, generalBudgetBalance: 0, organizationCashBalance: 0 };
-  const salesStats = session.user.organizationId && session.user.role !== "super_admin" ? await getSalesStats(session.user.organizationId) : null;
+  const salesStats = session.user.organizationId && session.user.role !== "super_admin" && canSales ? await getSalesStats(session.user.organizationId) : null;
   const today = nepalDateString();
-  const myAttendance: any = session.user.organizationId ? await Attendance.findOne({ organizationId: session.user.organizationId, userId: session.user.userId, date: today }).lean() : null;
-  const teamToday = session.user.organizationId && ["owner", "admin"].includes(session.user.role)
+  const myAttendance: any = session.user.organizationId && canAttendance ? await Attendance.findOne({ organizationId: session.user.organizationId, userId: session.user.userId, date: today }).lean() : null;
+  const teamToday = session.user.organizationId && canManageAttendance
     ? await Attendance.find({ organizationId: session.user.organizationId, date: today }).populate("userId", "name").lean()
     : [];
-  const statements = session.user.organizationId ? await getCachedFinancialStatements({ organizationId: session.user.organizationId, from: filters.from, to: filters.to }) : null;
-  const charts = session.user.organizationId ? await getCachedDashboardCharts(session.user.organizationId, filters) : { byCategory: [], byProject: [], monthly: [], budgetVsExpense: [] };
+  const statements = session.user.organizationId && canFinancialOverview ? await getCachedFinancialStatements({ organizationId: session.user.organizationId, from: filters.from, to: filters.to }) : null;
+  const charts = session.user.organizationId && canCharts ? await getCachedDashboardCharts(session.user.organizationId, filters) : { byCategory: [], byProject: [], monthly: [], budgetVsExpense: [] };
   const summary = statements ? {
     ...baseSummary,
     dueAmount: statements.summary.accountsReceivable,
@@ -64,8 +73,8 @@ export default async function DashboardPage({ searchParams }: any) {
     { name: "General", amount: typedSummary.generalExpenses ?? 0 }
   ].filter((row) => row.amount > 0);
   return (
-    <PageShell title="Dashboard" description={`Live accounting totals and expense trends for ${periodLabel}.`}>
-      <FilterForm className="filter-bar">
+    <PageShell title="Dashboard" description={canFinancialData ? `Your permitted operational totals for ${periodLabel}.` : "Your permitted workspace overview."}>
+      {canFinancialData && <FilterForm className="filter-bar">
         <select className="native-control" name="fy" defaultValue={selectedFY}>
           {fiscalYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           <option value="all">All fiscal years</option>
@@ -74,13 +83,13 @@ export default async function DashboardPage({ searchParams }: any) {
         <input className="native-control" type="date" name="from" defaultValue={filters.from ?? ""} />
         <input className="native-control" type="date" name="to" defaultValue={filters.to ?? ""} />
         <Button variant="outline">Filter</Button>
-      </FilterForm>
-      <Card className="border-primary/20 bg-primary/5">
+      </FilterForm>}
+      {canFinancialData && <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4 text-sm">
           <span className="font-semibold">Showing:</span> {selectedFY === "all" ? "All fiscal years" : periodLabel}
         </CardContent>
-      </Card>
-      <Card className="overflow-hidden border-primary/25 bg-foreground text-primary-foreground shadow-sm">
+      </Card>}
+      {canFinancialOverview && <Card className="overflow-hidden border-primary/25 bg-foreground text-primary-foreground shadow-sm">
         <CardContent className="grid gap-5 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
           <div>
             <p className="text-sm font-medium text-white/65">Company Cash Balance</p>
@@ -93,29 +102,29 @@ export default async function DashboardPage({ searchParams }: any) {
             <RatioPill label="Project spend" value={projectExpenseRate} danger={projectExpenseRate > 90} />
           </div>
         </CardContent>
-      </Card>
-      <DashboardSection title="Money In">
-        <StatCard label="Bank Opening Balance" value={(summary as any).bankOpeningBalance ?? 0} currency />
-        <StatCard label="Project Service Received" value={(summary as any).totalReceived ?? 0} currency />
-        <StatCard label="Project Cash Received" value={(summary as any).totalCashReceived ?? (summary as any).totalReceived ?? 0} currency />
-        <StatCard label="Owner/Other Funds" value={(summary as any).generalBudget ?? 0} currency />
-        <StatCard label="Total Cash Funding" value={(summary as any).totalFunding ?? 0} currency />
-      </DashboardSection>
-      <DashboardSection title="Money Out">
+      </Card>}
+      {canMoneyIn && <DashboardSection title="Money In">
+        {permissions.accountingView && <StatCard label="Bank Opening Balance" value={(summary as any).bankOpeningBalance ?? 0} currency />}
+        {(permissions.paymentsView || permissions.accountingView || permissions.reportsView) && <StatCard label="Project Service Received" value={(summary as any).totalReceived ?? 0} currency />}
+        {(permissions.paymentsView || permissions.accountingView || permissions.reportsView) && <StatCard label="Project Cash Received" value={(summary as any).totalCashReceived ?? (summary as any).totalReceived ?? 0} currency />}
+        {(permissions.generalFunds || permissions.accountingView) && <StatCard label="Owner/Other Funds" value={(summary as any).generalBudget ?? 0} currency />}
+        {canFinancialOverview && <StatCard label="Total Cash Funding" value={(summary as any).totalFunding ?? 0} currency />}
+      </DashboardSection>}
+      {canMoneyOut && <DashboardSection title="Money Out">
         <StatCard label="Client Project Expenses" value={(summary as any).clientProjectExpenses ?? 0} currency />
         <StatCard label="Internal Project Expenses" value={(summary as any).internalProjectExpenses ?? 0} currency />
         <StatCard label="General Expenses" value={summary.generalExpenses} currency />
         <StatCard label="Total Expenses" value={(summary as any).totalExpenses ?? 0} currency />
-      </DashboardSection>
-      <DashboardSection title="Projects">
+      </DashboardSection>}
+      {canProjects && <DashboardSection title="Projects">
         {session.user.role === "super_admin" && <StatCard label="Total Organizations" value={organizationCount} />}
         <StatCard label="Total Projects" value={summary.totalProjects} />
         <StatCard label="Active Projects" value={summary.activeProjects} />
         <StatCard label="Total Budget" value={summary.totalBudget} currency />
         <StatCard label="Due" value={(summary as any).dueAmount ?? 0} currency />
         <StatCard label="Project Service Balance" value={summary.remainingBudget} currency />
-      </DashboardSection>
-      {session.user.organizationId && (
+      </DashboardSection>}
+      {session.user.organizationId && canAttendance && (
         <DashboardSection title="Attendance">
           <Card className="overflow-hidden">
             <CardHeader className="border-b-0 bg-transparent pb-2">
@@ -134,7 +143,7 @@ export default async function DashboardPage({ searchParams }: any) {
               )}
             </CardContent>
           </Card>
-          {["owner", "admin"].includes(session.user.role) && (
+          {canManageAttendance && (
             <Card className="overflow-hidden">
               <CardHeader className="border-b-0 bg-transparent pb-2">
                 <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Team Today</CardTitle>
@@ -154,21 +163,22 @@ export default async function DashboardPage({ searchParams }: any) {
           <StatCard label="Pending Tasks" value={salesStats.pendingTasks} />
         </DashboardSection>
       )}
-      <div className="grid gap-3 md:grid-cols-3">
+      {canFinancialOverview && <><div className="grid gap-3 md:grid-cols-3">
         {((summary as any).pendingExpenses ?? 0) > 0 && <AlertCard text={`${(summary as any).pendingExpenses} expenses pending approval`} />}
         {((summary as any).projectPaidBalance ?? 0) < 0 && <AlertCard text="Project and internal expenses are higher than project receipts" />}
         {((summary as any).organizationCashBalance ?? 0) < 0 && <AlertCard text="Approved expenses are higher than company cash received" />}
       </div>
       <CompanyCashBreakdown summary={summary as any} />
       <FinancialHealthPanel summary={typedSummary} collectionRate={collectionRate} spendRate={spendRate} />
-      <div className="grid gap-4 xl:grid-cols-2">
+      </>}
+      {canCharts && <div className="grid gap-4 xl:grid-cols-2">
         <SimpleBarChart title="Expenses By Category" data={JSON.parse(JSON.stringify(charts.byCategory))} />
         <DonutChart title="Funding Mix" data={fundingMix.length ? fundingMix : [{ name: "No funding", amount: 1 }]} />
         <DonutChart title="Expense Mix" data={expenseMix.length ? expenseMix : [{ name: "No expense", amount: 1 }]} />
         <SimpleBarChart title="Expenses By Project" data={JSON.parse(JSON.stringify(charts.byProject))} />
         <TrendChart data={JSON.parse(JSON.stringify(charts.monthly))} />
         <BudgetExpenseChart data={JSON.parse(JSON.stringify(charts.budgetVsExpense))} />
-      </div>
+      </div>}
     </PageShell>
   );
 }

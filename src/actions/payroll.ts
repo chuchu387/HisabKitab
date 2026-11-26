@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Attendance } from "@/models/Attendance";
 import { Commission } from "@/models/Commission";
 import { Payroll } from "@/models/Payroll";
@@ -41,8 +41,7 @@ function sumAmounts(items: { label?: string; amount?: number }[]) {
 
 export async function generatePayroll(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
-    if (!["owner", "admin"].includes(session.user.role)) return { ok: false, message: "Not authorized" };
+    const { session, organizationId } = await requireFeature("payrollManage");
     await connectToDatabase();
     const month = formData.get("month") as string;
     if (!/^\d{4}-\d{2}$/.test(month)) return { ok: false, message: "Invalid month" };
@@ -121,8 +120,7 @@ export async function generatePayroll(formData: FormData): Promise<{ ok: boolean
 
 export async function savePayslip(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
-    if (!["owner", "admin"].includes(session.user.role)) return { ok: false, message: "Not authorized" };
+    const { organizationId } = await requireFeature("payrollManage");
     await connectToDatabase();
     const id = formData.get("id") as string;
     const payslip = await Payroll.findOne({ _id: id, organizationId });
@@ -167,7 +165,7 @@ export async function savePayslip(formData: FormData): Promise<{ ok: boolean; me
 }
 
 export async function setPayslipStatus(id: string, status: "approved" | "paid"): Promise<{ ok: boolean; message: string }> {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("payrollManage");
   await connectToDatabase();
   const payslip = await Payroll.findOne({ _id: id, organizationId });
   if (!payslip) return { ok: false, message: "Payslip not found" };
@@ -180,7 +178,7 @@ export async function setPayslipStatus(id: string, status: "approved" | "paid"):
 }
 
 export async function deletePayslip(id: string): Promise<{ ok: boolean }> {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("payrollManage");
   await connectToDatabase();
   await Payroll.deleteOne({ _id: id, organizationId });
   revalidatePath("/payroll");
@@ -189,8 +187,7 @@ export async function deletePayslip(id: string): Promise<{ ok: boolean }> {
 
 export async function saveSalarySetting(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
-    if (!["owner", "admin"].includes(session.user.role)) return { ok: false, message: "Not authorized" };
+    const { session, organizationId } = await requireFeature("payrollManage");
     await connectToDatabase();
     const userId = String(formData.get("userId") || "");
     if (!userId) return { ok: false, message: "Select a staff member" };
@@ -215,6 +212,8 @@ export async function saveSalarySetting(formData: FormData): Promise<{ ok: boole
 }
 
 export async function getPayrollData(organizationId: string, month: string) {
+  const access = await requireFeature("payrollManage");
+  organizationId = access.organizationId;
   await connectToDatabase();
   const users = await User.find({ organizationId, active: true, role: { $in: ["staff", "admin"] } }).sort({ name: 1 }).select("name role").lean();
   const settings = await SalarySetting.find({ organizationId }).lean();

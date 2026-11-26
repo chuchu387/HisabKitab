@@ -5,12 +5,12 @@ import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { formatDate, money } from "@/lib/utils";
 import { getExpenseContributorSummaries } from "@/services/accounting";
 
 export default async function ExpenseContributorsPage({ searchParams }: any) {
-  const { organizationId, session } = await requireTenant();
+  const { organizationId, session } = await requireFeature("expensesView");
   await connectToDatabase();
   const params = await searchParams;
   const staffScopedUserId = session.user.role === "staff" ? session.user.userId : undefined;

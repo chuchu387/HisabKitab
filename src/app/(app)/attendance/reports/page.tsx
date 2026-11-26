@@ -6,11 +6,11 @@ import { nepalDateString } from "@/lib/timezone";
 import { AttendanceReportView } from "@/features/attendance/attendance-report";
 
 export default async function AttendanceReportsPage({ searchParams }: any) {
-  const { session, organizationId } = await requireFeature("attendanceManage");
+  await requireFeature("attendanceManage");
   await connectToDatabase();
   const params = await searchParams;
   const month = typeof params?.month === "string" ? params.month : nepalDateString().slice(0, 7);
-  const data = await getAttendanceReport(organizationId, month);
+  const data = await getAttendanceReport(month);
   return (
     <PageShell title="Attendance Reports" description={`Monthly attendance summary for ${month}`}>
       <AttendanceReportView data={data} month={month} />

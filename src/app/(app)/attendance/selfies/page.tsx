@@ -1,5 +1,5 @@
 import { connectToDatabase } from "@/lib/db";
-import { requireSession } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Attendance } from "@/models/Attendance";
 import { User } from "@/models/User";
 import { PageShell } from "@/components/page-shell";
@@ -17,8 +17,8 @@ async function getAllSelfies(organizationId: string) {
 }
 
 export default async function SelfiesPage() {
-  const session = await requireSession();
-  const records = await getAllSelfies(session.user.organizationId!);
+  const { organizationId } = await requireFeature("attendanceManage");
+  const records = await getAllSelfies(organizationId);
   return (
     <PageShell title="Selfie Gallery" description="All captured selfies across all days">
       <SelfieGallery records={records} />

@@ -11,7 +11,7 @@ import { BulkLinkExpensesForm } from "@/features/expenses/bulk-link-expenses-for
 import { FiscalYearLockWarning } from "@/components/fiscal-year-lock-warning";
 import { FilterForm } from "@/components/filter-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { ExpenseCategory } from "@/models/ExpenseCategory";
@@ -24,7 +24,7 @@ import { ExpenseExportButtons } from "@/features/expenses/expense-export";
 void User;
 
 export default async function ExpensesPage({ searchParams }: any) {
-  const { organizationId, session } = await requireTenant();
+  const { organizationId, session } = await requireFeature("expensesView");
   await connectToDatabase();
   const params = await searchParams;
   const { query, fiscalYearOptions } = await buildExpenseFilterQuery(params, organizationId, session);

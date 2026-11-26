@@ -8,7 +8,7 @@ import { SearchBar } from "@/components/search-bar";
 import { StatCard } from "@/components/stat-card";
 import { FilterForm } from "@/components/filter-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Expense } from "@/models/Expense";
 import { FiscalYear } from "@/models/FiscalYear";
@@ -18,7 +18,7 @@ import { ProjectPayment } from "@/models/ProjectPayment";
 import { buildFiscalYearFilterOptions, dateRangeForFiscalYearFilter } from "@/services/fiscal-year-filter";
 
 export default async function ProfitabilityPage({ searchParams }: any) {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("reportsView");
   await connectToDatabase();
   const params = await searchParams;
   const q = typeof params?.q === "string" ? params.q : "";

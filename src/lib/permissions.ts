@@ -39,7 +39,7 @@ export const requireSession = cache(async () => {
       }
     } as unknown as Awaited<ReturnType<typeof auth>> & { user: { userId: string; organizationId?: string; name: string; email: string; role: Role; active: boolean } };
   } catch {
-    return session as unknown as { user: { userId: string; organizationId?: string; name: string; email: string; role: Role; active: boolean } };
+    redirect("/login");
   }
 });
 
@@ -65,7 +65,10 @@ export function atLeast(role: Role, minimum: Role) {
 }
 
 export async function resolveUserPermissions(userId: string, role: string, overrides?: PermissionOverrides) {
-  return resolvePermissions(role, overrides);
+  if (overrides) return resolvePermissions(role, overrides);
+  await connectToDatabase();
+  const user = await User.findById(userId).select("role permissions").lean() as any;
+  return resolvePermissions(user?.role ?? role, user?.permissions || {});
 }
 
 export async function requireFeature(feature: FeatureKey) {

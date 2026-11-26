@@ -2,7 +2,7 @@ import Papa from "papaparse";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { safeObjectId } from "@/lib/utils";
 import { Project } from "@/models/Project";
 import { ProjectTask } from "@/models/ProjectTask";
@@ -12,7 +12,7 @@ void Project;
 void User;
 
 export async function GET(request: NextRequest) {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("projectsView");
   await connectToDatabase();
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type") === "sla" ? "sla" : "time";

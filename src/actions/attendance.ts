@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature, resolveUserPermissions } from "@/lib/permissions";
 import { Attendance } from "@/models/Attendance";
 import { Leave } from "@/models/Leave";
 import { User } from "@/models/User";
@@ -16,7 +16,7 @@ import { finalizeOpenAttendance } from "@/services/attendance-finalize";
 
 export async function markAttendance(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("attendanceView");
     if (session.user.role === "super_admin") return { ok: true, message: "Attendance is not tracked for Super Admin" };
     await connectToDatabase();
     const org: any = await Organization.findById(organizationId).select("attendanceMode").lean();
@@ -72,7 +72,7 @@ export async function markAttendance(formData: FormData): Promise<{ ok: boolean;
 
 export async function checkOutAttendance(): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("attendanceView");
     if (session.user.role === "super_admin") return { ok: true, message: "Attendance is not tracked for Super Admin" };
     await connectToDatabase();
     const org: any = await Organization.findById(organizationId).select("attendanceMode").lean();
@@ -102,8 +102,7 @@ export async function checkOutAttendance(): Promise<{ ok: boolean; message: stri
 
 export async function adminMarkAttendance(formData: FormData): Promise<{ ok: boolean; message: string }> {
   try {
-    const { session, organizationId } = await requireTenant();
-    if (!["owner", "admin"].includes(session.user.role)) return { ok: false, message: "Not authorized" };
+    const { session, organizationId } = await requireFeature("attendanceManage");
     await connectToDatabase();
     const targetUserId = formData.get("userId") as string;
     const date = formData.get("date") as string;
@@ -134,7 +133,8 @@ export async function adminMarkAttendance(formData: FormData): Promise<{ ok: boo
   }
 }
 
-export async function getAttendanceReport(organizationId: string, month: string) {
+export async function getAttendanceReport(month: string) {
+  const { organizationId } = await requireFeature("attendanceManage");
   await connectToDatabase();
   const superAdmins = await User.find({ organizationId, role: "super_admin" }).select("_id").lean();
   const excluded = superAdmins.map((u: any) => u._id);
@@ -170,6 +170,10 @@ export async function getAttendanceReport(organizationId: string, month: string)
 }
 
 export async function getTodayAttendance(organizationId: string, userId: string) {
+  const { session, organizationId: allowedOrganizationId } = await requireFeature("attendanceView");
+  organizationId = allowedOrganizationId;
+  const permissions = await resolveUserPermissions(session.user.userId, session.user.role);
+  if (userId !== session.user.userId && !permissions.attendanceManage) return null;
   await connectToDatabase();
   const settings: any = await AttendanceSetting.findOne({ organizationId }).lean();
   await finalizeOpenAttendance(organizationId, settings);

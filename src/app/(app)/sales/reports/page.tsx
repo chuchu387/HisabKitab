@@ -5,7 +5,7 @@ import { PageShell } from "@/components/page-shell";
 import { StatCard } from "@/components/stat-card";
 import { SimpleBarChart, TrendChart, DonutChart } from "@/components/charts";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { money } from "@/lib/utils";
 import { Lead } from "@/models/Lead";
 import { LeadTask } from "@/models/LeadTask";
@@ -13,7 +13,7 @@ import { Proposal } from "@/models/Proposal";
 import { leadStatusLabels, leadSourceLabels } from "@/constants";
 
 export default async function SalesReportsPage() {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("salesReports");
   await connectToDatabase();
   const oid = new Types.ObjectId(organizationId);
   const [allLeads, allTasks, allProposals] = await Promise.all([

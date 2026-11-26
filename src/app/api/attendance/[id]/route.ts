@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { mongo } from "mongoose";
 import { getReceiptBucket } from "@/services/gridfs";
 import { isObjectId } from "@/lib/utils";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 
 export async function GET(_request: Request, { params }: any) {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("attendanceManage");
   const routeParams = await params;
   if (!isObjectId(routeParams.id)) return NextResponse.json({ error: "Invalid id" }, { status: 404 });
   const bucket = await getReceiptBucket();

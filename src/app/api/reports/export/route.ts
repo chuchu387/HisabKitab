@@ -2,12 +2,12 @@ import Papa from "papaparse";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { getReports } from "@/services/accounting";
 import { formatDate, money } from "@/lib/utils";
 
 export async function GET(request: NextRequest) {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("reportsView");
   await connectToDatabase();
   const { searchParams } = new URL(request.url);
   const reports = await getReports({

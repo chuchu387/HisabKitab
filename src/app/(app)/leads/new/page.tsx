@@ -1,14 +1,14 @@
 import { PageShell } from "@/components/page-shell";
 import { LeadForm } from "@/features/forms/lead-form";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { User } from "@/models/User";
 import { Campaign } from "@/models/Campaign";
 import { Project } from "@/models/Project";
 import { Product } from "@/models/Product";
 
 export default async function NewLeadPage() {
-  const { organizationId } = await requireTenant();
+  const { organizationId } = await requireFeature("leadsManage");
   await connectToDatabase();
   const [users, campaigns, projects, products] = await Promise.all([
     User.find({ organizationId, active: true }).sort({ name: 1 }).select("name email").lean(),

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db";
-import { requireFeature, requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { Expense } from "@/models/Expense";
 import { Project } from "@/models/Project";
 import { expenseSchema } from "@/validations/schemas";
@@ -33,7 +33,7 @@ export type ExpenseExportRow = {
 
 export async function getExpensesForExport(params: Record<string, string | string[] | undefined>): Promise<{ rows: ExpenseExportRow[]; total: number }> {
   try {
-    const { session, organizationId } = await requireTenant();
+    const { session, organizationId } = await requireFeature("expensesView");
     await connectToDatabase();
     const { query } = await buildExpenseFilterQuery(params, organizationId, session);
     const expenses: any[] = await Expense.find(query).populate("categoryId projectId").sort({ expenseDate: -1 }).lean();

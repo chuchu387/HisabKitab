@@ -7,7 +7,7 @@ import { FilterForm } from "@/components/filter-form";
 import { Button } from "@/components/ui/button";
 import { TasksBoard } from "@/features/tasks/tasks-board";
 import { connectToDatabase } from "@/lib/db";
-import { requireTenant } from "@/lib/permissions";
+import { requireFeature } from "@/lib/permissions";
 import { safeObjectId } from "@/lib/utils";
 import { Project } from "@/models/Project";
 import { ProjectTask } from "@/models/ProjectTask";
@@ -18,7 +18,7 @@ void Project;
 void User;
 
 export default async function TasksPage({ searchParams }: any) {
-  const { organizationId, session } = await requireTenant();
+  const { organizationId, session } = await requireFeature("projectsView");
   await connectToDatabase();
   const params = await searchParams;
   const q = typeof params?.q === "string" ? params.q : "";
