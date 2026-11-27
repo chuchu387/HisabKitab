@@ -38,6 +38,7 @@ export function useRealtime(initial: { unreadCount: number; notifications: any[]
   const [notifications, setNotifications] = useState<RealtimeNotification[]>(initial.notifications);
   const [chatGroups, setChatGroups] = useState<RealtimeChatGroup[]>(initial.chatGroups);
   const [calls, setCalls] = useState<RealtimeCall[]>([]);
+  const [ready, setReady] = useState(false);
   const initialRef = useRef(initial);
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export function useRealtime(initial: { unreadCount: number; notifications: any[]
           if (Array.isArray(data.notifications)) setNotifications(data.notifications);
           if (Array.isArray(data.chatGroups)) setChatGroups(data.chatGroups);
           if (Array.isArray(data.calls)) setCalls(data.calls);
+          setReady(true);
         } catch {}
       };
       source.onerror = () => {
@@ -74,5 +76,5 @@ export function useRealtime(initial: { unreadCount: number; notifications: any[]
     };
   }, []);
 
-  return { unreadCount, notifications, chatGroups, calls };
+  return { unreadCount, notifications, chatGroups, calls, ready };
 }

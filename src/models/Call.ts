@@ -5,7 +5,8 @@ const callParticipantSchema = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     name: { type: String, default: "" },
     status: { type: String, enum: ["invited", "accepted", "declined", "ended"], default: "invited" },
-    joinedAt: { type: Date, default: null }
+    joinedAt: { type: Date, default: null },
+    lastSeenAt: { type: Date, default: null }
   },
   { _id: false }
 );

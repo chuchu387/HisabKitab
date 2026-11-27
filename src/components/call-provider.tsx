@@ -33,6 +33,7 @@ type PeerHandle = {
   targetId: string;
   remoteDescriptionSet: boolean;
   pendingCandidates: RTCIceCandidateInit[];
+  disconnectTimer: ReturnType<typeof setTimeout> | null;
 };
 
 function StreamVideo({ stream, muted }: { stream: MediaStream; muted: boolean }) {
@@ -106,7 +107,7 @@ const POLL_MS = 800;
 const RING_TIMEOUT_MS = 90000;
 
 export function CallProvider({ userId, userName, children }: { userId: string; userName: string; children: React.ReactNode }) {
-  const { calls } = useRealtime({ unreadCount: 0, notifications: [], chatGroups: [] });
+  const { calls, ready: callsReady } = useRealtime({ unreadCount: 0, notifications: [], chatGroups: [] });
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [incoming, setIncoming] = useState<IncomingCall | null>(null);
   const [participants, setParticipants] = useState<CallParticipant[]>([]);
@@ -148,6 +149,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
     stopRingtone();
     for (const handle of peersRef.current.values()) {
+      if (handle.disconnectTimer) clearTimeout(handle.disconnectTimer);
       try { handle.peer.close(); } catch {}
     }
     peersRef.current.clear();
@@ -165,6 +167,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   }, []);
 
   const cleanup = useCallback((toastMessage?: string) => {
+    activeRef.current = null;
     dispose();
     setLocalStream(null);
     setRemoteStreams(new Map());
@@ -187,6 +190,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
 
   const createPeer = useCallback((callId: string, targetId: string, stream: MediaStream | null): PeerHandle => {
     const peer = new RTCPeerConnection({ iceServers: getIceServers() });
+    const handle: PeerHandle = { peer, targetId, remoteDescriptionSet: false, pendingCandidates: [], disconnectTimer: null };
     if (stream) stream.getTracks().forEach((track) => peer.addTrack(track, stream));
     peer.onicecandidate = (event) => {
       if (!event.candidate) return;
@@ -207,7 +211,26 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       }
     };
     peer.onconnectionstatechange = () => {
+      if (peer.connectionState === "connected") {
+        if (handle.disconnectTimer) clearTimeout(handle.disconnectTimer);
+        handle.disconnectTimer = null;
+        return;
+      }
+      if (peer.connectionState === "disconnected") {
+        if (handle.disconnectTimer) clearTimeout(handle.disconnectTimer);
+        handle.disconnectTimer = setTimeout(() => {
+          if (peer.connectionState !== "disconnected") return;
+          peersRef.current.delete(targetId);
+          try { peer.close(); } catch {}
+          const stream = remoteStreamsRef.current.get(targetId);
+          stream?.getTracks().forEach((track) => track.stop());
+          remoteStreamsRef.current.delete(targetId);
+          setRemoteStreams(new Map(remoteStreamsRef.current));
+        }, 8000);
+        return;
+      }
       if (["failed", "closed"].includes(peer.connectionState)) {
+        if (handle.disconnectTimer) clearTimeout(handle.disconnectTimer);
         if (peer.connectionState === "failed") toast.error("Call connection failed. Check the network and try again.");
         peersRef.current.delete(targetId);
         try { peer.close(); } catch {}
@@ -219,7 +242,6 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
         }
       }
     };
-    const handle: PeerHandle = { peer, targetId, remoteDescriptionSet: false, pendingCandidates: [] };
     peersRef.current.set(targetId, handle);
     return handle;
   }, [sendTo]);
@@ -330,7 +352,9 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     if (!call) return;
     if (event.type === "accepted") {
       if (call.role === "initiator" && call.status === "ringing") {
-        setActiveCall({ ...call, status: "active" });
+        const active = { ...call, status: "active" as const };
+        activeRef.current = active;
+        setActiveCall(active);
       }
       const stream = localStreamRef.current ?? (await setupLocalStream(call.mode).catch(() => null));
       if (!stream) {
@@ -348,6 +372,16 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
         toast.error("Microphone access required");
         hangUp();
         return;
+      }
+      const existing = peersRef.current.get(event.from);
+      if (existing) {
+        if (existing.disconnectTimer) clearTimeout(existing.disconnectTimer);
+        peersRef.current.delete(event.from);
+        try { existing.peer.close(); } catch {}
+        const oldStream = remoteStreamsRef.current.get(event.from);
+        oldStream?.getTracks().forEach((track) => track.stop());
+        remoteStreamsRef.current.delete(event.from);
+        setRemoteStreams(new Map(remoteStreamsRef.current));
       }
       await offerTo(call.callId, event.from);
       return;
@@ -388,8 +422,10 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       return;
     }
     if (event.type === "declined") {
-      if (call.role === "initiator") {
+      if (event.payload?.callEnded && call.role === "initiator") {
         cleanup(`${event.payload?.name ?? "The other user"} declined the call`);
+      } else if (!event.payload?.callEnded) {
+        toast.message(`${event.payload?.name ?? "A participant"} declined the call`);
       }
       return;
     }
@@ -421,6 +457,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
         if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
         return;
       }
+      let nextDelay = POLL_MS;
       try {
         if (current.status === "ringing" && Date.now() - startedAtRef.current > RING_TIMEOUT_MS) {
           toast.message("No answer — call ended");
@@ -438,10 +475,11 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
             return;
           }
           if (event.type === "declined") {
-            if (current.role === "initiator") {
+            if (event.payload?.callEnded && current.role === "initiator") {
               cleanup(`${event.payload?.name ?? "The other user"} declined the call`);
               return;
             }
+            if (!event.payload?.callEnded) toast.message(`${event.payload?.name ?? "A participant"} declined the call`);
             continue;
           }
           try {
@@ -455,9 +493,11 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
           if (!endedLocally.current) cleanup("Call ended");
           return;
         }
-      } catch {}
-      if (activeRef.current) {
-        pollRef.current = setTimeout(tick, POLL_MS);
+        if (result.hasMore) nextDelay = 0;
+      } catch (error) {
+        console.error("Call polling failed", error);
+      } finally {
+        if (activeRef.current) pollRef.current = setTimeout(tick, nextDelay);
       }
     };
     pollRef.current = setTimeout(tick, 0);
@@ -478,10 +518,10 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       setIncoming(null);
       toast.message("Call ended");
     }
-    if (activeRef.current && !calls.some((call) => call.callId === activeRef.current!.callId)) {
+    if (callsReady && activeRef.current && !calls.some((call) => call.callId === activeRef.current!.callId)) {
       cleanup(endedLocally.current ? undefined : "Call ended");
     }
-  }, [calls, userId, incoming, cleanup]);
+  }, [calls, callsReady, userId, incoming, cleanup]);
 
   useEffect(() => {
     if (activeRef.current || incoming) {
@@ -491,7 +531,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     const joinable = calls
       .filter(
         (call) =>
-          (call.myStatus === "none" || call.myStatus === "ended") &&
+          (call.myStatus === "none" || call.myStatus === "ended" || call.myStatus === "accepted") &&
           String(call.initiatorId) !== String(userId) &&
           (call.status === "ringing" || call.status === "active") &&
           !dismissedJoinCalls.current.has(call.callId)
@@ -525,7 +565,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     if (activeCall) return [];
     return calls.filter(
       (call) =>
-        (call.myStatus === "none" || call.myStatus === "ended" || call.myStatus === "invited") &&
+        (call.myStatus === "none" || call.myStatus === "ended" || call.myStatus === "invited" || call.myStatus === "accepted") &&
         String(call.initiatorId) !== String(userId) &&
         (call.status === "ringing" || call.status === "active")
     );
@@ -556,6 +596,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     };
     endedLocally.current = false;
     startedAtRef.current = Date.now();
+    activeRef.current = call;
     setActiveCall(call);
     setParticipants(result.data.participants);
     startPolling();
@@ -570,12 +611,14 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
     try {
       const result = await respondToCall(callId, true).catch((error: unknown) => ({
         ok: false,
-        message: error instanceof Error ? error.message : "Could not join call"
+        message: error instanceof Error ? error.message : "Could not join call",
+        data: undefined
       }));
       if (!result.ok) {
         toast.error(result.message ?? "Could not join call");
         return;
       }
+      lastEventId.current = result.data?.cursor ?? "";
       acceptedCallIds.current.add(callId);
       const stream = await setupLocalStream(incomingCall.mode);
       if (!stream) {
@@ -593,6 +636,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
       };
       endedLocally.current = false;
       startedAtRef.current = Date.now();
+      activeRef.current = call;
       setActiveCall(call);
       setParticipants([
         { userId: incomingCall.initiatorId, name: incomingCall.initiatorName, status: "accepted" },
@@ -642,6 +686,8 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
         peerName: ""
       };
       endedLocally.current = false;
+      lastEventId.current = result.data.cursor ?? "";
+      activeRef.current = call;
       setActiveCall(call);
       setParticipants(result.data.participants);
       startPolling();

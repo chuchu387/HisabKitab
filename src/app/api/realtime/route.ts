@@ -53,7 +53,12 @@ export async function GET(request: Request) {
               { $set: { status: "ended", endedAt: new Date() } }
             );
             await Call.updateMany(
-              { organizationId, status: "active", createdAt: { $lt: new Date(now - 90000) }, "participants.status": { $nin: ["accepted"] } },
+              {
+                organizationId,
+                status: "active",
+                createdAt: { $lt: new Date(now - 90000) },
+                participants: { $not: { $elemMatch: { status: "accepted", lastSeenAt: { $gte: new Date(now - 90000) } } } }
+              },
               { $set: { status: "ended", endedAt: new Date() } }
             );
           }

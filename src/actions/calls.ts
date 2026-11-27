@@ -22,6 +22,11 @@ function serializeParticipants(participants: any[]) {
   }));
 }
 
+function latestMessageId(call: any) {
+  const messages = call?.messages ?? [];
+  return messages.length ? String(messages[messages.length - 1]._id) : "";
+}
+
 async function logCallEvent(call: any, senderId: string, event: "started" | "joined" | "ended" | "declined", content: string) {
   try {
     await ChatMessage.create({
@@ -40,6 +45,9 @@ export async function startCall(groupId: string, mode: "audio" | "video", callee
   try {
     const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
+    if (!Types.ObjectId.isValid(groupId)) return { ok: false, message: "Invalid group" };
+    if (!(["audio", "video"] as string[]).includes(mode)) return { ok: false, message: "Invalid call mode" };
+    if (calleeId !== "all" && !Types.ObjectId.isValid(calleeId)) return { ok: false, message: "Invalid recipient" };
     const group = await ChatGroup.findOne({ _id: groupId, organizationId });
     if (!group) return { ok: false, message: "Group not found" };
     const memberIds = group.members.map((m: any) => (m.userId?._id || m.userId)?.toString());
@@ -53,10 +61,10 @@ export async function startCall(groupId: string, mode: "audio" | "video", callee
       const members = await User.find({ _id: { $in: memberIds } }).select("name email").lean() as any[];
       const nameOf = (id: string) => members.find((m: any) => String(m._id) === id)?.name || "Member";
       const participants = [
-        { userId: session.user.userId, name: initiatorName, status: "accepted" as const, joinedAt: new Date() },
+        { userId: session.user.userId, name: initiatorName, status: "accepted" as const, joinedAt: new Date(), lastSeenAt: new Date() },
         ...memberIds
           .filter((id: string) => id !== session.user.userId)
-          .map((id: string) => ({ userId: id, name: nameOf(id), status: "invited" as const, joinedAt: null }))
+          .map((id: string) => ({ userId: id, name: nameOf(id), status: "invited" as const, joinedAt: null, lastSeenAt: null }))
       ];
       const call = await Call.create({
         organizationId,
@@ -86,7 +94,8 @@ export async function startCall(groupId: string, mode: "audio" | "video", callee
       participants: { $elemMatch: { userId: { $in: [session.user.userId, calleeId] } } }
     });
     if (existing) return { ok: false, message: "There is already an active call in this group" };
-    const callee = await User.findById(calleeId).select("name email").lean() as any;
+    const callee = await User.findOne({ _id: calleeId, organizationId, active: true }).select("name email").lean() as any;
+    if (!callee) return { ok: false, message: "Recipient is unavailable" };
     const call = await Call.create({
       organizationId,
       groupId,
@@ -95,8 +104,8 @@ export async function startCall(groupId: string, mode: "audio" | "video", callee
       mode,
       status: "ringing",
       participants: [
-        { userId: session.user.userId, name: initiatorName, status: "accepted", joinedAt: new Date() },
-        { userId: calleeId, name: callee?.name || "Member", status: "invited", joinedAt: null }
+        { userId: session.user.userId, name: initiatorName, status: "accepted", joinedAt: new Date(), lastSeenAt: new Date() },
+        { userId: calleeId, name: callee.name || "Member", status: "invited", joinedAt: null, lastSeenAt: null }
       ],
       messages: []
     });
@@ -113,10 +122,11 @@ export async function startCall(groupId: string, mode: "audio" | "video", callee
   }
 }
 
-export async function joinCall(callId: string): Promise<{ ok: boolean; message?: string; data?: { participants: Array<{ userId: string; name: string; status: string }> } }> {
+export async function joinCall(callId: string): Promise<{ ok: boolean; message?: string; data?: { participants: Array<{ userId: string; name: string; status: string }>; cursor: string } }> {
   try {
     const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
+    if (!Types.ObjectId.isValid(callId)) return { ok: false, message: "Invalid call" };
     const call = await Call.findOne({ _id: callId, organizationId });
     if (!call) return { ok: false, message: "Call not found" };
     if (call.status === "ended") return { ok: false, message: "Call has ended" };
@@ -125,28 +135,36 @@ export async function joinCall(callId: string): Promise<{ ok: boolean; message?:
     const memberIds = group.members.map((m: any) => (m.userId?._id || m.userId)?.toString());
     if (!memberIds.includes(session.user.userId)) return { ok: false, message: "Not a group member" };
     const me = call.participants.find((p: any) => p.userId.toString() === session.user.userId);
-    if (me && me.status === "accepted") return { ok: true, data: { participants: serializeParticipants(call.participants) } };
+    if (me && me.status === "accepted") {
+      me.lastSeenAt = new Date();
+      call.messages.push({ from: session.user.userId, to: null, type: "joined", payload: { name: me.name || session.user.name || "Member", reconnect: true } });
+      await call.save();
+      return { ok: true, data: { participants: serializeParticipants(call.participants), cursor: latestMessageId(call) } };
+    }
     const name = session.user.name || "Member";
     const wasNew = !me || me.status === "ended";
     if (me) {
       me.status = "accepted";
       me.joinedAt = new Date();
+      me.lastSeenAt = new Date();
     } else {
-      call.participants.push({ userId: session.user.userId, name, status: "accepted", joinedAt: new Date() });
+      call.participants.push({ userId: session.user.userId, name, status: "accepted", joinedAt: new Date(), lastSeenAt: new Date() });
     }
+    call.status = "active";
     call.messages.push({ from: session.user.userId, to: null, type: "joined", payload: { name } });
     await call.save();
     if (wasNew) await logCallEvent(call, session.user.userId, "joined", `${name} joined the call`);
-    return { ok: true, data: { participants: serializeParticipants(call.participants) } };
+    return { ok: true, data: { participants: serializeParticipants(call.participants), cursor: latestMessageId(call) } };
   } catch (error) {
     return actionError(error);
   }
 }
 
-export async function respondToCall(callId: string, accept: boolean): Promise<{ ok: boolean; message?: string }> {
+export async function respondToCall(callId: string, accept: boolean): Promise<{ ok: boolean; message?: string; data?: { cursor: string } }> {
   try {
     const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
+    if (!Types.ObjectId.isValid(callId)) return { ok: false, message: "Invalid call" };
     const call = await Call.findOne({ _id: callId, organizationId });
     if (!call) return { ok: false, message: "Call not found" };
     if (call.status === "ended") return { ok: false, message: "Call has ended" };
@@ -155,20 +173,32 @@ export async function respondToCall(callId: string, accept: boolean): Promise<{ 
     if (accept) {
       participant.status = "accepted";
       participant.joinedAt = new Date();
+      participant.lastSeenAt = new Date();
       call.status = "active";
       call.messages.push({ from: session.user.userId, to: null, type: "accepted", payload: { name: session.user.name || "Member" } });
       await call.save();
       await logCallEvent(call, session.user.userId, "joined", `${session.user.name || "Member"} joined the call`);
     } else {
       participant.status = "declined";
-      call.status = "ended";
-      call.endedAt = new Date();
-      call.endedBy = session.user.userId;
-      call.messages.push({ from: session.user.userId, to: null, type: "declined", payload: { name: session.user.name || "Member" } });
+      const remaining = call.participants.filter(
+        (p: any) => String(p.userId) !== String(session.user.userId) && ["accepted", "invited"].includes(p.status)
+      );
+      const callEnded = remaining.length <= 1;
+      if (callEnded) {
+        call.status = "ended";
+        call.endedAt = new Date();
+        call.endedBy = session.user.userId;
+      }
+      call.messages.push({
+        from: session.user.userId,
+        to: null,
+        type: "declined",
+        payload: { name: session.user.name || "Member", callEnded }
+      });
       await call.save();
       await logCallEvent(call, session.user.userId, "declined", `${session.user.name || "Member"} declined the call`);
     }
-    return { ok: true, message: accept ? "Joined" : "Declined" };
+    return { ok: true, message: accept ? "Joined" : "Declined", data: { cursor: latestMessageId(call) } };
   } catch (error) {
     return actionError(error);
   }
@@ -178,6 +208,7 @@ export async function sendSignal(callId: string, to: string | null, type: string
   try {
     const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
+    if (!Types.ObjectId.isValid(callId)) return { ok: false, message: "Invalid call" };
     const allowedTypes = new Set(["offer", "answer", "ice", "ended", "left"]);
     if (!allowedTypes.has(type)) return { ok: false, message: "Unsupported call signal" };
     if (to && !Types.ObjectId.isValid(to)) return { ok: false, message: "Invalid signal recipient" };
@@ -188,7 +219,7 @@ export async function sendSignal(callId: string, to: string | null, type: string
       status: { $ne: "ended" },
       participants: { $elemMatch: { userId: session.user.userId, status: "accepted" } }
     };
-    if (to) query.participants = { $all: [{ $elemMatch: { userId: session.user.userId, status: "accepted" } }, { $elemMatch: { userId: to } }] };
+    if (to) query.participants = { $all: [{ $elemMatch: { userId: session.user.userId, status: "accepted" } }, { $elemMatch: { userId: to, status: "accepted" } }] };
     const message = {
       from: session.user.userId,
       to: to ? new Types.ObjectId(to) : null,
@@ -218,6 +249,7 @@ export async function endCall(callId: string): Promise<{ ok: boolean; message?: 
   try {
     const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
+    if (!Types.ObjectId.isValid(callId)) return { ok: false, message: "Invalid call" };
     const call = await Call.findOne({ _id: callId, organizationId });
     if (!call) return { ok: false, message: "Call not found" };
     const me = call.participants.find((p: any) => p.userId.toString() === session.user.userId);
@@ -247,29 +279,42 @@ export async function getCallEvents(callId: string, afterId: string | null): Pro
   status?: string;
   events?: Array<{ id: string; type: string; from: string; payload: any }>;
   participants?: Array<{ userId: string; name: string; status: string }>;
+  hasMore?: boolean;
   message?: string;
 }> {
   try {
     const { session, organizationId } = await requireFeature("chatAccess");
     await connectToDatabase();
+    if (!Types.ObjectId.isValid(callId)) return { ok: false, message: "Invalid call" };
+    const heartbeatCutoff = new Date(Date.now() - 10000);
+    await Call.updateOne(
+      {
+        _id: callId,
+        organizationId,
+        participants: { $elemMatch: { userId: session.user.userId, status: "accepted", $or: [{ lastSeenAt: null }, { lastSeenAt: { $lt: heartbeatCutoff } }] } }
+      },
+      { $set: { "participants.$.lastSeenAt": new Date() } }
+    );
     const call = await Call.findOne({ _id: callId, organizationId, "participants.userId": session.user.userId }).lean() as any;
     if (!call) return { ok: false, message: "Call not found" };
-    const after = afterId && Types.ObjectId.isValid(afterId) ? new Types.ObjectId(afterId) : null;
-    const events = (call.messages || [])
+    const messages = call.messages || [];
+    const cursorIndex = afterId ? messages.findIndex((message: any) => String(message._id) === afterId) : -1;
+    const eligible = messages
       .filter((m: any) => {
         if (String(m.from) === String(session.user.userId)) return false;
         if (m.to && String(m.to) !== String(session.user.userId)) return false;
-        if (after && afterId && String(m._id) <= afterId) return false;
+        if (afterId && cursorIndex >= 0 && messages.indexOf(m) <= cursorIndex) return false;
         return true;
-      })
-      .slice(-50)
+      });
+    const page = eligible.slice(0, 100);
+    const events = page
       .map((m: any) => ({
         id: m._id.toString(),
         type: m.type,
         from: String(m.from),
         payload: m.payload ?? {}
       }));
-    return { ok: true, status: call.status, events, participants: serializeParticipants(call.participants) };
+    return { ok: true, status: call.status, events, participants: serializeParticipants(call.participants), hasMore: eligible.length > page.length };
   } catch (error) {
     return actionError(error as any) as any;
   }
