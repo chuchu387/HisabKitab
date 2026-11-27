@@ -1,4 +1,4 @@
-const CACHE = "hisabkitab-assets-v4";
+const CACHE = "hisabkitab-assets-v5";
 const PRECACHE = ["/pwa/icon-192.png", "/pwa/icon-512.png", "/pwa/ringtone.mp3"];
 
 self.addEventListener("install", (event) => {
@@ -80,12 +80,13 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   const destination = request.destination;
+  // Next.js chunks are content-addressed and must stay under the browser's
+  // normal HTTP cache. A service-worker cache can pair an old chunk with a
+  // new deployment and crash client-side navigation or server actions.
   const isStatic =
-    destination === "script" ||
-    destination === "style" ||
     destination === "image" ||
     destination === "font" ||
-    url.pathname.match(/\.(png|svg|jpg|jpeg|webp|gif|ico|woff2?|ttf|otf|css|js)$/);
+    url.pathname.match(/\.(png|svg|jpg|jpeg|webp|gif|ico|woff2?|ttf|otf)$/);
 
   if (!isStatic) return;
 

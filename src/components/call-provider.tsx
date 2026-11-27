@@ -35,6 +35,50 @@ type PeerHandle = {
   pendingCandidates: RTCIceCandidateInit[];
 };
 
+function StreamVideo({ stream, muted }: { stream: MediaStream; muted: boolean }) {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    try {
+      element.srcObject = stream;
+      void element.play().catch(() => undefined);
+    } catch (error) {
+      console.error("Could not attach video stream", error);
+    }
+    return () => {
+      try {
+        if (element.srcObject === stream) element.srcObject = null;
+      } catch {}
+    };
+  }, [stream]);
+
+  return <video ref={ref} autoPlay playsInline muted={muted} className="absolute inset-0 h-full w-full object-contain" />;
+}
+
+function StreamAudio({ stream }: { stream: MediaStream }) {
+  const ref = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    try {
+      element.srcObject = stream;
+      void element.play().catch(() => undefined);
+    } catch (error) {
+      console.error("Could not attach audio stream", error);
+    }
+    return () => {
+      try {
+        if (element.srcObject === stream) element.srcObject = null;
+      } catch {}
+    };
+  }, [stream]);
+
+  return <audio ref={ref} autoPlay playsInline className="hidden" />;
+}
+
 const CallContext = createContext<{
   activeCall: ActiveCall | null;
   busy: boolean;
@@ -717,13 +761,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
                 {tiles.map((tile) => (
                   <div key={tile.userId} className="relative min-h-0 overflow-hidden rounded-xl border border-white/10 bg-black">
                     {tile.stream ? (
-                      <video
-                        autoPlay
-                        playsInline
-                        muted={tile.isMe}
-                        className="absolute inset-0 h-full w-full object-contain"
-                        ref={(el) => { if (el && el.srcObject !== tile.stream) el.srcObject = tile.stream; }}
-                      />
+                      <StreamVideo stream={tile.stream} muted={tile.isMe} />
                     ) : (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/25 text-2xl font-bold">{tile.name.charAt(0).toUpperCase()}</div>
@@ -737,13 +775,7 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
                 {Array.from(remoteStreams.entries()).map(([remoteId, stream]) => (
-                  <audio
-                    key={remoteId}
-                    autoPlay
-                    playsInline
-                    className="hidden"
-                    ref={(el) => { if (el && el.srcObject !== stream) el.srcObject = stream; }}
-                  />
+                  <StreamAudio key={remoteId} stream={stream} />
                 ))}
                 <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/25 text-4xl font-bold">{(active.peerName || "G").charAt(0).toUpperCase()}</div>
                 <div>
