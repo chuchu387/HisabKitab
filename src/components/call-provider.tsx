@@ -464,21 +464,6 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   }, [cleanup, hangUp, processEvent]);
 
   useEffect(() => {
-    if (!activeCall) return;
-    if (activeCall.status === "ringing" && activeCall.role === "initiator") {
-      startRingtone();
-    } else if (activeCall.status === "active") {
-      stopRingtone();
-    }
-  }, [activeCall]);
-
-  useEffect(() => {
-    if (!incoming || activeRef.current) return;
-    startRingtone();
-    return () => stopRingtone();
-  }, [incoming]);
-
-  useEffect(() => {
     for (const call of calls) {
       if (activeRef.current) continue;
       if (incoming?.callId === call.callId) continue;
@@ -524,11 +509,12 @@ export function CallProvider({ userId, userName, children }: { userId: string; u
   }, [calls, userId, incoming, activeCall]);
 
   useEffect(() => {
-    if (joinBanner && !incoming && !activeCall) {
-      startRingtone();
-      return () => stopRingtone();
-    }
-  }, [joinBanner, incoming, activeCall]);
+    const callerIsRinging = activeCall?.status === "ringing" && activeCall.role === "initiator";
+    const incomingIsRinging = Boolean(incoming && !activeCall);
+    const joinableIsRinging = Boolean(joinBanner && !incoming && !activeCall);
+    if (callerIsRinging || incomingIsRinging || joinableIsRinging) startRingtone();
+    else stopRingtone();
+  }, [activeCall, incoming, joinBanner]);
 
   const dismissJoinBanner = useCallback(() => {
     if (joinBanner) dismissedJoinCalls.current.add(joinBanner.callId);

@@ -72,7 +72,9 @@ export function ChatShell({ groups, messages: initialMessages, activeGroupId, sh
   }, [liveChatGroups]);
 
   const scrollToBottom = () => messagesEnd.current?.scrollIntoView({ behavior: "smooth" });
-  useEffect(scrollToBottom, [messages]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const activeGroupData = groups.find((g: any) => g._id === activeGroup);
 
